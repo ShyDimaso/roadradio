@@ -1,0 +1,486 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<title>Road Radio AI</title>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=Playfair+Display:ital,wght@0,600;1,400;1,600&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+html,body{background:#05070f;height:100%;overscroll-behavior:none;}
+:root{
+  --or:#ff6b35;--bl:#4a9eff;--gr:#00e87a;--gd:#f5c842;
+  --bg:#05070f;--sf:#0a0d1a;--bd:#1a2035;--tx:#f0e8d0;--mt:#3a4a60;
+}
+#root{height:100%;}
+.app{min-height:100vh;background:var(--bg);color:var(--tx);font-family:'Playfair Display',serif;display:flex;flex-direction:column;max-width:500px;margin:0 auto;}
+
+/* HEADER */
+.hdr{padding:13px 18px;border-bottom:1px solid var(--bd);display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;background:var(--bg);z-index:99;}
+.logo{font-family:'Orbitron',monospace;font-size:15px;font-weight:900;letter-spacing:2px;color:var(--or);}
+.logo em{color:var(--bl);font-style:normal;}
+.pill{display:flex;align-items:center;gap:6px;padding:5px 12px;border-radius:20px;border:1px solid var(--bd);background:var(--sf);}
+.dot{width:8px;height:8px;border-radius:50%;}
+.dot.on{background:var(--gr);box-shadow:0 0 10px var(--gr);animation:pulse 1.5s ease-in-out infinite;}
+.dot.ld{background:var(--gd);box-shadow:0 0 8px var(--gd);animation:pulse .8s ease-in-out infinite;}
+.dot.off{background:#1a2035;}
+.ptxt{font-family:'Orbitron',monospace;font-size:9px;font-weight:700;letter-spacing:2px;color:var(--mt);text-transform:uppercase;}
+@keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.3;transform:scale(1.6)}}
+@keyframes spin{from{transform:rotate(0)}to{transform:rotate(360deg)}}
+@keyframes fadeUp{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
+
+/* KEY SCREEN */
+.keyscreen{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:32px 24px;gap:24px;text-align:center;}
+.key-icon{font-size:56px;}
+.key-title{font-family:'Orbitron',monospace;font-size:18px;font-weight:900;color:var(--or);letter-spacing:2px;}
+.key-sub{font-size:16px;color:var(--mt);line-height:1.6;}
+.key-sub a{color:var(--bl);}
+.kinput{background:#07091a;border:2px solid #ffffff;border-radius:12px;padding:16px 18px;color:#fff;font-size:14px;font-family:monospace;outline:none;width:100%;letter-spacing:1px;}
+.kinput::placeholder{color:#2a3a55;font-size:13px;}
+.kinput:focus{border-color:var(--bl);}
+
+/* SETUP SCREEN */
+.setup{flex:1;padding:24px 20px;display:flex;flex-direction:column;gap:18px;}
+.s-hero{text-align:center;padding-bottom:4px;}
+.s-icon{font-size:48px;margin-bottom:8px;}
+.s-title{font-family:'Orbitron',monospace;font-size:18px;font-weight:900;color:var(--or);letter-spacing:2px;margin-bottom:5px;}
+.s-sub{font-size:16px;color:var(--mt);line-height:1.5;}
+.geobtn{background:#080e24;border:2px solid var(--bl);border-radius:12px;padding:15px 20px;color:var(--bl);font-family:'Orbitron',monospace;font-size:12px;font-weight:700;letter-spacing:1px;cursor:pointer;text-transform:uppercase;width:100%;transition:all .2s;}
+.geobtn:active{transform:scale(.97);}
+.geobtn.got{border-color:var(--gr);color:var(--gr);background:#051208;}
+.sep{display:flex;align-items:center;gap:12px;color:var(--mt);font-size:13px;}
+.sep:before,.sep:after{content:'';flex:1;height:1px;background:var(--bd);}
+.flabel{font-family:'Orbitron',monospace;font-size:10px;font-weight:700;letter-spacing:2px;color:var(--bl);text-transform:uppercase;margin-bottom:8px;display:block;}
+.finput{background:#07091a;border:2px solid #fff;border-radius:12px;padding:16px 18px;color:#fff;font-size:19px;font-family:'Playfair Display',serif;outline:none;width:100%;transition:border-color .2s;}
+.finput::placeholder{color:#2a3a55;font-style:italic;font-size:16px;}
+.finput:focus{border-color:var(--bl);}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
+.dirhint{font-size:12px;color:#2a3850;margin-top:6px;font-style:italic;}
+.errbox{padding:13px 16px;background:#180606;border:1px solid #5a1515;border-radius:10px;color:#ff7070;font-size:15px;}
+.startbtn{background:linear-gradient(135deg,#0a2e0a,#155a15);color:var(--gr);border:2px solid #1e4a1e;border-radius:14px;padding:20px;font-family:'Orbitron',monospace;font-size:14px;font-weight:900;letter-spacing:2px;cursor:pointer;text-transform:uppercase;width:100%;margin-top:auto;transition:all .2s;}
+.startbtn:active{transform:scale(.97);}
+.bigbtn{background:linear-gradient(135deg,#0d2a50,#1a4a90);color:var(--bl);border:2px solid #1a3a70;border-radius:14px;padding:18px;font-family:'Orbitron',monospace;font-size:13px;font-weight:700;letter-spacing:2px;cursor:pointer;text-transform:uppercase;width:100%;transition:all .2s;}
+.bigbtn:active{transform:scale(.97);}
+
+/* MAIN SCREEN */
+.imgzone{position:relative;height:200px;background:#070a18;overflow:hidden;flex-shrink:0;}
+.locimg{width:100%;height:100%;object-fit:cover;opacity:0;transition:opacity .8s;}
+.locimg.on{opacity:.7;}
+.imgover{position:absolute;inset:0;background:linear-gradient(to top,rgba(5,7,15,.98) 0%,rgba(5,7,15,.2) 60%,transparent 100%);}
+.imgbot{position:absolute;bottom:0;left:0;right:0;padding:14px 18px;}
+.locname{font-family:'Orbitron',monospace;font-size:12px;font-weight:700;letter-spacing:2px;color:var(--or);text-transform:uppercase;margin-bottom:3px;}
+.loccrd{font-family:'Orbitron',monospace;font-size:9px;color:var(--mt);letter-spacing:1px;}
+.imgsp{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:32px;opacity:.15;animation:spin 4s linear infinite;}
+
+.dash{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;padding:12px 14px;border-bottom:1px solid var(--bd);}
+.gauge{text-align:center;padding:10px 4px;background:var(--sf);border:1px solid var(--bd);border-radius:10px;}
+.gv{font-family:'Orbitron',monospace;font-size:20px;font-weight:700;color:var(--gr);line-height:1;}
+.gv.d{font-size:18px;color:var(--bl);}
+.gv.c{font-size:18px;color:var(--gd);}
+.gv.w{font-size:14px;color:#aa88ff;padding-top:3px;}
+.gl{font-family:'Orbitron',monospace;font-size:7px;letter-spacing:1.5px;color:#1a2535;text-transform:uppercase;margin-top:4px;}
+
+.sa{flex:1;padding:18px 18px 10px;overflow-y:auto;}
+.airbar{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;}
+.airlbl{font-family:'Orbitron',monospace;font-size:9px;letter-spacing:3px;color:#1e2a3a;text-transform:uppercase;display:flex;align-items:center;gap:7px;}
+.airdot{width:7px;height:7px;border-radius:50%;background:var(--or);animation:pulse 1.4s ease-in-out infinite;}
+.snum{font-family:'Orbitron',monospace;font-size:9px;color:#1a2535;letter-spacing:1px;}
+.stxt{font-size:21px;line-height:1.75;color:var(--tx);font-style:italic;animation:fadeUp .5s ease;}
+.ldtxt{color:#1e2a3a;font-family:'Orbitron',monospace;font-size:12px;display:flex;align-items:center;gap:10px;letter-spacing:1px;}
+.sp{display:inline-block;animation:spin 1s linear infinite;}
+.pgrow{display:flex;align-items:center;gap:10px;margin-top:14px;}
+.pglbl{font-family:'Orbitron',monospace;font-size:9px;color:#1a2535;letter-spacing:1px;white-space:nowrap;}
+.pgbar{flex:1;height:3px;background:#0d1020;border-radius:2px;overflow:hidden;}
+.pgfill{height:100%;background:linear-gradient(to right,var(--or),var(--gd));border-radius:2px;transition:width 1s linear;}
+
+.togrow{padding:8px 14px;display:flex;gap:8px;border-top:1px solid var(--bd);}
+.tog{flex:1;padding:10px 6px;background:var(--sf);border:1px solid var(--bd);border-radius:9px;font-family:'Orbitron',monospace;font-size:8px;letter-spacing:1px;color:var(--mt);cursor:pointer;text-transform:uppercase;text-align:center;transition:all .2s;}
+.tog.act{background:#08102a;border-color:var(--bl);color:var(--bl);}
+.tog.spk{background:#051508;border-color:#1a3a18;color:var(--gr);}
+.tog.spk.going{background:#0a2010;border-color:var(--gr);}
+.tog.wake{background:#100a04;border-color:#3a2a10;color:var(--gd);}
+.tog.wake.act{background:#1a1205;border-color:var(--gd);color:var(--gd);}
+
+.qa{padding:10px 14px;border-top:1px solid var(--bd);}
+.qi{width:100%;background:#07091a;border:2px solid #fff;border-radius:10px;padding:13px 15px;color:#fff;font-family:'Playfair Display',serif;font-size:17px;outline:none;margin-bottom:8px;}
+.qi::placeholder{color:#2a3a55;font-style:italic;}
+.qi:focus{border-color:var(--bl);}
+.qbs{display:flex;gap:8px;}
+.ctrl{padding:13px 14px 22px;display:flex;gap:10px;border-top:1px solid var(--bd);}
+.btn{flex:1;padding:16px;border:none;border-radius:12px;font-family:'Orbitron',monospace;font-size:11px;font-weight:700;letter-spacing:1.5px;cursor:pointer;text-transform:uppercase;transition:transform .1s;}
+.btn:active{transform:scale(.96);}
+.bstop{background:linear-gradient(135deg,#2e0d0d,#5a1a1a);color:#ee8888;border:2px solid #4a2020;}
+.bq{flex:.6;background:var(--sf);color:var(--bl);border:2px solid #1a2a50;font-size:10px;}
+.bsend{background:#0d1e3a;color:var(--bl);border:2px solid #1a3060;}
+.bcancel{background:#0a0a18;color:#3a4060;border:2px solid #14162a;flex:.5;}
+.wakeinfo{font-family:'Orbitron',monospace;font-size:8px;color:#1a2535;text-align:center;padding:4px 0;letter-spacing:1px;}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
+<script type="text/babel">
+const {useState,useRef,useEffect,useCallback}=React;
+const toDir=h=>{if(h==null||isNaN(h))return"—";const d=["N","NE","E","SE","S","SW","W","NW"];return d[Math.round(((h%360)+360)%360/45)%8];};
+const toMph=ms=>ms&&ms>0?Math.round(ms*2.237):0;
+const STORAGE_KEY="rr_api_key_v2";
+
+function App(){
+  const saved=localStorage.getItem(STORAGE_KEY)||"";
+  const [screen,setScreen]=useState(saved?"setup":"apikey");
+  const [apiKey,setApiKey]=useState(saved);
+  const [apiInput,setApiInput]=useState("");
+  const [coordInput,setCoordInput]=useState("");
+  const [speedVal,setSpeedVal]=useState("65");
+  const [headVal,setHeadVal]=useState("90");
+  const [geoOk,setGeoOk]=useState(false);
+  const [coords,setCoords]=useState(null);
+  const [status,setStatus]=useState("idle");
+  const [story,setStory]=useState("");
+  const [locName,setLocName]=useState("");
+  const [imgUrl,setImgUrl]=useState("");
+  const [imgOn,setImgOn]=useState(false);
+  const [err,setErr]=useState("");
+  const [qMode,setQMode]=useState(false);
+  const [qText,setQText]=useState("");
+  const [showTxt,setShowTxt]=useState(true);
+  const [count,setCount]=useState(0);
+  const [cd,setCd]=useState(0);
+  const [speaking,setSpeaking]=useState(false);
+  const [wakeLock,setWakeLock]=useState(false);
+
+  const runRef=useRef(false);
+  const histRef=useRef([]);
+  const loopRef=useRef(null);
+  const coordsRef=useRef(null);
+  const cdRef=useRef(null);
+  const wlRef=useRef(null);
+  const keyRef=useRef(apiKey);
+  useEffect(()=>{keyRef.current=apiKey;},[apiKey]);
+  useEffect(()=>{if(coords)coordsRef.current=coords;},[coords]);
+
+  // Wake Lock
+  const requestWake=async()=>{
+    try{
+      if("wakeLock" in navigator){
+        wlRef.current=await navigator.wakeLock.request("screen");
+        setWakeLock(true);
+        wlRef.current.addEventListener("release",()=>setWakeLock(false));
+      }
+    }catch(e){}
+  };
+  const releaseWake=()=>{
+    try{wlRef.current?.release();}catch{}
+    setWakeLock(false);
+  };
+
+  const startCd=s=>{
+    setCd(s);
+    if(cdRef.current)clearInterval(cdRef.current);
+    cdRef.current=setInterval(()=>setCd(p=>{if(p<=1){clearInterval(cdRef.current);return 0;}return p-1;}),1000);
+  };
+
+  const speak=text=>new Promise(res=>{
+    try{
+      const s=window.speechSynthesis;
+      if(!s){res();return;}
+      s.cancel();
+      const u=new SpeechSynthesisUtterance(text);
+      u.lang="en-US";u.rate=0.88;u.pitch=1.05;
+      const vs=s.getVoices();
+      const v=vs.find(x=>x.lang.startsWith("en")&&x.name.includes("Google"))||vs.find(x=>x.lang.startsWith("en"))||vs[0];
+      if(v)u.voice=v;
+      setSpeaking(true);
+      u.onend=u.onerror=()=>{setSpeaking(false);res();};
+      s.speak(u);
+    }catch{setSpeaking(false);res();}
+  });
+
+  const callClaude=async msg=>{
+    const msgs=[...histRef.current.slice(-8),{role:"user",content:msg}];
+    const r=await fetch("https://api.anthropic.com/v1/messages",{
+      method:"POST",
+      headers:{
+        "Content-Type":"application/json",
+        "x-api-key":keyRef.current,
+        "anthropic-version":"2023-06-01",
+        "anthropic-dangerous-direct-browser-access":"true"
+      },
+      body:JSON.stringify({
+        model:"claude-sonnet-4-20250514",
+        max_tokens:500,
+        system:`You are "Road Radio AI" — an engaging audio guide for drivers on US roads and highways.
+You narrate like the best radio host: vivid, enthusiastic, full of specific details — history, nature, wildlife, mountains, small towns, legends.
+Name specific places, peaks, rivers, and towns. Always hint at what's coming up ahead.
+Never say you don't know something — always find something fascinating about the region.
+Keep it to 3-4 sentences maximum. Always respond in English.
+IMPORTANT: Reply ONLY with valid JSON, no markdown:
+{"story":"3-4 engaging sentences","location":"specific place name or highway","image":"2-3 english words for landscape photo search"}`,
+        messages:msgs
+      })
+    });
+    if(!r.ok){const e=await r.text();throw new Error(e);}
+    const data=await r.json();
+    let txt=data.content?.[0]?.text??"{}";
+    txt=txt.replace(/```json|```/g,"").trim();
+    try{
+      const p=JSON.parse(txt);
+      histRef.current=[...msgs,{role:"assistant",content:txt}];
+      return p;
+    }catch{
+      histRef.current=[...msgs,{role:"assistant",content:txt}];
+      return{story:txt,location:"On the road",image:"american highway"};
+    }
+  };
+
+  const loop=async()=>{
+    if(!runRef.current)return;
+    const c=coordsRef.current;
+    if(!c)return;
+    setStatus("loading");
+    try{
+      const prompt=`My coordinates: ${c.lat.toFixed(4)}°N, ${Math.abs(c.lng).toFixed(4)}°W. Speed: ${toMph(c.speed||0)||parseInt(speedVal)||65} mph. Heading: ${toDir(c.heading)}. Tell me what's interesting around here and what's coming up ahead!`;
+      const res=await callClaude(prompt);
+      if(!runRef.current)return;
+      setStory(res.story||"");
+      setLocName(res.location||"On the road");
+      setImgOn(false);
+      setImgUrl(`https://source.unsplash.com/700x320/?${encodeURIComponent(res.image||"american highway")}&t=${Date.now()}`);
+      setStatus("ready");
+      setCount(n=>n+1);
+      startCd(35);
+      if(res.story)await speak(res.story);
+      await new Promise(r=>setTimeout(r,Math.max(0,(35000)-(res.story?.length||0)*60)));
+      if(runRef.current)loopRef.current?.();
+    }catch(e){
+      const msg=e.message||"";
+      if(msg.includes("401")||msg.includes("invalid_api_key")){
+        setErr("❌ Invalid API key. Check console.anthropic.com");
+        runRef.current=false;setStatus("idle");setScreen("main_err");
+      }else{
+        setErr("Connection error. Check internet.");
+        runRef.current=false;setStatus("idle");
+      }
+    }
+  };
+  loopRef.current=loop;
+
+  const getGeo=()=>{
+    if(!navigator.geolocation){setErr("Geolocation not supported");return;}
+    setErr("");
+    navigator.geolocation.getCurrentPosition(pos=>{
+      const c={lat:pos.coords.latitude,lng:pos.coords.longitude,speed:pos.coords.speed||0,heading:pos.coords.heading};
+      setCoordInput(`${c.lat.toFixed(6)}, ${c.lng.toFixed(6)}`);
+      if(c.speed)setSpeedVal(String(toMph(c.speed)));
+      if(c.heading)setHeadVal(String(Math.round(c.heading)));
+      coordsRef.current=c;
+      setGeoOk(true);
+      setErr("");
+    },()=>setErr("Location denied. Please enter manually."),{enableHighAccuracy:true,timeout:12000});
+  };
+
+  const startGeoWatch=()=>{
+    if(!navigator.geolocation)return;
+    navigator.geolocation.watchPosition(pos=>{
+      const c={lat:pos.coords.latitude,lng:pos.coords.longitude,speed:pos.coords.speed||0,heading:pos.coords.heading};
+      coordsRef.current=c;
+      setCoords(c);
+    },()=>{},{enableHighAccuracy:true,maximumAge:5000,timeout:15000});
+  };
+
+  const parseCoords=()=>{
+    const m=coordInput.trim().match(/(-?\d+\.?\d*)[,\s]+(-?\d+\.?\d*)/);
+    if(!m)return null;
+    return{lat:parseFloat(m[1]),lng:parseFloat(m[2]),speed:0,heading:parseFloat(headVal)||90};
+  };
+
+  const startTour=async()=>{
+    let c=coordsRef.current||parseCoords();
+    if(!c){setErr("Enter coordinates or use auto-detect");return;}
+    coordsRef.current=c;setCoords(c);
+    runRef.current=true;histRef.current=[];
+    setErr("");setStory("");setCount(0);
+    setScreen("main");
+    startGeoWatch();
+    await requestWake();
+    setTimeout(()=>loopRef.current?.(),300);
+  };
+
+  const stop=()=>{
+    runRef.current=false;
+    try{window.speechSynthesis?.cancel();}catch{}
+    setSpeaking(false);setStatus("idle");
+    releaseWake();
+    if(cdRef.current)clearInterval(cdRef.current);
+    setScreen("setup");
+  };
+
+  const sendQ=async()=>{
+    if(!qText.trim())return;
+    try{window.speechSynthesis?.cancel();}catch{}
+    setQMode(false);setStatus("loading");
+    try{
+      const res=await callClaude(qText);
+      setStory(res.story||res);setQText("");setStatus("ready");
+      startCd(35);
+      if(res.story)await speak(res.story);
+      await new Promise(r=>setTimeout(r,30000));
+      if(runRef.current)loopRef.current?.();else setStatus("idle");
+    }catch{setStatus("idle");}
+  };
+
+  const saveKey=()=>{
+    const k=apiInput.trim();
+    if(!k.startsWith("sk-ant")){setErr("Key must start with sk-ant...");return;}
+    localStorage.setItem(STORAGE_KEY,k);
+    setApiKey(k);setErr("");setScreen("setup");
+  };
+
+  const isMain=screen==="main";
+  const dotCls=!isMain?"off":status==="loading"?"ld":"on";
+
+  return(
+    <div className="app">
+      <div className="hdr">
+        <div className="logo">Road <em>Radio</em> AI</div>
+        <div className="pill">
+          <div className={`dot ${dotCls}`}/>
+          <span className="ptxt">{!isMain?"ready":status==="loading"?"loading":"on air"}</span>
+        </div>
+      </div>
+
+      {/* API KEY SCREEN */}
+      {screen==="apikey"&&(
+        <div className="keyscreen">
+          <div className="key-icon">🔑</div>
+          <div className="key-title">One-Time Setup</div>
+          <div className="key-sub">
+            Get your free API key at<br/>
+            <a href="https://console.anthropic.com" target="_blank">console.anthropic.com</a><br/>
+            (free $5 credit — enough for ~200 hours)
+          </div>
+          <div style={{width:"100%"}}>
+            <div className="flabel">Paste your Anthropic API key</div>
+            <input className="kinput" value={apiInput} onChange={e=>setApiInput(e.target.value)} placeholder="sk-ant-api03-..."/>
+          </div>
+          {err&&<div className="errbox">{err}</div>}
+          <button className="startbtn" onClick={saveKey}>Save & Continue →</button>
+          <div style={{fontSize:"12px",color:"#2a3a50",textAlign:"center"}}>Key is stored only on your device</div>
+        </div>
+      )}
+
+      {/* SETUP SCREEN */}
+      {screen==="setup"&&(
+        <div className="setup">
+          <div className="s-hero">
+            <div className="s-icon">🛣️</div>
+            <div className="s-title">Road Radio AI</div>
+            <div className="s-sub">Your smart guide to American roads</div>
+          </div>
+          <button className={`geobtn${geoOk?" got":""}`} onClick={getGeo}>
+            {geoOk?"✓ Location Detected — Ready!":"📍 Auto-Detect My Location"}
+          </button>
+          <div className="sep">or enter manually</div>
+          <div>
+            <label className="flabel">📍 Coordinates (lat, lng)</label>
+            <input className="finput" value={coordInput} onChange={e=>setCoordInput(e.target.value)} placeholder="41.1234, -109.5678"/>
+          </div>
+          <div className="row2">
+            <div>
+              <label className="flabel">🚀 Speed (mph)</label>
+              <input className="finput" type="number" value={speedVal} onChange={e=>setSpeedVal(e.target.value)}/>
+            </div>
+            <div>
+              <label className="flabel">🧭 Heading °</label>
+              <input className="finput" type="number" value={headVal} onChange={e=>setHeadVal(e.target.value)}/>
+              <div className="dirhint">N=0 · E=90 · S=180 · W=270</div>
+            </div>
+          </div>
+          {err&&<div className="errbox">⚠ {err}</div>}
+          <button className="bigbtn" onClick={()=>{setApiKey("");localStorage.removeItem(STORAGE_KEY);setScreen("apikey");}}>
+            🔑 Change API Key
+          </button>
+          <button className="startbtn" onClick={startTour}>▶ &nbsp;Start Tour</button>
+        </div>
+      )}
+
+      {/* MAIN SCREEN */}
+      {screen==="main"&&(
+        <>
+          <div className="imgzone">
+            {!imgOn&&<div className="imgsp">🌄</div>}
+            {imgUrl&&<img className={`locimg${imgOn?" on":""}`} src={imgUrl} alt="" onLoad={()=>setImgOn(true)} onError={()=>setImgOn(true)}/>}
+            <div className="imgover"/>
+            <div className="imgbot">
+              <div className="locname">{locName||"Loading..."}</div>
+              {coords&&<div className="loccrd">{coords.lat.toFixed(4)}°N / {Math.abs(coords.lng).toFixed(4)}°W</div>}
+            </div>
+          </div>
+
+          <div className="dash">
+            <div className="gauge"><div className="gv">{toMph(coords?.speed)||parseInt(speedVal)||"—"}</div><div className="gl">MPH</div></div>
+            <div className="gauge"><div className="gv d">{toDir(coords?.heading)}</div><div className="gl">DIR</div></div>
+            <div className="gauge"><div className="gv c">{count}</div><div className="gl">STORIES</div></div>
+            <div className="gauge"><div className="gv w">{coords?`${coords.lat.toFixed(1)}°`:"—"}</div><div className="gl">LAT</div></div>
+          </div>
+
+          <div className="sa">
+            <div className="airbar">
+              <div className="airlbl">{status==="ready"&&<div className="airdot"/>}{status==="loading"?"generating...":"on air"}</div>
+              <div className="snum">#{count}</div>
+            </div>
+            {status==="loading"&&<div className="ldtxt"><span className="sp">◌</span>&nbsp;Preparing story...</div>}
+            {showTxt&&story&&status!=="loading"&&<div className="stxt">{story}</div>}
+            {!showTxt&&story&&status!=="loading"&&<div className="ldtxt" style={{color:"#1a2a40"}}>🔊 Audio only mode</div>}
+            {story&&status==="ready"&&(
+              <div className="pgrow">
+                <span className="pglbl">⟳ next</span>
+                <div className="pgbar"><div className="pgfill" style={{width:`${Math.max(0,(1-cd/35)*100)}%`}}/></div>
+                <span className="pglbl">{cd}s</span>
+              </div>
+            )}
+          </div>
+
+          <div className="wakeinfo">{wakeLock?"🔆 Screen kept on (Wake Lock active)":"⚠ Screen may turn off"}</div>
+
+          <div className="togrow">
+            <div className={`tog${showTxt?" act":""}`} onClick={()=>setShowTxt(t=>!t)}>
+              {showTxt?"📄 Text ON":"📄 Text OFF"}
+            </div>
+            <div className={`tog spk${speaking?" going":""}`} onClick={()=>story&&speak(story)}>
+              {speaking?"🔊 Speaking":"🔊 Replay"}
+            </div>
+            <div className={`tog wake${wakeLock?" act":""}`} onClick={()=>wakeLock?releaseWake():requestWake()}>
+              {wakeLock?"🔆 Awake":"🔆 Wake"}
+            </div>
+          </div>
+
+          {err&&<div className="errbox" style={{margin:"0 14px 8px"}}>⚠ {err}</div>}
+
+          {qMode&&(
+            <div className="qa">
+              <input className="qi" value={qText} onChange={e=>setQText(e.target.value)} placeholder="Ask about this area..." onKeyDown={e=>e.key==="Enter"&&sendQ()} autoFocus/>
+              <div className="qbs">
+                <button className="btn bsend" style={{flex:1,padding:"11px"}} onClick={sendQ}>Ask</button>
+                <button className="btn bcancel" style={{padding:"11px"}} onClick={()=>{setQMode(false);setQText("");}}>Cancel</button>
+              </div>
+            </div>
+          )}
+
+          <div className="ctrl">
+            <button className="btn bstop" onClick={stop}>■ Stop</button>
+            {!qMode&&<button className="btn bq" onClick={()=>setQMode(true)}>? Ask</button>}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
+</script>
+</body>
+</html>
