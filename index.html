@@ -9,12 +9,13 @@
 *{box-sizing:border-box;margin:0;padding:0;}
 html,body{background:#05070f;height:100%;overscroll-behavior:none;}
 body{font-family:'Inter',sans-serif;color:#fff;}
-.app{min-height:100vh;background:#05070f;display:flex;flex-direction:column;max-width:500px;margin:0 auto;}
+.app{min-height:100vh;background:#05070f;display:flex;flex-direction:column;max-width:500px;margin:0 auto;position:relative;}
 .hdr{padding:12px 16px;border-bottom:2px solid #2a3550;display:flex;align-items:center;justify-content:space-between;background:#080b15;position:sticky;top:0;z-index:99;}
 .logo{font-family:'Orbitron',monospace;font-size:14px;font-weight:900;letter-spacing:2px;color:#ff6b35;}
 .logo em{color:#4a9eff;font-style:normal;}
 .hdr-r{display:flex;align-items:center;gap:8px;}
 .langsel{background:#0d1525;border:2px solid #4a9eff;border-radius:8px;padding:5px 8px;color:#4a9eff;font-family:'Orbitron',monospace;font-size:9px;font-weight:700;cursor:pointer;outline:none;}
+.setbtn{background:#0d1525;border:2px solid #2a3550;border-radius:8px;padding:5px 10px;color:#aabbcc;font-size:16px;cursor:pointer;outline:none;}
 .pill{display:flex;align-items:center;gap:6px;padding:5px 12px;border-radius:20px;border:2px solid #2a3550;background:#0d1525;}
 .dot{width:9px;height:9px;border-radius:50%;}
 .dot.on{background:#00e87a;box-shadow:0 0 10px #00e87a;animation:pulse 1.5s infinite;}
@@ -24,18 +25,33 @@ body{font-family:'Inter',sans-serif;color:#fff;}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
 @keyframes spin{from{transform:rotate(0)}to{transform:rotate(360deg)}}
 @keyframes fadeUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+
+/* SETTINGS OVERLAY */
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:200;display:flex;align-items:flex-end;}
+.settings-box{background:#080b15;border-top:2px solid #2a3550;border-radius:20px 20px 0 0;padding:24px 20px 32px;width:100%;max-width:500px;margin:0 auto;}
+.set-title{font-family:'Orbitron',monospace;font-size:14px;font-weight:900;color:#ff6b35;margin-bottom:18px;letter-spacing:2px;}
+.set-subtitle{font-size:13px;color:#778899;margin-bottom:14px;}
+.set-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:20px;}
+.set-item{display:flex;align-items:center;gap:10px;padding:10px 12px;background:#0d1525;border:2px solid #2a3550;border-radius:10px;cursor:pointer;}
+.set-item.on{border-color:#cc3333;background:#1a0808;}
+.set-check{width:20px;height:20px;border-radius:5px;background:#1a2535;border:2px solid #334455;display:flex;align-items:center;justify-content:center;font-size:12px;flex-shrink:0;}
+.set-item.on .set-check{background:#cc3333;border-color:#cc3333;}
+.set-label{font-size:13px;color:#aabbcc;font-weight:600;}
+.set-item.on .set-label{color:#ff9090;}
+
+/* INPUTS */
 .flabel{font-family:'Orbitron',monospace;font-size:11px;font-weight:700;letter-spacing:2px;color:#4a9eff;text-transform:uppercase;margin-bottom:9px;display:block;}
 .finput{background:#0d1525;border:2px solid #ffffff;border-radius:12px;padding:16px 18px;color:#ffffff;font-size:18px;outline:none;width:100%;}
 .finput::placeholder{color:#556688;font-size:15px;}
 .finput:focus{border-color:#4a9eff;}
+.kinput{background:#0d1525;border:2px solid #ffffff;border-radius:12px;padding:15px 18px;color:#ffffff;font-size:13px;font-family:monospace;outline:none;width:100%;letter-spacing:1px;}
+.kinput::placeholder{color:#556688;}
+.kinput:focus{border-color:#4a9eff;}
 .keyscreen{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:32px 24px;gap:20px;text-align:center;}
 .key-icon{font-size:56px;}
 .key-title{font-family:'Orbitron',monospace;font-size:20px;font-weight:900;color:#ff6b35;letter-spacing:2px;}
 .key-sub{font-size:16px;color:#aabbcc;line-height:1.7;}
 .key-sub a{color:#4a9eff;text-decoration:none;}
-.kinput{background:#0d1525;border:2px solid #ffffff;border-radius:12px;padding:15px 18px;color:#ffffff;font-size:13px;font-family:monospace;outline:none;width:100%;letter-spacing:1px;}
-.kinput::placeholder{color:#556688;}
-.kinput:focus{border-color:#4a9eff;}
 .setup{flex:1;padding:22px 18px;display:flex;flex-direction:column;gap:16px;}
 .s-hero{text-align:center;}
 .s-icon{font-size:50px;margin-bottom:8px;}
@@ -51,50 +67,63 @@ body{font-family:'Inter',sans-serif;color:#fff;}
 .bigbtn.blue{background:#0d1828;color:#4a9eff;border:2px solid #2a4a80;}
 .sep{display:flex;align-items:center;gap:12px;color:#667788;font-size:14px;}
 .sep:before,.sep:after{content:'';flex:1;height:1px;background:#2a3550;}
-.imgzone{position:relative;height:190px;background:#0d1020;overflow:hidden;flex-shrink:0;}
+
+/* MAIN */
+.imgzone{position:relative;height:185px;background:#0d1020;overflow:hidden;flex-shrink:0;}
 .locimg{width:100%;height:100%;object-fit:cover;opacity:0;transition:opacity .8s;}
 .locimg.on{opacity:.75;}
 .imgover{position:absolute;inset:0;background:linear-gradient(to top,rgba(5,7,15,1) 0%,rgba(5,7,15,.15) 65%,transparent 100%);}
-.imgbot{position:absolute;bottom:0;left:0;right:0;padding:14px 18px;}
-.locname{font-family:'Orbitron',monospace;font-size:12px;font-weight:700;letter-spacing:2px;color:#ff6b35;text-transform:uppercase;margin-bottom:4px;}
-.loccrd{font-family:'Orbitron',monospace;font-size:10px;color:#aabbcc;letter-spacing:1px;}
+.imgbot{position:absolute;bottom:0;left:0;right:0;padding:12px 18px;}
+.locname{font-family:'Orbitron',monospace;font-size:11px;font-weight:700;letter-spacing:2px;color:#ff6b35;text-transform:uppercase;margin-bottom:3px;}
+.loccrd{font-family:'Orbitron',monospace;font-size:9px;color:#aabbcc;letter-spacing:1px;}
+.imgtop{position:absolute;top:0;left:0;right:0;padding:10px 14px;display:flex;justify-content:flex-end;}
+.weather-badge{background:rgba(5,7,15,.75);border:1px solid #2a3550;border-radius:20px;padding:5px 12px;font-family:'Orbitron',monospace;font-size:10px;color:#f5c842;letter-spacing:1px;}
 .imgsp{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:36px;opacity:.2;animation:spin 4s linear infinite;}
-.dash{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;padding:12px 14px;border-bottom:2px solid #2a3550;}
+
+.dash{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;padding:12px 14px;border-bottom:2px solid #2a3550;}
 .gauge{text-align:center;padding:12px 4px;background:#0d1525;border:2px solid #2a3550;border-radius:10px;}
 .gv{font-family:'Orbitron',monospace;font-size:22px;font-weight:700;color:#00e87a;line-height:1;}
 .gv.d{font-size:20px;color:#4a9eff;}
-.gv.c{font-size:20px;color:#f5c842;}
-.gv.w{font-size:15px;color:#cc88ff;padding-top:2px;}
+.gv.t{font-size:18px;color:#f5c842;}
 .gl{font-family:'Orbitron',monospace;font-size:8px;letter-spacing:1.5px;color:#778899;text-transform:uppercase;margin-top:5px;}
-.sa{flex:1;padding:18px;overflow-y:auto;}
-.airbar{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;}
-.airlbl{font-family:'Orbitron',monospace;font-size:10px;letter-spacing:3px;color:#778899;text-transform:uppercase;display:flex;align-items:center;gap:7px;}
+
+.sa{flex:1;padding:16px 18px 10px;overflow-y:auto;}
+.airbar{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;}
+.airlbl{font-family:'Orbitron',monospace;font-size:9px;letter-spacing:3px;color:#778899;text-transform:uppercase;display:flex;align-items:center;gap:7px;}
 .airdot{width:7px;height:7px;border-radius:50%;background:#ff6b35;animation:pulse 1.4s infinite;}
-.snum{font-family:'Orbitron',monospace;font-size:10px;color:#778899;letter-spacing:1px;}
-.stxt{font-size:21px;line-height:1.8;color:#ffffff;font-style:italic;animation:fadeUp .5s ease;}
+.timeinfo{font-family:'Orbitron',monospace;font-size:9px;color:#445566;letter-spacing:1px;}
+.stxt{font-size:20px;line-height:1.85;color:#ffffff;font-style:italic;animation:fadeUp .5s ease;}
 .ldtxt{color:#778899;font-family:'Orbitron',monospace;font-size:12px;display:flex;align-items:center;gap:10px;letter-spacing:1px;}
 .sp{display:inline-block;animation:spin 1s linear infinite;}
-.pgrow{display:flex;align-items:center;gap:10px;margin-top:14px;}
+.pgrow{display:flex;align-items:center;gap:10px;margin-top:12px;}
 .pglbl{font-family:'Orbitron',monospace;font-size:9px;color:#889aaa;white-space:nowrap;}
 .pgbar{flex:1;height:3px;background:#1a2535;border-radius:2px;overflow:hidden;}
 .pgfill{height:100%;background:linear-gradient(to right,#ff6b35,#f5c842);border-radius:2px;transition:width 1s linear;}
+
+/* CONTROLS */
 .togrow{padding:8px 14px;display:flex;gap:8px;border-top:2px solid #2a3550;}
-.tog{flex:1;padding:11px 4px;background:#0d1525;border:2px solid #2a3550;border-radius:9px;font-size:11px;color:#aabbcc;cursor:pointer;text-align:center;font-weight:600;}
+.tog{flex:1;padding:10px 4px;background:#0d1525;border:2px solid #2a3550;border-radius:9px;font-size:11px;color:#aabbcc;cursor:pointer;text-align:center;font-weight:600;}
 .tog.act{background:#0a1a30;border-color:#4a9eff;color:#4a9eff;}
-.tog.spk{color:#00e87a;border-color:#1a3a25;}
-.tog.spk.going{border-color:#00e87a;background:#081810;}
+.tog.spk.going{border-color:#00e87a;color:#00e87a;background:#081810;}
 .tog.wake.act{border-color:#f5c842;color:#f5c842;background:#151005;}
-.wakeinfo{font-size:11px;color:#667788;text-align:center;padding:5px 0;}
-.qa{padding:10px 14px;border-top:2px solid #2a3550;}
-.qi{width:100%;background:#0d1525;border:2px solid #ffffff;border-radius:10px;padding:14px 15px;color:#ffffff;font-size:17px;outline:none;margin-bottom:8px;}
+.wakeinfo{font-size:10px;color:#445566;text-align:center;padding:4px 0;}
+
+/* VOICE BUTTON */
+.voice-area{padding:8px 14px;border-top:2px solid #2a3550;}
+.mic-btn{width:100%;padding:16px;background:#0d1828;border:2px solid #4a9eff;border-radius:12px;color:#4a9eff;font-family:'Orbitron',monospace;font-size:12px;font-weight:700;cursor:pointer;letter-spacing:1px;text-transform:uppercase;transition:all .15s;display:flex;align-items:center;justify-content:center;gap:10px;}
+.mic-btn.listening{background:#1a0808;border-color:#ff4444;color:#ff4444;animation:pulse .8s ease-in-out infinite;}
+.mic-btn.processing{background:#080e1a;border-color:#f5c842;color:#f5c842;}
+
+.qa{padding:8px 14px;border-top:2px solid #2a3550;}
+.qi{width:100%;background:#0d1525;border:2px solid #ffffff;border-radius:10px;padding:12px 15px;color:#ffffff;font-size:16px;outline:none;margin-bottom:8px;}
 .qi::placeholder{color:#556688;}
 .qi:focus{border-color:#4a9eff;}
 .qbs{display:flex;gap:8px;}
-.ctrl{padding:13px 14px 24px;display:flex;gap:10px;border-top:2px solid #2a3550;}
-.btn{flex:1;padding:17px;border:none;border-radius:12px;font-size:13px;font-weight:700;cursor:pointer;text-transform:uppercase;letter-spacing:1px;}
+.ctrl{padding:12px 14px 22px;display:flex;gap:10px;border-top:2px solid #2a3550;}
+.btn{flex:1;padding:16px;border:none;border-radius:12px;font-size:13px;font-weight:700;cursor:pointer;text-transform:uppercase;letter-spacing:1px;}
 .btn:active{transform:scale(.96);}
 .bstop{background:linear-gradient(135deg,#2e0d0d,#5a1a1a);color:#ff9090;border:2px solid #5a2020;}
-.bq{flex:.6;background:#0d1525;color:#4a9eff;border:2px solid #2a4a70;font-size:11px;}
+.bq{flex:.55;background:#0d1525;color:#4a9eff;border:2px solid #2a4a70;font-size:10px;}
 .bsend{background:#0d1e3a;color:#88bbff;border:2px solid #2a4a80;}
 .bcancel{background:#0d1020;color:#8899aa;border:2px solid #2a3550;flex:.5;}
 </style>
@@ -108,23 +137,41 @@ body{font-family:'Inter',sans-serif;color:#fff;}
 const {useState,useRef,useEffect}=React;
 const PROXY="https://corsproxy.io/?https://api.anthropic.com/v1/messages";
 const KEY_STORE="rr_key_v3";
+const EX_STORE="rr_exclude_v1";
+
+const WC={0:"☀️ Clear",1:"🌤 Mostly clear",2:"⛅ Partly cloudy",3:"☁️ Overcast",45:"🌫 Fog",51:"🌦 Drizzle",61:"🌧 Rain",71:"❄️ Snow",80:"🌧 Showers",95:"⛈ Thunderstorm"};
+const getWC=c=>{for(const k of Object.keys(WC).sort((a,b)=>b-a))if(c>=parseInt(k))return WC[k];return"☀️";};
 
 const L={
-  en:{lb:"EN",tts:"en-US",ai:"English",ui:{title:"Your AI guide to roads worldwide",geo:"📍 Auto-Detect My Location",geoOk:"✓ Location Detected!",manual:"or enter manually",coords:"Coordinates (lat, lng)",speed:"Speed (mph)",hdg:"Heading °",hint:"N=0 · E=90 · S=180 · W=270",chKey:"🔑 Change API Key",start:"▶ Start Tour",stop:"■ Stop",ask:"? Ask",tOn:"📄 Text ON",tOff:"📄 Text OFF",spk:"🔊 Speaking",rpl:"🔊 Replay",awk:"🔆 Awake",wk:"🔆 Wake",scrOn:"🔆 Screen kept on",scrOff:"⚠ Screen may turn off",air:"ON AIR",load:"LOADING",rdy:"READY",gen:"Generating...",prep:"Preparing...",nxt:"next",qph:"Ask about this place...",send:"Ask",cnl:"Cancel",kt:"One-Time Setup",ks:"Get free key at",kc:"Free $5 — ~200 hours",kl:"Paste Anthropic API key",ksv:"✓ Save & Start",kn:"Stored only on your device",ke:"Key must start with sk-ant..."}},
-  ru:{lb:"RU",tts:"ru-RU",ai:"Russian",ui:{title:"Ваш AI-гид по дорогам мира",geo:"📍 Определить местоположение",geoOk:"✓ Местоположение найдено!",manual:"или введите вручную",coords:"Координаты (широта, долгота)",speed:"Скорость (mph)",hdg:"Направление °",hint:"С=0 · В=90 · Ю=180 · З=270",chKey:"🔑 Сменить ключ",start:"▶ Начать тур",stop:"■ Стоп",ask:"? Вопрос",tOn:"📄 Текст ВКЛ",tOff:"📄 Текст ВЫКЛ",spk:"🔊 Говорю...",rpl:"🔊 Повтор",awk:"🔆 Не сплю",wk:"🔆 Экран",scrOn:"🔆 Экран включён",scrOff:"⚠ Экран может погаснуть",air:"В ЭФИРЕ",load:"ЗАГРУЗКА",rdy:"ГОТОВ",gen:"Генерирую...",prep:"Готовлю рассказ...",nxt:"след.",qph:"Задай вопрос...",send:"Спросить",cnl:"Отмена",kt:"Первичная настройка",ks:"Получи ключ на",kc:"Бесплатно $5 — ~200 часов",kl:"Вставь Anthropic API ключ",ksv:"✓ Сохранить и начать",kn:"Только на вашем устройстве",ke:"Ключ должен начинаться с sk-ant..."}},
-  uk:{lb:"UA",tts:"uk-UA",ai:"Ukrainian",ui:{title:"Ваш AI-гід дорогами світу",geo:"📍 Визначити місцезнаходження",geoOk:"✓ Місцезнаходження знайдено!",manual:"або введіть вручну",coords:"Координати (широта, довгота)",speed:"Швидкість (mph)",hdg:"Напрям °",hint:"П=0 · С=90 · Пд=180 · З=270",chKey:"🔑 Змінити ключ",start:"▶ Розпочати тур",stop:"■ Стоп",ask:"? Питання",tOn:"📄 Текст УВІМК",tOff:"📄 Текст ВИМК",spk:"🔊 Говорю...",rpl:"🔊 Повтор",awk:"🔆 Активний",wk:"🔆 Екран",scrOn:"🔆 Екран увімкнено",scrOff:"⚠ Екран може погаснути",air:"В ЕФІРІ",load:"ЗАВАНТАЖЕННЯ",rdy:"ГОТОВО",gen:"Генерую...",prep:"Готую розповідь...",nxt:"наст.",qph:"Постав питання...",send:"Запитати",cnl:"Скасувати",kt:"Налаштування",ks:"Отримай ключ на",kc:"Безкоштовно $5 — ~200 годин",kl:"Вставте Anthropic API ключ",ksv:"✓ Зберегти і почати",kn:"Тільки на вашому пристрої",ke:"Ключ має починатися з sk-ant..."}},
-  es:{lb:"ES",tts:"es-ES",ai:"Spanish",ui:{title:"Tu guía AI para carreteras",geo:"📍 Detectar mi ubicación",geoOk:"✓ ¡Ubicación detectada!",manual:"o ingresa manualmente",coords:"Coordenadas (lat, lng)",speed:"Velocidad (mph)",hdg:"Rumbo °",hint:"N=0 · E=90 · S=180 · O=270",chKey:"🔑 Cambiar clave",start:"▶ Iniciar",stop:"■ Parar",ask:"? Preguntar",tOn:"📄 Texto ON",tOff:"📄 Texto OFF",spk:"🔊 Hablando...",rpl:"🔊 Repetir",awk:"🔆 Activo",wk:"🔆 Pantalla",scrOn:"🔆 Pantalla encendida",scrOff:"⚠ La pantalla puede apagarse",air:"EN AIRE",load:"CARGANDO",rdy:"LISTO",gen:"Generando...",prep:"Preparando...",nxt:"próx.",qph:"Pregunta sobre este lugar...",send:"Preguntar",cnl:"Cancelar",kt:"Configuración",ks:"Obtén la clave en",kc:"$5 gratis — ~200 horas",kl:"Pega tu clave Anthropic",ksv:"✓ Guardar y empezar",kn:"Solo en tu dispositivo",ke:"La clave debe comenzar con sk-ant..."}},
-  pt:{lb:"PT",tts:"pt-BR",ai:"Portuguese",ui:{title:"Seu guia AI pelas estradas",geo:"📍 Detectar minha localização",geoOk:"✓ Localização detectada!",manual:"ou insira manualmente",coords:"Coordenadas (lat, lng)",speed:"Velocidade (mph)",hdg:"Direção °",hint:"N=0 · L=90 · S=180 · O=270",chKey:"🔑 Mudar chave",start:"▶ Iniciar",stop:"■ Parar",ask:"? Perguntar",tOn:"📄 Texto ON",tOff:"📄 Texto OFF",spk:"🔊 Falando...",rpl:"🔊 Repetir",awk:"🔆 Ativo",wk:"🔆 Tela",scrOn:"🔆 Tela mantida acesa",scrOff:"⚠ A tela pode apagar",air:"NO AR",load:"CARREGANDO",rdy:"PRONTO",gen:"Gerando...",prep:"Preparando...",nxt:"próx.",qph:"Pergunta sobre este lugar...",send:"Perguntar",cnl:"Cancelar",kt:"Configuração",ks:"Obtenha a chave em",kc:"$5 grátis — ~200 horas",kl:"Cole sua chave Anthropic",ksv:"✓ Salvar e começar",kn:"Somente no seu dispositivo",ke:"A chave deve começar com sk-ant..."}},
-  de:{lb:"DE",tts:"de-DE",ai:"German",ui:{title:"Ihr KI-Reiseführer für Straßen",geo:"📍 Standort ermitteln",geoOk:"✓ Standort erkannt!",manual:"oder manuell eingeben",coords:"Koordinaten (Breite, Länge)",speed:"Geschwindigkeit (mph)",hdg:"Richtung °",hint:"N=0 · O=90 · S=180 · W=270",chKey:"🔑 API Key ändern",start:"▶ Tour starten",stop:"■ Stopp",ask:"? Fragen",tOn:"📄 Text AN",tOff:"📄 Text AUS",spk:"🔊 Spreche...",rpl:"🔊 Wiederholen",awk:"🔆 Aktiv",wk:"🔆 Bildschirm",scrOn:"🔆 Bildschirm bleibt an",scrOff:"⚠ Bildschirm kann ausschalten",air:"AUF SENDUNG",load:"LADEN",rdy:"BEREIT",gen:"Generiere...",prep:"Vorbereiten...",nxt:"nächste",qph:"Frage über diesen Ort...",send:"Fragen",cnl:"Abbrechen",kt:"Ersteinrichtung",ks:"API-Schlüssel auf",kc:"Kostenlos $5 — ~200 Stunden",kl:"Anthropic API-Schlüssel einfügen",ksv:"✓ Speichern und starten",kn:"Nur auf Ihrem Gerät",ke:"Schlüssel muss mit sk-ant... beginnen"}},
-  fr:{lb:"FR",tts:"fr-FR",ai:"French",ui:{title:"Votre guide AI pour les routes",geo:"📍 Détecter ma position",geoOk:"✓ Position détectée!",manual:"ou entrer manuellement",coords:"Coordonnées (lat, lng)",speed:"Vitesse (mph)",hdg:"Cap °",hint:"N=0 · E=90 · S=180 · O=270",chKey:"🔑 Changer la clé",start:"▶ Démarrer",stop:"■ Arrêt",ask:"? Demander",tOn:"📄 Texte ON",tOff:"📄 Texte OFF",spk:"🔊 Parle...",rpl:"🔊 Rejouer",awk:"🔆 Actif",wk:"🔆 Écran",scrOn:"🔆 Écran maintenu allumé",scrOff:"⚠ L'écran peut s'éteindre",air:"EN DIRECT",load:"CHARGEMENT",rdy:"PRÊT",gen:"Génération...",prep:"Préparation...",nxt:"suiv.",qph:"Question sur ce lieu...",send:"Demander",cnl:"Annuler",kt:"Configuration",ks:"Obtenez la clé sur",kc:"$5 gratuit — ~200 heures",kl:"Collez votre clé Anthropic",ksv:"✓ Enregistrer et démarrer",kn:"Stocké uniquement sur votre appareil",ke:"La clé doit commencer par sk-ant..."}}
+  en:{lb:"EN",tts:"en-US",ai:"English",ui:{title:"Your AI guide to roads worldwide",geo:"📍 Auto-Detect My Location",geoOk:"✓ Location Detected!",manual:"or enter manually",coords:"Coordinates (lat, lng)",speed:"Speed (mph)",hdg:"Heading °",hint:"N=0 · E=90 · S=180 · W=270",chKey:"🔑 Change API Key",start:"▶ Start Tour",stop:"■ Stop",ask:"? Type",tOn:"📄 Text ON",tOff:"📄 Text OFF",spk:"🔊 Speaking",rpl:"🔊 Replay",awk:"🔆 Awake",wk:"🔆 Wake",scrOn:"🔆 Screen kept on",scrOff:"⚠ Screen may turn off",air:"ON AIR",load:"LOADING",rdy:"READY",gen:"Generating...",prep:"Preparing...",nxt:"next",qph:"Type your question...",send:"Ask",cnl:"Cancel",kt:"One-Time Setup",ks:"Get free key at",kc:"Free $5 — ~200 hours",kl:"Paste Anthropic API key",ksv:"✓ Save & Start",kn:"Stored only on your device",ke:"Key must start with sk-ant...",mic:"🎤 Hold to Speak",micL:"🔴 Listening...",micP:"⏳ Processing...",set:"⚙️ Preferences",setTitle:"What NOT to narrate",setClose:"✓ Save Preferences",back:"Continuing the road tour..."}},
+  ru:{lb:"RU",tts:"ru-RU",ai:"Russian",ui:{title:"Ваш AI-гид по дорогам мира",geo:"📍 Определить местоположение",geoOk:"✓ Местоположение найдено!",manual:"или введите вручную",coords:"Координаты (широта, долгота)",speed:"Скорость (mph)",hdg:"Направление °",hint:"С=0 · В=90 · Ю=180 · З=270",chKey:"🔑 Сменить ключ",start:"▶ Начать тур",stop:"■ Стоп",ask:"? Текст",tOn:"📄 Текст ВКЛ",tOff:"📄 Текст ВЫКЛ",spk:"🔊 Говорю...",rpl:"🔊 Повтор",awk:"🔆 Не сплю",wk:"🔆 Экран",scrOn:"🔆 Экран включён",scrOff:"⚠ Экран может погаснуть",air:"В ЭФИРЕ",load:"ЗАГРУЗКА",rdy:"ГОТОВ",gen:"Генерирую...",prep:"Готовлю рассказ...",nxt:"след.",qph:"Введите вопрос...",send:"Спросить",cnl:"Отмена",kt:"Первичная настройка",ks:"Получи ключ на",kc:"Бесплатно $5 — ~200 часов",kl:"Вставь Anthropic API ключ",ksv:"✓ Сохранить и начать",kn:"Только на вашем устройстве",ke:"Ключ должен начинаться с sk-ant...",mic:"🎤 Держите для вопроса",micL:"🔴 Слушаю...",micP:"⏳ Обрабатываю...",set:"⚙️ Настройки",setTitle:"Что НЕ рассказывать",setClose:"✓ Сохранить настройки",back:"Возвращаюсь к дороге..."}},
+  uk:{lb:"UA",tts:"uk-UA",ai:"Ukrainian",ui:{title:"Ваш AI-гід дорогами світу",geo:"📍 Визначити місцезнаходження",geoOk:"✓ Місцезнаходження знайдено!",manual:"або введіть вручну",coords:"Координати (широта, довгота)",speed:"Швидкість (mph)",hdg:"Напрям °",hint:"П=0 · С=90 · Пд=180 · З=270",chKey:"🔑 Змінити ключ",start:"▶ Розпочати тур",stop:"■ Стоп",ask:"? Текст",tOn:"📄 Текст УВІМК",tOff:"📄 Текст ВИМК",spk:"🔊 Говорю...",rpl:"🔊 Повтор",awk:"🔆 Активний",wk:"🔆 Екран",scrOn:"🔆 Екран увімкнено",scrOff:"⚠ Екран може погаснути",air:"В ЕФІРІ",load:"ЗАВАНТАЖЕННЯ",rdy:"ГОТОВО",gen:"Генерую...",prep:"Готую розповідь...",nxt:"наст.",qph:"Введіть питання...",send:"Запитати",cnl:"Скасувати",kt:"Налаштування",ks:"Отримай ключ на",kc:"Безкоштовно $5 — ~200 годин",kl:"Вставте Anthropic API ключ",ksv:"✓ Зберегти і почати",kn:"Тільки на вашому пристрої",ke:"Ключ має починатися з sk-ant...",mic:"🎤 Тримайте для питання",micL:"🔴 Слухаю...",micP:"⏳ Обробляю...",set:"⚙️ Налаштування",setTitle:"Що НЕ розповідати",setClose:"✓ Зберегти",back:"Повертаюся до дороги..."}},
+  es:{lb:"ES",tts:"es-ES",ai:"Spanish",ui:{title:"Tu guía AI para carreteras",geo:"📍 Detectar mi ubicación",geoOk:"✓ ¡Ubicación detectada!",manual:"o ingresa manualmente",coords:"Coordenadas (lat, lng)",speed:"Velocidad (mph)",hdg:"Rumbo °",hint:"N=0 · E=90 · S=180 · O=270",chKey:"🔑 Cambiar clave",start:"▶ Iniciar",stop:"■ Parar",ask:"? Texto",tOn:"📄 Texto ON",tOff:"📄 Texto OFF",spk:"🔊 Hablando...",rpl:"🔊 Repetir",awk:"🔆 Activo",wk:"🔆 Pantalla",scrOn:"🔆 Pantalla encendida",scrOff:"⚠ La pantalla puede apagarse",air:"EN AIRE",load:"CARGANDO",rdy:"LISTO",gen:"Generando...",prep:"Preparando...",nxt:"próx.",qph:"Tu pregunta...",send:"Preguntar",cnl:"Cancelar",kt:"Configuración",ks:"Obtén la clave en",kc:"$5 gratis — ~200 horas",kl:"Pega tu clave Anthropic",ksv:"✓ Guardar y empezar",kn:"Solo en tu dispositivo",ke:"La clave debe comenzar con sk-ant...",mic:"🎤 Mantén para hablar",micL:"🔴 Escuchando...",micP:"⏳ Procesando...",set:"⚙️ Preferencias",setTitle:"Qué NO narrar",setClose:"✓ Guardar",back:"Volviendo a la carretera..."}},
+  pt:{lb:"PT",tts:"pt-BR",ai:"Portuguese",ui:{title:"Seu guia AI pelas estradas",geo:"📍 Detectar minha localização",geoOk:"✓ Localização detectada!",manual:"ou insira manualmente",coords:"Coordenadas (lat, lng)",speed:"Velocidade (mph)",hdg:"Direção °",hint:"N=0 · L=90 · S=180 · O=270",chKey:"🔑 Mudar chave",start:"▶ Iniciar",stop:"■ Parar",ask:"? Texto",tOn:"📄 Texto ON",tOff:"📄 Texto OFF",spk:"🔊 Falando...",rpl:"🔊 Repetir",awk:"🔆 Ativo",wk:"🔆 Tela",scrOn:"🔆 Tela mantida acesa",scrOff:"⚠ A tela pode apagar",air:"NO AR",load:"CARREGANDO",rdy:"PRONTO",gen:"Gerando...",prep:"Preparando...",nxt:"próx.",qph:"Sua pergunta...",send:"Perguntar",cnl:"Cancelar",kt:"Configuração",ks:"Obtenha a chave em",kc:"$5 grátis — ~200 horas",kl:"Cole sua chave Anthropic",ksv:"✓ Salvar e começar",kn:"Somente no seu dispositivo",ke:"A chave deve começar com sk-ant...",mic:"🎤 Segure para falar",micL:"🔴 Ouvindo...",micP:"⏳ Processando...",set:"⚙️ Preferências",setTitle:"O que NÃO narrar",setClose:"✓ Salvar",back:"Voltando à estrada..."}},
+  de:{lb:"DE",tts:"de-DE",ai:"German",ui:{title:"Ihr KI-Reiseführer für Straßen",geo:"📍 Standort ermitteln",geoOk:"✓ Standort erkannt!",manual:"oder manuell eingeben",coords:"Koordinaten (Breite, Länge)",speed:"Geschwindigkeit (mph)",hdg:"Richtung °",hint:"N=0 · O=90 · S=180 · W=270",chKey:"🔑 API Key ändern",start:"▶ Tour starten",stop:"■ Stopp",ask:"? Text",tOn:"📄 Text AN",tOff:"📄 Text AUS",spk:"🔊 Spreche...",rpl:"🔊 Wiederholen",awk:"🔆 Aktiv",wk:"🔆 Bildschirm",scrOn:"🔆 Bildschirm bleibt an",scrOff:"⚠ Bildschirm kann ausschalten",air:"AUF SENDUNG",load:"LADEN",rdy:"BEREIT",gen:"Generiere...",prep:"Vorbereiten...",nxt:"nächste",qph:"Ihre Frage...",send:"Fragen",cnl:"Abbrechen",kt:"Ersteinrichtung",ks:"API-Schlüssel auf",kc:"Kostenlos $5 — ~200 Stunden",kl:"Anthropic API-Schlüssel einfügen",ksv:"✓ Speichern und starten",kn:"Nur auf Ihrem Gerät",ke:"Schlüssel muss mit sk-ant... beginnen",mic:"🎤 Halten zum Sprechen",micL:"🔴 Höre zu...",micP:"⏳ Verarbeite...",set:"⚙️ Einstellungen",setTitle:"Was NICHT erzählen",setClose:"✓ Speichern",back:"Zurück zur Straße..."}},
+  fr:{lb:"FR",tts:"fr-FR",ai:"French",ui:{title:"Votre guide AI pour les routes",geo:"📍 Détecter ma position",geoOk:"✓ Position détectée!",manual:"ou entrer manuellement",coords:"Coordonnées (lat, lng)",speed:"Vitesse (mph)",hdg:"Cap °",hint:"N=0 · E=90 · S=180 · O=270",chKey:"🔑 Changer la clé",start:"▶ Démarrer",stop:"■ Arrêt",ask:"? Texte",tOn:"📄 Texte ON",tOff:"📄 Texte OFF",spk:"🔊 Parle...",rpl:"🔊 Rejouer",awk:"🔆 Actif",wk:"🔆 Écran",scrOn:"🔆 Écran allumé",scrOff:"⚠ L'écran peut s'éteindre",air:"EN DIRECT",load:"CHARGEMENT",rdy:"PRÊT",gen:"Génération...",prep:"Préparation...",nxt:"suiv.",qph:"Votre question...",send:"Demander",cnl:"Annuler",kt:"Configuration",ks:"Obtenez la clé sur",kc:"$5 gratuit — ~200 heures",kl:"Collez votre clé Anthropic",ksv:"✓ Enregistrer et démarrer",kn:"Stocké sur votre appareil",ke:"La clé doit commencer par sk-ant...",mic:"🎤 Maintenez pour parler",micL:"🔴 J'écoute...",micP:"⏳ Traitement...",set:"⚙️ Préférences",setTitle:"Ce qu'il ne faut PAS raconter",setClose:"✓ Enregistrer",back:"Retour à la route..."}}
 };
 const LK=["en","ru","uk","es","pt","de","fr"];
 
+const TOPICS=[
+  {id:"geology",en:"Geology & underground",ru:"Геология и недра"},
+  {id:"weather",en:"Weather & climate",ru:"Погода и климат"},
+  {id:"wildlife",en:"Wildlife & animals",ru:"Животный мир"},
+  {id:"plants",en:"Plants & forests",ru:"Растения и леса"},
+  {id:"history",en:"History & legends",ru:"История и легенды"},
+  {id:"towns",en:"Towns & cities",ru:"Города и сёла"},
+  {id:"road",en:"Road & infrastructure",ru:"Дороги и мосты"},
+  {id:"humor",en:"Humor & jokes",ru:"Юмор и шутки"},
+];
+
 const toDir=h=>{if(h==null||isNaN(h))return"—";const d=["N","NE","E","SE","S","SW","W","NW"];return d[Math.round(((h%360)+360)%360/45)%8];};
 const toMph=ms=>ms&&ms>0?Math.round(ms*2.237):0;
+const getTimeOfDay=()=>{const h=new Date().getHours();if(h>=5&&h<12)return"morning";if(h>=12&&h<17)return"afternoon";if(h>=17&&h<21)return"evening";return"night";};
+const getTimeStr=()=>{const now=new Date();return now.toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"});};
 
 function App(){
   const saved=localStorage.getItem(KEY_STORE)||"";
+  const savedEx=JSON.parse(localStorage.getItem(EX_STORE)||"[]");
   const autoL=(navigator.language||"en").split("-")[0].toLowerCase();
   const [screen,setScreen]=useState(saved?"setup":"apikey");
   const [apiInput,setApiInput]=useState("");
@@ -143,10 +190,14 @@ function App(){
   const [qMode,setQMode]=useState(false);
   const [qText,setQText]=useState("");
   const [showTxt,setShowTxt]=useState(true);
-  const [count,setCount]=useState(0);
   const [cd,setCd]=useState(0);
   const [speaking,setSpeaking]=useState(false);
   const [wakeLock,setWakeLock]=useState(false);
+  const [weather,setWeather]=useState(null);
+  const [micState,setMicState]=useState("idle");
+  const [settingsOpen,setSettingsOpen]=useState(false);
+  const [excluded,setExcluded]=useState(savedEx);
+  const [timeStr,setTimeStr]=useState(getTimeStr());
 
   const runRef=useRef(false);
   const histRef=useRef([]);
@@ -155,28 +206,30 @@ function App(){
   const cdRef=useRef(null);
   const wlRef=useRef(null);
   const langRef=useRef(lang);
-  const cntRef=useRef(0);
+  const excludedRef=useRef(excluded);
+  const recogRef=useRef(null);
+  const weatherRef=useRef(null);
 
   useEffect(()=>{langRef.current=lang;},[lang]);
+  useEffect(()=>{excludedRef.current=excluded;},[excluded]);
   useEffect(()=>{if(coords)coordsRef.current=coords;},[coords]);
+  useEffect(()=>{const t=setInterval(()=>setTimeStr(getTimeStr()),30000);return()=>clearInterval(t);},[]);
 
   const T=k=>(L[lang]?.ui||L.en.ui)[k]||L.en.ui[k]||k;
 
-  const requestWake=async()=>{
-    try{if("wakeLock" in navigator){wlRef.current=await navigator.wakeLock.request("screen");setWakeLock(true);wlRef.current.addEventListener("release",()=>setWakeLock(false));}}catch{}
+  const fetchWeather=async(lat,lng)=>{
+    try{
+      const r=await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&current_weather=true&current=temperature_2m,windspeed_10m,precipitation_probability&temperature_unit=fahrenheit&windspeed_unit=mph&timezone=auto`);
+      const d=await r.json();
+      const w={temp:Math.round(d.current_weather?.temperature||d.current?.temperature_2m||70),wind:Math.round(d.current_weather?.windspeed||d.current?.windspeed_10m||0),code:d.current_weather?.weathercode||0,is_day:d.current_weather?.is_day??1,precip:d.current?.precipitation_probability||0};
+      setWeather(w);weatherRef.current=w;
+    }catch{}
   };
 
-  useEffect(()=>{
-    const h=()=>{if(document.visibilityState==="visible"&&runRef.current)requestWake();};
-    document.addEventListener("visibilitychange",h);
-    return()=>document.removeEventListener("visibilitychange",h);
-  },[]);
+  const requestWake=async()=>{try{if("wakeLock" in navigator){wlRef.current=await navigator.wakeLock.request("screen");setWakeLock(true);wlRef.current.addEventListener("release",()=>setWakeLock(false));}}catch{}};
+  useEffect(()=>{const h=()=>{if(document.visibilityState==="visible"&&runRef.current)requestWake();};document.addEventListener("visibilitychange",h);return()=>document.removeEventListener("visibilitychange",h);},[]);
 
-  const startCd=s=>{
-    setCd(s);
-    if(cdRef.current)clearInterval(cdRef.current);
-    cdRef.current=setInterval(()=>setCd(p=>{if(p<=1){clearInterval(cdRef.current);return 0;}return p-1;}),1000);
-  };
+  const startCd=s=>{setCd(s);if(cdRef.current)clearInterval(cdRef.current);cdRef.current=setInterval(()=>setCd(p=>{if(p<=1){clearInterval(cdRef.current);return 0;}return p-1;}),1000);};
 
   const speak=text=>new Promise(res=>{
     try{
@@ -185,7 +238,7 @@ function App(){
       s.cancel();
       const tl=L[langRef.current]?.tts||"en-US";
       const u=new SpeechSynthesisUtterance(text);
-      u.lang=tl;u.rate=0.88;u.pitch=1.05;
+      u.lang=tl;u.rate=0.85;u.pitch=1.0;
       try{const vs=s.getVoices();const v=vs.find(x=>x.lang===tl)||vs.find(x=>x.lang.startsWith(tl.split("-")[0]))||vs[0];if(v)u.voice=v;}catch{}
       setSpeaking(true);
       u.onend=u.onerror=()=>{setSpeaking(false);res();};
@@ -193,45 +246,58 @@ function App(){
     }catch{setSpeaking(false);res();}
   });
 
-  const callClaude=async msg=>{
-    const key=localStorage.getItem(KEY_STORE);
+  const buildPrompt=(c,isQuestion,question)=>{
     const al=L[langRef.current]?.ai||"English";
-    const msgs=[...histRef.current.slice(-4),{role:"user",content:msg}];
-    const r=await fetch(PROXY,{
-      method:"POST",
-      headers:{"Content-Type":"application/json","x-api-key":key,"anthropic-version":"2023-06-01","anthropic-dangerous-direct-browser-access":"true"},
-      body:JSON.stringify({
-        model:"claude-haiku-4-5-20251001",
-        max_tokens:400,
-        system:`You are Road Radio AI — a charismatic, witty road trip companion and guide. You make every mile interesting.
+    const tod=getTimeOfDay();
+    const hr=new Date().getHours();
+    const isNight=tod==="night"||tod==="evening";
+    const w=weatherRef.current;
+    const exTopics=excludedRef.current;
+    const exStr=exTopics.length>0?`\nDO NOT mention: ${exTopics.join(", ")}.`:"";
+    const weatherStr=w?`Current weather: ${getWC(w.code)} ${w.temp}°F, wind ${w.wind} mph.`:"";
+    const timeCtx=`Time: ${hr}:00 (${tod}).${isNight?" It is DARK outside — the driver cannot see the landscape clearly.":""}`;
 
-YOUR STYLE: Warm, engaging, slightly humorous — like a brilliant friend who happens to know everything. Never dry or lecture-like. Think best podcast host meets knowledgeable local guide.
+    if(isQuestion){
+      return{
+        system:`You are Road Radio AI — a warm, knowledgeable road companion like Nikolai Drozdov. The driver just asked you a question while driving. Answer warmly and conversationally in 2-3 sentences. Then say you're returning to the road tour. CRITICAL: Respond entirely in ${al}.
+Reply ONLY valid JSON: {"story":"answer + transition back to road","location":"current location name","image":"2-3 english words"}`,
+        msg:question
+      };
+    }
 
-WHAT TO TALK ABOUT (rotate naturally, never repeat same topic twice in a row):
-- Immediate surroundings: exact terrain, trees, soil type, what animals live here RIGHT NOW
-- Local geology: what rocks/minerals are under the wheels, how this landscape formed
-- Weather & climate: current conditions, seasonal patterns, what to expect ahead
-- Road itself: when built, what material, interesting construction facts
-- Wildlife: what animals are in these exact woods/fields, habits, fun facts
-- Plants & forests: species here, age of trees, ecosystem facts
-- Underground: what minerals/fossils have been found in this county
-- Night sky: what constellations are visible here, any observatories nearby
-- Water: any rivers/lakes/swamps nearby, what fish live there, water quality
-- History: what happened HERE 50-500 years ago, Native American history, settlers
-- Upcoming: "In about 15 miles you'll approach [place] — here's a fun fact to get you ready..."
-- Hidden gems: things 10-30 miles away that most drivers never know about
+    return{
+      system:`You are Road Radio AI — a warm, soulful road companion. Think Nikolai Drozdov from "In the Animal World" — genuinely excited, knowledgeable, never dry.
 
-RULES:
-- If nothing famous nearby: go deep on nature, geology, wildlife, road history, weather
-- Always end with a hook or teaser about what's coming
-- Be warm and conversational, add light humor when appropriate  
-- NEVER say "there's nothing interesting here" — there ALWAYS is something
+${timeCtx}
+${weatherStr}
+Position: ${c.lat.toFixed(5)}°N, ${c.lng.toFixed(5)}°W. Speed: ${toMph(c.speed)||65} mph. Heading: ${toDir(c.heading)}.
+${exStr}
+
+THE DRIVER IS IN A MOVING CAR. They experience the world through the WINDSHIELD.
+${isNight?"NIGHT DRIVING: Don't say 'you can see' — say 'if it were daylight, you'd see...' or describe what lights/silhouettes are visible.":"Describe what is VISIBLE through the windshield right now."}
+
+STYLE RULES:
+- Warm, personal, like a wise friend pointing things out: "Look over there..." / "Did you know..."
+- Use "..." between sentences for natural pauses
+- SHORT sentences. Natural rhythm.
+- Always name specific things: river names, town names, highway numbers, exit numbers
+- If a river or bridge is 1-3 miles ahead: start building excitement NOW
+- Rotate topics naturally: landscape → history → wildlife → upcoming attraction → road fact
+- End EVERY story with a teaser: "...and just ahead..." or "...keep an eye out for..."
+- NEVER mention geology layers or rock ages
+- NEVER invent animals not found in this region
 - 3-4 sentences ONLY. Make every word count.
-- CRITICAL: Respond entirely in ${al}. Every single word must be in ${al}.
-Reply ONLY valid JSON no markdown: {"story":"3-4 sentences","location":"name of exact current location in English","image":"2-3 english words for landscape"}`,
-        messages:msgs
-      })
-    });
+- CRITICAL: Every single word must be in ${al}.
+
+Reply ONLY valid JSON: {"story":"3-4 sentences with ... pauses","location":"exact location name in English","image":"2-3 english words for landscape photo"}`,
+      msg:`What do I see right now and what's coming up ahead?`
+    };
+  };
+
+  const callClaude=async(system,userMsg)=>{
+    const key=localStorage.getItem(KEY_STORE);
+    const msgs=[...histRef.current.slice(-4),{role:"user",content:userMsg}];
+    const r=await fetch(PROXY,{method:"POST",headers:{"Content-Type":"application/json","x-api-key":key,"anthropic-version":"2023-06-01","anthropic-dangerous-direct-browser-access":"true"},body:JSON.stringify({model:"claude-haiku-4-5-20251001",max_tokens:400,system,messages:msgs})});
     if(!r.ok)throw new Error(await r.text());
     const data=await r.json();
     let txt=data.content?.[0]?.text??"{}";
@@ -246,21 +312,16 @@ Reply ONLY valid JSON no markdown: {"story":"3-4 sentences","location":"name of 
     if(!c)return;
     setStatus("loading");
     try{
-      const spd=toMph(c.speed)||parseInt(speedVal)||65;
-      const prompt=`EXACT current position: ${c.lat.toFixed(5)}°N, ${c.lng.toFixed(5)}°W. Speed: ${spd} mph. Heading: ${toDir(c.heading)}. Describe what is RIGHT HERE within 1 mile of this exact spot.`;
-      const res=await callClaude(prompt);
+      const {system,msg}=buildPrompt(c,false,null);
+      const res=await callClaude(system,msg);
       if(!runRef.current)return;
       setStory(res.story||"");
       setLocName(res.location||"");
-      cntRef.current+=1;
-      setCount(cntRef.current);
       const seed=Math.round(Math.abs(c.lat*1000+c.lng*1000))%9000+1000;
-      setImgSeed(seed);
-      setImgLoaded(false);
-      setStatus("ready");
-      startCd(35);
-      if(res.story)speak(res.story);
-      await new Promise(r=>setTimeout(r,35000));
+      setImgSeed(seed);setImgLoaded(false);
+      setStatus("ready");startCd(50);
+      if(res.story)await speak(res.story);
+      await new Promise(r=>setTimeout(r,Math.max(0,50000)));
       if(runRef.current)loopRef.current?.();
     }catch(e){
       setErr((e.message||"Connection error").slice(0,100));
@@ -278,6 +339,7 @@ Reply ONLY valid JSON no markdown: {"story":"3-4 sentences","location":"name of 
       if(c.speed)setSpeedVal(String(toMph(c.speed)));
       if(c.heading)setHeadVal(String(Math.round(c.heading)));
       coordsRef.current=c;setGeoOk(true);
+      fetchWeather(c.lat,c.lng);
     },()=>setErr("Location denied. Enter manually."),{enableHighAccuracy:true,timeout:12000});
   };
 
@@ -289,9 +351,12 @@ Reply ONLY valid JSON no markdown: {"story":"3-4 sentences","location":"name of 
 
   const startGeoWatch=()=>{
     if(!navigator.geolocation)return;
+    let weatherTimer=0;
     navigator.geolocation.watchPosition(pos=>{
       const c={lat:pos.coords.latitude,lng:pos.coords.longitude,speed:pos.coords.speed||0,heading:pos.coords.heading};
       coordsRef.current=c;setCoords(c);
+      weatherTimer++;
+      if(weatherTimer%60===0)fetchWeather(c.lat,c.lng);
     },()=>{},{enableHighAccuracy:true,maximumAge:5000});
   };
 
@@ -299,10 +364,11 @@ Reply ONLY valid JSON no markdown: {"story":"3-4 sentences","location":"name of 
     let c=coordsRef.current||parseCoords();
     if(!c){setErr("Tap Auto-Detect or enter coordinates");return;}
     coordsRef.current=c;setCoords(c);
-    runRef.current=true;histRef.current=[];cntRef.current=0;
-    setErr("");setStory("");setCount(0);
+    runRef.current=true;histRef.current=[];
+    setErr("");setStory("");
     setScreen("main");startGeoWatch();
     await requestWake();
+    fetchWeather(c.lat,c.lng);
     setTimeout(()=>loopRef.current?.(),300);
   };
 
@@ -316,15 +382,51 @@ Reply ONLY valid JSON no markdown: {"story":"3-4 sentences","location":"name of 
     setScreen("setup");
   };
 
+  const startVoice=()=>{
+    try{
+      const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+      if(!SR){setQMode(true);return;}
+      const rec=new SR();
+      rec.lang=L[lang]?.tts||"en-US";
+      rec.continuous=false;rec.interimResults=false;
+      rec.onstart=()=>setMicState("listening");
+      rec.onresult=async e=>{
+        const q=e.results[0][0].transcript;
+        setMicState("processing");
+        try{window.speechSynthesis?.cancel();}catch{}
+        const c=coordsRef.current;
+        const {system}=buildPrompt(c,true,q);
+        try{
+          const res=await callClaude(system,q);
+          setStory(res.story||res);setStatus("ready");startCd(50);
+          setMicState("idle");
+          if(res.story)await speak(res.story);
+          await new Promise(r=>setTimeout(r,2000));
+          if(runRef.current)loopRef.current?.();
+        }catch{setMicState("idle");}
+      };
+      rec.onerror=()=>setMicState("idle");
+      rec.onend=()=>{if(micState==="listening")setMicState("idle");};
+      rec.start();
+      recogRef.current=rec;
+    }catch{setQMode(true);}
+  };
+
+  const stopVoice=()=>{
+    try{recogRef.current?.stop();}catch{}
+  };
+
   const sendQ=async()=>{
     if(!qText.trim())return;
     try{window.speechSynthesis?.cancel();}catch{}
     setQMode(false);setStatus("loading");
     try{
-      const res=await callClaude(qText);
-      setStory(res.story||res);setQText("");setStatus("ready");startCd(35);
-      if(res.story)speak(res.story);
-      await new Promise(r=>setTimeout(r,35000));
+      const c=coordsRef.current;
+      const {system}=buildPrompt(c,true,qText);
+      const res=await callClaude(system,qText);
+      setStory(res.story||res);setQText("");setStatus("ready");startCd(50);
+      if(res.story)await speak(res.story);
+      await new Promise(r=>setTimeout(r,2000));
       if(runRef.current)loopRef.current?.();else setStatus("idle");
     }catch{setStatus("idle");}
   };
@@ -335,16 +437,44 @@ Reply ONLY valid JSON no markdown: {"story":"3-4 sentences","location":"name of 
     localStorage.setItem(KEY_STORE,k);setErr("");setScreen("setup");
   };
 
+  const toggleExclude=id=>{
+    const n=excluded.includes(id)?excluded.filter(x=>x!==id):[...excluded,id];
+    setExcluded(n);localStorage.setItem(EX_STORE,JSON.stringify(n));
+  };
+
   const isMain=screen==="main";
   const dotCls=!isMain?"off":status==="loading"?"ld":"on";
   const stTxt=!isMain?T("rdy"):status==="loading"?T("load"):T("air");
   const imgUrl=`https://picsum.photos/seed/${imgSeed}/700/300`;
+  const weatherBadge=weather?`${getWC(weather.code)} ${weather.temp}°F`:null;
+  const tod=getTimeOfDay();
 
   return(
     <div className="app">
+      {settingsOpen&&(
+        <div className="overlay" onClick={e=>{if(e.target.className==="overlay")setSettingsOpen(false);}}>
+          <div className="settings-box">
+            <div className="set-title">{T("setTitle")}</div>
+            <div className="set-subtitle" style={{color:"#778899",fontSize:"13px",marginBottom:"14px"}}>
+              {lang==="ru"?"Отметьте темы, которые вам НЕ интересны:":"Check topics you do NOT want to hear:"}
+            </div>
+            <div className="set-grid">
+              {TOPICS.map(t=>(
+                <div key={t.id} className={`set-item${excluded.includes(t.id)?" on":""}`} onClick={()=>toggleExclude(t.id)}>
+                  <div className="set-check">{excluded.includes(t.id)?"✕":""}</div>
+                  <div className="set-label">{lang==="ru"?t.ru:t.en}</div>
+                </div>
+              ))}
+            </div>
+            <button className="bigbtn green" onClick={()=>setSettingsOpen(false)}>{T("setClose")}</button>
+          </div>
+        </div>
+      )}
+
       <div className="hdr">
         <div className="logo">Road <em>Radio</em> AI</div>
         <div className="hdr-r">
+          <button className="setbtn" onClick={()=>setSettingsOpen(true)}>⚙️</button>
           <select className="langsel" value={lang} onChange={e=>setLang(e.target.value)}>
             {LK.map(k=><option key={k} value={k}>{L[k].lb}</option>)}
           </select>
@@ -404,26 +534,25 @@ Reply ONLY valid JSON no markdown: {"story":"3-4 sentences","location":"name of 
         <>
           <div className="imgzone">
             {!imgLoaded&&<div className="imgsp">🌄</div>}
-            <img className={`locimg${imgLoaded?" on":""}`} src={imgUrl} alt=""
-              onLoad={()=>setImgLoaded(true)}
-              onError={(e)=>{e.target.src=`https://picsum.photos/700/300?random=${imgSeed}`;}}
-            />
+            <img className={`locimg${imgLoaded?" on":""}`} src={imgUrl} alt="" onLoad={()=>setImgLoaded(true)} onError={e=>{e.target.src=`https://picsum.photos/700/300?random=${imgSeed}`;}}/>
             <div className="imgover"/>
+            {weatherBadge&&<div className="imgtop"><div className="weather-badge">{weatherBadge}</div></div>}
             <div className="imgbot">
               <div className="locname">{locName||"..."}</div>
               {coords&&<div className="loccrd">{coords.lat.toFixed(4)}°N / {Math.abs(coords.lng).toFixed(4)}°W</div>}
             </div>
           </div>
+
           <div className="dash">
             <div className="gauge"><div className="gv">{toMph(coords?.speed)||parseInt(speedVal)||"—"}</div><div className="gl">MPH</div></div>
             <div className="gauge"><div className="gv d">{toDir(coords?.heading)}</div><div className="gl">DIR</div></div>
-            <div className="gauge"><div className="gv c">{count}</div><div className="gl">{L[lang].lb}</div></div>
-            <div className="gauge"><div className="gv w">{coords?`${coords.lat.toFixed(1)}°`:"—"}</div><div className="gl">LAT</div></div>
+            <div className="gauge"><div className="gv t">{weather?`${weather.temp}°`:"—"}</div><div className="gl">°F</div></div>
           </div>
+
           <div className="sa">
             <div className="airbar">
               <div className="airlbl">{status==="ready"&&<div className="airdot"/>}{status==="loading"?T("gen"):T("air")}</div>
-              <div className="snum">#{count}</div>
+              <div className="timeinfo">{timeStr} · {tod}</div>
             </div>
             {status==="loading"&&<div className="ldtxt"><span className="sp">◌</span>&nbsp;{T("prep")}</div>}
             {showTxt&&story&&status!=="loading"&&<div className="stxt">{story}</div>}
@@ -431,30 +560,46 @@ Reply ONLY valid JSON no markdown: {"story":"3-4 sentences","location":"name of 
             {story&&status==="ready"&&(
               <div className="pgrow">
                 <span className="pglbl">⟳ {T("nxt")}</span>
-                <div className="pgbar"><div className="pgfill" style={{width:`${Math.max(0,(1-cd/35)*100)}%`}}/></div>
+                <div className="pgbar"><div className="pgfill" style={{width:`${Math.max(0,(1-cd/50)*100)}%`}}/></div>
                 <span className="pglbl">{cd}s</span>
               </div>
             )}
           </div>
+
           <div className="wakeinfo">{wakeLock?T("scrOn"):T("scrOff")}</div>
+
           <div className="togrow">
             <div className={`tog${showTxt?" act":""}`} onClick={()=>setShowTxt(t=>!t)}>{showTxt?T("tOn"):T("tOff")}</div>
             <div className={`tog spk${speaking?" going":""}`} onClick={()=>story&&speak(story)}>{speaking?T("spk"):T("rpl")}</div>
             <div className={`tog wake${wakeLock?" act":""}`} onClick={()=>wakeLock?wlRef.current?.release():requestWake()}>{wakeLock?T("awk"):T("wk")}</div>
           </div>
+
+          <div className="voice-area">
+            <button
+              className={`mic-btn${micState==="listening"?" listening":micState==="processing"?" processing":""}`}
+              onMouseDown={startVoice} onTouchStart={startVoice}
+              onMouseUp={stopVoice} onTouchEnd={stopVoice}
+              onClick={micState==="idle"?undefined:undefined}
+            >
+              {micState==="listening"?T("micL"):micState==="processing"?T("micP"):T("mic")}
+            </button>
+          </div>
+
           {err&&<div className="errbox" style={{margin:"0 14px 8px"}}>⚠ {err}</div>}
+
           {qMode&&(
             <div className="qa">
               <input className="qi" value={qText} onChange={e=>setQText(e.target.value)} placeholder={T("qph")} onKeyDown={e=>e.key==="Enter"&&sendQ()} autoFocus/>
               <div className="qbs">
-                <button className="btn bsend" style={{flex:1,padding:"12px"}} onClick={sendQ}>{T("send")}</button>
-                <button className="btn bcancel" style={{padding:"12px"}} onClick={()=>{setQMode(false);setQText("");}}>{T("cnl")}</button>
+                <button className="btn bsend" style={{flex:1,padding:"11px"}} onClick={sendQ}>{T("send")}</button>
+                <button className="btn bcancel" style={{padding:"11px"}} onClick={()=>{setQMode(false);setQText("");}}>{T("cnl")}</button>
               </div>
             </div>
           )}
+
           <div className="ctrl">
             <button className="btn bstop" onClick={stop}>{T("stop")}</button>
-            {!qMode&&<button className="btn bq" onClick={()=>setQMode(true)}>{T("ask")}</button>}
+            <button className="btn bq" onClick={()=>setQMode(t=>!t)}>{T("ask")}</button>
           </div>
         </>
       )}
