@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
@@ -8,14 +8,12 @@
 <style>
 *{box-sizing:border-box;margin:0;padding:0;}
 html,body{background:#05070f;height:100%;overscroll-behavior:none;}
-body{font-family:'Inter',sans-serif;color:#ffffff;}
+body{font-family:'Inter',sans-serif;color:#fff;}
 .app{min-height:100vh;background:#05070f;display:flex;flex-direction:column;max-width:500px;margin:0 auto;}
-
-/* HEADER */
-.hdr{padding:13px 16px;border-bottom:2px solid #2a3550;display:flex;align-items:center;justify-content:space-between;background:#080b15;position:sticky;top:0;z-index:99;}
+.hdr{padding:12px 16px;border-bottom:2px solid #2a3550;display:flex;align-items:center;justify-content:space-between;background:#080b15;position:sticky;top:0;z-index:99;}
 .logo{font-family:'Orbitron',monospace;font-size:14px;font-weight:900;letter-spacing:2px;color:#ff6b35;}
 .logo em{color:#4a9eff;font-style:normal;}
-.hdr-right{display:flex;align-items:center;gap:8px;}
+.hdr-r{display:flex;align-items:center;gap:8px;}
 .langsel{background:#0d1525;border:2px solid #4a9eff;border-radius:8px;padding:5px 8px;color:#4a9eff;font-family:'Orbitron',monospace;font-size:9px;font-weight:700;cursor:pointer;outline:none;}
 .pill{display:flex;align-items:center;gap:6px;padding:5px 12px;border-radius:20px;border:2px solid #2a3550;background:#0d1525;}
 .dot{width:9px;height:9px;border-radius:50%;}
@@ -26,88 +24,77 @@ body{font-family:'Inter',sans-serif;color:#ffffff;}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
 @keyframes spin{from{transform:rotate(0)}to{transform:rotate(360deg)}}
 @keyframes fadeUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
-
-/* KEY SCREEN */
-.keyscreen{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:32px 24px;gap:22px;text-align:center;}
+.flabel{font-family:'Orbitron',monospace;font-size:11px;font-weight:700;letter-spacing:2px;color:#4a9eff;text-transform:uppercase;margin-bottom:9px;display:block;}
+.finput{background:#0d1525;border:2px solid #ffffff;border-radius:12px;padding:16px 18px;color:#ffffff;font-size:18px;outline:none;width:100%;}
+.finput::placeholder{color:#556688;font-size:15px;}
+.finput:focus{border-color:#4a9eff;}
+.keyscreen{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:32px 24px;gap:20px;text-align:center;}
 .key-icon{font-size:56px;}
 .key-title{font-family:'Orbitron',monospace;font-size:20px;font-weight:900;color:#ff6b35;letter-spacing:2px;}
 .key-sub{font-size:16px;color:#aabbcc;line-height:1.7;}
-.key-sub a{color:#4a9eff;}
-.flabel{font-family:'Orbitron',monospace;font-size:11px;font-weight:700;letter-spacing:2px;color:#4a9eff;text-transform:uppercase;margin-bottom:9px;display:block;}
-.finput{background:#0d1525;border:2px solid #ffffff;border-radius:12px;padding:16px 18px;color:#ffffff;font-size:18px;font-family:'Inter',sans-serif;outline:none;width:100%;}
-.finput::placeholder{color:#556688;font-size:15px;}
-.finput:focus{border-color:#4a9eff;background:#111828;}
+.key-sub a{color:#4a9eff;text-decoration:none;}
 .kinput{background:#0d1525;border:2px solid #ffffff;border-radius:12px;padding:15px 18px;color:#ffffff;font-size:13px;font-family:monospace;outline:none;width:100%;letter-spacing:1px;}
 .kinput::placeholder{color:#556688;}
 .kinput:focus{border-color:#4a9eff;}
-.savebtn{background:linear-gradient(135deg,#0d3a0d,#1a6a1a);color:#00e87a;border:2px solid #2a6a2a;border-radius:14px;padding:18px;font-family:'Orbitron',monospace;font-size:13px;font-weight:900;letter-spacing:2px;cursor:pointer;text-transform:uppercase;width:100%;}
-
-/* SETUP */
-.setup{flex:1;padding:24px 18px;display:flex;flex-direction:column;gap:18px;}
+.setup{flex:1;padding:22px 18px;display:flex;flex-direction:column;gap:16px;}
 .s-hero{text-align:center;}
 .s-icon{font-size:50px;margin-bottom:8px;}
 .s-title{font-family:'Orbitron',monospace;font-size:20px;font-weight:900;color:#ff6b35;letter-spacing:2px;margin-bottom:5px;}
 .s-sub{font-size:16px;color:#aabbcc;line-height:1.5;}
-.geobtn{background:#0d1828;border:2px solid #4a9eff;border-radius:12px;padding:16px;color:#4a9eff;font-family:'Orbitron',monospace;font-size:12px;font-weight:700;letter-spacing:1px;cursor:pointer;text-transform:uppercase;width:100%;}
+.geobtn{background:#0d1828;border:2px solid #4a9eff;border-radius:12px;padding:16px;color:#4a9eff;font-size:14px;font-weight:700;cursor:pointer;width:100%;}
 .geobtn.ok{border-color:#00e87a;color:#00e87a;background:#081810;}
 .row2{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
 .dirhint{font-size:13px;color:#778899;margin-top:6px;}
 .errbox{padding:14px 16px;background:#200808;border:2px solid #cc2020;border-radius:10px;color:#ff9090;font-size:15px;font-weight:600;}
-.startbtn{background:linear-gradient(135deg,#0d3a0d,#1a6a1a);color:#00e87a;border:2px solid #2a6a2a;border-radius:14px;padding:20px;font-family:'Orbitron',monospace;font-size:14px;font-weight:900;letter-spacing:2px;cursor:pointer;text-transform:uppercase;width:100%;margin-top:auto;}
-.keybtn{background:#0d1828;border:2px solid #4a9eff;border-radius:12px;padding:14px;color:#4a9eff;font-family:'Orbitron',monospace;font-size:11px;font-weight:700;letter-spacing:1px;cursor:pointer;text-transform:uppercase;width:100%;}
+.bigbtn{border-radius:14px;padding:18px;font-size:15px;font-weight:700;cursor:pointer;width:100%;letter-spacing:1px;border:none;}
+.bigbtn.green{background:linear-gradient(135deg,#0d3a0d,#1a6a1a);color:#00e87a;border:2px solid #2a6a2a;}
+.bigbtn.blue{background:#0d1828;color:#4a9eff;border:2px solid #2a4a80;}
 .sep{display:flex;align-items:center;gap:12px;color:#667788;font-size:14px;}
 .sep:before,.sep:after{content:'';flex:1;height:1px;background:#2a3550;}
-
-/* MAIN */
-.imgzone{position:relative;height:195px;background:#0d1020;overflow:hidden;flex-shrink:0;}
+.imgzone{position:relative;height:190px;background:#0d1020;overflow:hidden;flex-shrink:0;}
 .locimg{width:100%;height:100%;object-fit:cover;opacity:0;transition:opacity .8s;}
-.locimg.on{opacity:.7;}
+.locimg.on{opacity:.75;}
 .imgover{position:absolute;inset:0;background:linear-gradient(to top,rgba(5,7,15,1) 0%,rgba(5,7,15,.15) 65%,transparent 100%);}
 .imgbot{position:absolute;bottom:0;left:0;right:0;padding:14px 18px;}
-.locname{font-family:'Orbitron',monospace;font-size:13px;font-weight:700;letter-spacing:2px;color:#ff6b35;text-transform:uppercase;margin-bottom:4px;text-shadow:0 1px 4px rgba(0,0,0,.8);}
-.loccrd{font-family:'Orbitron',monospace;font-size:10px;color:#aabbcc;letter-spacing:1px;text-shadow:0 1px 3px rgba(0,0,0,.8);}
+.locname{font-family:'Orbitron',monospace;font-size:12px;font-weight:700;letter-spacing:2px;color:#ff6b35;text-transform:uppercase;margin-bottom:4px;}
+.loccrd{font-family:'Orbitron',monospace;font-size:10px;color:#aabbcc;letter-spacing:1px;}
 .imgsp{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:36px;opacity:.2;animation:spin 4s linear infinite;}
-
 .dash{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;padding:12px 14px;border-bottom:2px solid #2a3550;}
 .gauge{text-align:center;padding:12px 4px;background:#0d1525;border:2px solid #2a3550;border-radius:10px;}
 .gv{font-family:'Orbitron',monospace;font-size:22px;font-weight:700;color:#00e87a;line-height:1;}
 .gv.d{font-size:20px;color:#4a9eff;}
 .gv.c{font-size:20px;color:#f5c842;}
 .gv.w{font-size:15px;color:#cc88ff;padding-top:2px;}
-.gl{font-family:'Orbitron',monospace;font-size:8px;letter-spacing:1.5px;color:#667788;text-transform:uppercase;margin-top:5px;}
-
+.gl{font-family:'Orbitron',monospace;font-size:8px;letter-spacing:1.5px;color:#778899;text-transform:uppercase;margin-top:5px;}
 .sa{flex:1;padding:18px;overflow-y:auto;}
 .airbar{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;}
-.airlbl{font-family:'Orbitron',monospace;font-size:10px;letter-spacing:3px;color:#667788;text-transform:uppercase;display:flex;align-items:center;gap:7px;}
+.airlbl{font-family:'Orbitron',monospace;font-size:10px;letter-spacing:3px;color:#778899;text-transform:uppercase;display:flex;align-items:center;gap:7px;}
 .airdot{width:7px;height:7px;border-radius:50%;background:#ff6b35;animation:pulse 1.4s infinite;}
-.snum{font-family:'Orbitron',monospace;font-size:10px;color:#667788;letter-spacing:1px;}
-.stxt{font-size:21px;line-height:1.8;color:#ffffff;font-style:italic;animation:fadeUp .5s ease;font-weight:400;}
-.ldtxt{color:#667788;font-family:'Orbitron',monospace;font-size:12px;display:flex;align-items:center;gap:10px;letter-spacing:1px;}
+.snum{font-family:'Orbitron',monospace;font-size:10px;color:#778899;letter-spacing:1px;}
+.stxt{font-size:21px;line-height:1.8;color:#ffffff;font-style:italic;animation:fadeUp .5s ease;}
+.ldtxt{color:#778899;font-family:'Orbitron',monospace;font-size:12px;display:flex;align-items:center;gap:10px;letter-spacing:1px;}
 .sp{display:inline-block;animation:spin 1s linear infinite;}
 .pgrow{display:flex;align-items:center;gap:10px;margin-top:14px;}
-.pglbl{font-family:'Orbitron',monospace;font-size:9px;color:#778899;white-space:nowrap;}
+.pglbl{font-family:'Orbitron',monospace;font-size:9px;color:#889aaa;white-space:nowrap;}
 .pgbar{flex:1;height:3px;background:#1a2535;border-radius:2px;overflow:hidden;}
 .pgfill{height:100%;background:linear-gradient(to right,#ff6b35,#f5c842);border-radius:2px;transition:width 1s linear;}
-
 .togrow{padding:8px 14px;display:flex;gap:8px;border-top:2px solid #2a3550;}
-.tog{flex:1;padding:11px 6px;background:#0d1525;border:2px solid #2a3550;border-radius:9px;font-family:'Orbitron',monospace;font-size:9px;letter-spacing:1px;color:#aabbcc;cursor:pointer;text-transform:uppercase;text-align:center;font-weight:700;}
+.tog{flex:1;padding:11px 4px;background:#0d1525;border:2px solid #2a3550;border-radius:9px;font-size:11px;color:#aabbcc;cursor:pointer;text-align:center;font-weight:600;}
 .tog.act{background:#0a1a30;border-color:#4a9eff;color:#4a9eff;}
 .tog.spk{color:#00e87a;border-color:#1a3a25;}
 .tog.spk.going{border-color:#00e87a;background:#081810;}
-.tog.wake{color:#f5c842;border-color:#2a2010;}
-.tog.wake.act{border-color:#f5c842;background:#151005;}
-
-.wakeinfo{font-family:'Orbitron',monospace;font-size:9px;color:#667788;text-align:center;padding:5px 0;letter-spacing:1px;}
+.tog.wake.act{border-color:#f5c842;color:#f5c842;background:#151005;}
+.wakeinfo{font-size:11px;color:#667788;text-align:center;padding:5px 0;}
 .qa{padding:10px 14px;border-top:2px solid #2a3550;}
-.qi{width:100%;background:#0d1525;border:2px solid #ffffff;border-radius:10px;padding:14px 15px;color:#ffffff;font-family:'Inter',sans-serif;font-size:17px;outline:none;margin-bottom:8px;}
+.qi{width:100%;background:#0d1525;border:2px solid #ffffff;border-radius:10px;padding:14px 15px;color:#ffffff;font-size:17px;outline:none;margin-bottom:8px;}
 .qi::placeholder{color:#556688;}
 .qi:focus{border-color:#4a9eff;}
 .qbs{display:flex;gap:8px;}
 .ctrl{padding:13px 14px 24px;display:flex;gap:10px;border-top:2px solid #2a3550;}
-.btn{flex:1;padding:17px;border:none;border-radius:12px;font-family:'Orbitron',monospace;font-size:12px;font-weight:700;letter-spacing:1.5px;cursor:pointer;text-transform:uppercase;}
+.btn{flex:1;padding:17px;border:none;border-radius:12px;font-size:13px;font-weight:700;cursor:pointer;text-transform:uppercase;letter-spacing:1px;}
 .btn:active{transform:scale(.96);}
 .bstop{background:linear-gradient(135deg,#2e0d0d,#5a1a1a);color:#ff9090;border:2px solid #5a2020;}
-.bq{flex:.6;background:#0d1525;color:#4a9eff;border:2px solid #2a4a70;font-size:10px;}
+.bq{flex:.6;background:#0d1525;color:#4a9eff;border:2px solid #2a4a70;font-size:11px;}
 .bsend{background:#0d1e3a;color:#88bbff;border:2px solid #2a4a80;}
 .bcancel{background:#0d1020;color:#8899aa;border:2px solid #2a3550;flex:.5;}
 </style>
@@ -122,29 +109,26 @@ const {useState,useRef,useEffect}=React;
 const PROXY="https://corsproxy.io/?https://api.anthropic.com/v1/messages";
 const KEY_STORE="rr_key_v3";
 
-const LANGS={
-  en:{label:"EN",name:"English",tts:"en-US",prompt:"English"},
-  es:{label:"ES",name:"Español",tts:"es-ES",prompt:"Spanish"},
-  pt:{label:"PT",name:"Português",tts:"pt-BR",prompt:"Portuguese"},
-  fr:{label:"FR",name:"Français",tts:"fr-FR",prompt:"French"},
-  de:{label:"DE",name:"Deutsch",tts:"de-DE",prompt:"German"},
-  uk:{label:"UA",name:"Українська",tts:"uk-UA",prompt:"Ukrainian"},
-  ja:{label:"JA",name:"日本語",tts:"ja-JP",prompt:"Japanese"},
-  zh:{label:"ZH",name:"中文",tts:"zh-CN",prompt:"Chinese"},
-  hi:{label:"HI",name:"हिन्दी",tts:"hi-IN",prompt:"Hindi"},
+const L={
+  en:{lb:"EN",tts:"en-US",ai:"English",ui:{title:"Your AI guide to roads worldwide",geo:"📍 Auto-Detect My Location",geoOk:"✓ Location Detected!",manual:"or enter manually",coords:"Coordinates (lat, lng)",speed:"Speed (mph)",hdg:"Heading °",hint:"N=0 · E=90 · S=180 · W=270",chKey:"🔑 Change API Key",start:"▶ Start Tour",stop:"■ Stop",ask:"? Ask",tOn:"📄 Text ON",tOff:"📄 Text OFF",spk:"🔊 Speaking",rpl:"🔊 Replay",awk:"🔆 Awake",wk:"🔆 Wake",scrOn:"🔆 Screen kept on",scrOff:"⚠ Screen may turn off",air:"ON AIR",load:"LOADING",rdy:"READY",gen:"Generating...",prep:"Preparing...",nxt:"next",qph:"Ask about this place...",send:"Ask",cnl:"Cancel",kt:"One-Time Setup",ks:"Get free key at",kc:"Free $5 — ~200 hours",kl:"Paste Anthropic API key",ksv:"✓ Save & Start",kn:"Stored only on your device",ke:"Key must start with sk-ant..."}},
+  ru:{lb:"RU",tts:"ru-RU",ai:"Russian",ui:{title:"Ваш AI-гид по дорогам мира",geo:"📍 Определить местоположение",geoOk:"✓ Местоположение найдено!",manual:"или введите вручную",coords:"Координаты (широта, долгота)",speed:"Скорость (mph)",hdg:"Направление °",hint:"С=0 · В=90 · Ю=180 · З=270",chKey:"🔑 Сменить ключ",start:"▶ Начать тур",stop:"■ Стоп",ask:"? Вопрос",tOn:"📄 Текст ВКЛ",tOff:"📄 Текст ВЫКЛ",spk:"🔊 Говорю...",rpl:"🔊 Повтор",awk:"🔆 Не сплю",wk:"🔆 Экран",scrOn:"🔆 Экран включён",scrOff:"⚠ Экран может погаснуть",air:"В ЭФИРЕ",load:"ЗАГРУЗКА",rdy:"ГОТОВ",gen:"Генерирую...",prep:"Готовлю рассказ...",nxt:"след.",qph:"Задай вопрос...",send:"Спросить",cnl:"Отмена",kt:"Первичная настройка",ks:"Получи ключ на",kc:"Бесплатно $5 — ~200 часов",kl:"Вставь Anthropic API ключ",ksv:"✓ Сохранить и начать",kn:"Только на вашем устройстве",ke:"Ключ должен начинаться с sk-ant..."}},
+  uk:{lb:"UA",tts:"uk-UA",ai:"Ukrainian",ui:{title:"Ваш AI-гід дорогами світу",geo:"📍 Визначити місцезнаходження",geoOk:"✓ Місцезнаходження знайдено!",manual:"або введіть вручну",coords:"Координати (широта, довгота)",speed:"Швидкість (mph)",hdg:"Напрям °",hint:"П=0 · С=90 · Пд=180 · З=270",chKey:"🔑 Змінити ключ",start:"▶ Розпочати тур",stop:"■ Стоп",ask:"? Питання",tOn:"📄 Текст УВІМК",tOff:"📄 Текст ВИМК",spk:"🔊 Говорю...",rpl:"🔊 Повтор",awk:"🔆 Активний",wk:"🔆 Екран",scrOn:"🔆 Екран увімкнено",scrOff:"⚠ Екран може погаснути",air:"В ЕФІРІ",load:"ЗАВАНТАЖЕННЯ",rdy:"ГОТОВО",gen:"Генерую...",prep:"Готую розповідь...",nxt:"наст.",qph:"Постав питання...",send:"Запитати",cnl:"Скасувати",kt:"Налаштування",ks:"Отримай ключ на",kc:"Безкоштовно $5 — ~200 годин",kl:"Вставте Anthropic API ключ",ksv:"✓ Зберегти і почати",kn:"Тільки на вашому пристрої",ke:"Ключ має починатися з sk-ant..."}},
+  es:{lb:"ES",tts:"es-ES",ai:"Spanish",ui:{title:"Tu guía AI para carreteras",geo:"📍 Detectar mi ubicación",geoOk:"✓ ¡Ubicación detectada!",manual:"o ingresa manualmente",coords:"Coordenadas (lat, lng)",speed:"Velocidad (mph)",hdg:"Rumbo °",hint:"N=0 · E=90 · S=180 · O=270",chKey:"🔑 Cambiar clave",start:"▶ Iniciar",stop:"■ Parar",ask:"? Preguntar",tOn:"📄 Texto ON",tOff:"📄 Texto OFF",spk:"🔊 Hablando...",rpl:"🔊 Repetir",awk:"🔆 Activo",wk:"🔆 Pantalla",scrOn:"🔆 Pantalla encendida",scrOff:"⚠ La pantalla puede apagarse",air:"EN AIRE",load:"CARGANDO",rdy:"LISTO",gen:"Generando...",prep:"Preparando...",nxt:"próx.",qph:"Pregunta sobre este lugar...",send:"Preguntar",cnl:"Cancelar",kt:"Configuración",ks:"Obtén la clave en",kc:"$5 gratis — ~200 horas",kl:"Pega tu clave Anthropic",ksv:"✓ Guardar y empezar",kn:"Solo en tu dispositivo",ke:"La clave debe comenzar con sk-ant..."}},
+  pt:{lb:"PT",tts:"pt-BR",ai:"Portuguese",ui:{title:"Seu guia AI pelas estradas",geo:"📍 Detectar minha localização",geoOk:"✓ Localização detectada!",manual:"ou insira manualmente",coords:"Coordenadas (lat, lng)",speed:"Velocidade (mph)",hdg:"Direção °",hint:"N=0 · L=90 · S=180 · O=270",chKey:"🔑 Mudar chave",start:"▶ Iniciar",stop:"■ Parar",ask:"? Perguntar",tOn:"📄 Texto ON",tOff:"📄 Texto OFF",spk:"🔊 Falando...",rpl:"🔊 Repetir",awk:"🔆 Ativo",wk:"🔆 Tela",scrOn:"🔆 Tela mantida acesa",scrOff:"⚠ A tela pode apagar",air:"NO AR",load:"CARREGANDO",rdy:"PRONTO",gen:"Gerando...",prep:"Preparando...",nxt:"próx.",qph:"Pergunta sobre este lugar...",send:"Perguntar",cnl:"Cancelar",kt:"Configuração",ks:"Obtenha a chave em",kc:"$5 grátis — ~200 horas",kl:"Cole sua chave Anthropic",ksv:"✓ Salvar e começar",kn:"Somente no seu dispositivo",ke:"A chave deve começar com sk-ant..."}},
+  de:{lb:"DE",tts:"de-DE",ai:"German",ui:{title:"Ihr KI-Reiseführer für Straßen",geo:"📍 Standort ermitteln",geoOk:"✓ Standort erkannt!",manual:"oder manuell eingeben",coords:"Koordinaten (Breite, Länge)",speed:"Geschwindigkeit (mph)",hdg:"Richtung °",hint:"N=0 · O=90 · S=180 · W=270",chKey:"🔑 API Key ändern",start:"▶ Tour starten",stop:"■ Stopp",ask:"? Fragen",tOn:"📄 Text AN",tOff:"📄 Text AUS",spk:"🔊 Spreche...",rpl:"🔊 Wiederholen",awk:"🔆 Aktiv",wk:"🔆 Bildschirm",scrOn:"🔆 Bildschirm bleibt an",scrOff:"⚠ Bildschirm kann ausschalten",air:"AUF SENDUNG",load:"LADEN",rdy:"BEREIT",gen:"Generiere...",prep:"Vorbereiten...",nxt:"nächste",qph:"Frage über diesen Ort...",send:"Fragen",cnl:"Abbrechen",kt:"Ersteinrichtung",ks:"API-Schlüssel auf",kc:"Kostenlos $5 — ~200 Stunden",kl:"Anthropic API-Schlüssel einfügen",ksv:"✓ Speichern und starten",kn:"Nur auf Ihrem Gerät",ke:"Schlüssel muss mit sk-ant... beginnen"}},
+  fr:{lb:"FR",tts:"fr-FR",ai:"French",ui:{title:"Votre guide AI pour les routes",geo:"📍 Détecter ma position",geoOk:"✓ Position détectée!",manual:"ou entrer manuellement",coords:"Coordonnées (lat, lng)",speed:"Vitesse (mph)",hdg:"Cap °",hint:"N=0 · E=90 · S=180 · O=270",chKey:"🔑 Changer la clé",start:"▶ Démarrer",stop:"■ Arrêt",ask:"? Demander",tOn:"📄 Texte ON",tOff:"📄 Texte OFF",spk:"🔊 Parle...",rpl:"🔊 Rejouer",awk:"🔆 Actif",wk:"🔆 Écran",scrOn:"🔆 Écran maintenu allumé",scrOff:"⚠ L'écran peut s'éteindre",air:"EN DIRECT",load:"CHARGEMENT",rdy:"PRÊT",gen:"Génération...",prep:"Préparation...",nxt:"suiv.",qph:"Question sur ce lieu...",send:"Demander",cnl:"Annuler",kt:"Configuration",ks:"Obtenez la clé sur",kc:"$5 gratuit — ~200 heures",kl:"Collez votre clé Anthropic",ksv:"✓ Enregistrer et démarrer",kn:"Stocké uniquement sur votre appareil",ke:"La clé doit commencer par sk-ant..."}}
 };
+const LK=["en","ru","uk","es","pt","de","fr"];
 
 const toDir=h=>{if(h==null||isNaN(h))return"—";const d=["N","NE","E","SE","S","SW","W","NW"];return d[Math.round(((h%360)+360)%360/45)%8];};
 const toMph=ms=>ms&&ms>0?Math.round(ms*2.237):0;
 
 function App(){
   const saved=localStorage.getItem(KEY_STORE)||"";
-  const autoLang=(navigator.language||"en").split("-")[0].toLowerCase();
-  const defLang=LANGS[autoLang]?"en":autoLang in LANGS?autoLang:"en";
-
+  const autoL=(navigator.language||"en").split("-")[0].toLowerCase();
   const [screen,setScreen]=useState(saved?"setup":"apikey");
   const [apiInput,setApiInput]=useState("");
-  const [lang,setLang]=useState(defLang);
+  const [lang,setLang]=useState(L[autoL]?autoL:"en");
   const [coordInput,setCoordInput]=useState("");
   const [speedVal,setSpeedVal]=useState("65");
   const [headVal,setHeadVal]=useState("90");
@@ -153,8 +137,8 @@ function App(){
   const [status,setStatus]=useState("idle");
   const [story,setStory]=useState("");
   const [locName,setLocName]=useState("");
-  const [imgUrl,setImgUrl]=useState("");
-  const [imgOn,setImgOn]=useState(false);
+  const [imgSeed,setImgSeed]=useState(1);
+  const [imgLoaded,setImgLoaded]=useState(false);
   const [err,setErr]=useState("");
   const [qMode,setQMode]=useState(false);
   const [qText,setQText]=useState("");
@@ -171,13 +155,22 @@ function App(){
   const cdRef=useRef(null);
   const wlRef=useRef(null);
   const langRef=useRef(lang);
+  const cntRef=useRef(0);
 
   useEffect(()=>{langRef.current=lang;},[lang]);
   useEffect(()=>{if(coords)coordsRef.current=coords;},[coords]);
 
+  const T=k=>(L[lang]?.ui||L.en.ui)[k]||L.en.ui[k]||k;
+
   const requestWake=async()=>{
     try{if("wakeLock" in navigator){wlRef.current=await navigator.wakeLock.request("screen");setWakeLock(true);wlRef.current.addEventListener("release",()=>setWakeLock(false));}}catch{}
   };
+
+  useEffect(()=>{
+    const h=()=>{if(document.visibilityState==="visible"&&runRef.current)requestWake();};
+    document.addEventListener("visibilitychange",h);
+    return()=>document.removeEventListener("visibilitychange",h);
+  },[]);
 
   const startCd=s=>{
     setCd(s);
@@ -190,48 +183,52 @@ function App(){
       const s=window.speechSynthesis;
       if(!s){res();return;}
       s.cancel();
-      const ttsLang=LANGS[langRef.current]?.tts||"en-US";
+      const tl=L[langRef.current]?.tts||"en-US";
       const u=new SpeechSynthesisUtterance(text);
-      u.lang=ttsLang;u.rate=0.88;u.pitch=1.05;
-      try{
-        const vs=s.getVoices();
-        const v=vs.find(x=>x.lang===ttsLang)||vs.find(x=>x.lang.startsWith(ttsLang.split("-")[0]))||vs[0];
-        if(v)u.voice=v;
-      }catch{}
+      u.lang=tl;u.rate=0.88;u.pitch=1.05;
+      try{const vs=s.getVoices();const v=vs.find(x=>x.lang===tl)||vs.find(x=>x.lang.startsWith(tl.split("-")[0]))||vs[0];if(v)u.voice=v;}catch{}
       setSpeaking(true);
       u.onend=u.onerror=()=>{setSpeaking(false);res();};
       s.speak(u);
     }catch{setSpeaking(false);res();}
   });
 
-  const getPhoto=async(keyword,location)=>{
-    try{
-      const wikiName=encodeURIComponent((location||keyword).replace(/,.*$/,"").trim());
-      const r=await fetch(`https://en.wikipedia.org/api/rest_v1/page/summary/${wikiName}`);
-      const d=await r.json();
-      if(d.thumbnail?.source){return d.thumbnail.source.replace(/\/\d+px-/,"/600px-");}
-    }catch{}
-    return `https://source.unsplash.com/700x300/?${encodeURIComponent(keyword||"american highway")}&t=${Date.now()}`;
-  };
-
   const callClaude=async msg=>{
     const key=localStorage.getItem(KEY_STORE);
-    const langName=LANGS[langRef.current]?.prompt||"English";
-    const msgs=[...histRef.current.slice(-6),{role:"user",content:msg}];
+    const al=L[langRef.current]?.ai||"English";
+    const msgs=[...histRef.current.slice(-4),{role:"user",content:msg}];
     const r=await fetch(PROXY,{
       method:"POST",
       headers:{"Content-Type":"application/json","x-api-key":key,"anthropic-version":"2023-06-01","anthropic-dangerous-direct-browser-access":"true"},
       body:JSON.stringify({
         model:"claude-haiku-4-5-20251001",
         max_tokens:400,
-        system:`You are Road Radio AI — an engaging audio guide for drivers on roads worldwide.
-Narrate like the best radio host: vivid, enthusiastic, specific details about history, nature, wildlife, geography, culture.
-Name specific places, peaks, rivers, towns. Always hint at what's coming ahead.
-Never say you don't know — always find something fascinating about the region.
-3-4 sentences maximum.
-CRITICAL: Respond ONLY in ${langName}. No other language.
-Reply ONLY with valid JSON, no markdown:
-{"story":"3-4 sentences in ${langName}","location":"specific place name","image":"2-3 english words for photo search"}`,
+        system:`You are Road Radio AI — a charismatic, witty road trip companion and guide. You make every mile interesting.
+
+YOUR STYLE: Warm, engaging, slightly humorous — like a brilliant friend who happens to know everything. Never dry or lecture-like. Think best podcast host meets knowledgeable local guide.
+
+WHAT TO TALK ABOUT (rotate naturally, never repeat same topic twice in a row):
+- Immediate surroundings: exact terrain, trees, soil type, what animals live here RIGHT NOW
+- Local geology: what rocks/minerals are under the wheels, how this landscape formed
+- Weather & climate: current conditions, seasonal patterns, what to expect ahead
+- Road itself: when built, what material, interesting construction facts
+- Wildlife: what animals are in these exact woods/fields, habits, fun facts
+- Plants & forests: species here, age of trees, ecosystem facts
+- Underground: what minerals/fossils have been found in this county
+- Night sky: what constellations are visible here, any observatories nearby
+- Water: any rivers/lakes/swamps nearby, what fish live there, water quality
+- History: what happened HERE 50-500 years ago, Native American history, settlers
+- Upcoming: "In about 15 miles you'll approach [place] — here's a fun fact to get you ready..."
+- Hidden gems: things 10-30 miles away that most drivers never know about
+
+RULES:
+- If nothing famous nearby: go deep on nature, geology, wildlife, road history, weather
+- Always end with a hook or teaser about what's coming
+- Be warm and conversational, add light humor when appropriate  
+- NEVER say "there's nothing interesting here" — there ALWAYS is something
+- 3-4 sentences ONLY. Make every word count.
+- CRITICAL: Respond entirely in ${al}. Every single word must be in ${al}.
+Reply ONLY valid JSON no markdown: {"story":"3-4 sentences","location":"name of exact current location in English","image":"2-3 english words for landscape"}`,
         messages:msgs
       })
     });
@@ -240,7 +237,7 @@ Reply ONLY with valid JSON, no markdown:
     let txt=data.content?.[0]?.text??"{}";
     txt=txt.replace(/```json|```/g,"").trim();
     try{const p=JSON.parse(txt);histRef.current=[...msgs,{role:"assistant",content:txt}];return p;}
-    catch{histRef.current=[...msgs,{role:"assistant",content:txt}];return{story:txt,location:"On the road",image:"highway landscape"};}
+    catch{histRef.current=[...msgs,{role:"assistant",content:txt}];return{story:txt,location:"On the road",image:"highway"};}
   };
 
   const loop=async()=>{
@@ -249,22 +246,24 @@ Reply ONLY with valid JSON, no markdown:
     if(!c)return;
     setStatus("loading");
     try{
-      const prompt=`Coordinates: ${c.lat.toFixed(4)}°N, ${Math.abs(c.lng).toFixed(4)}°W. Speed: ${toMph(c.speed)||parseInt(speedVal)||65} mph. Heading: ${toDir(c.heading)}. What's interesting here and ahead?`;
+      const spd=toMph(c.speed)||parseInt(speedVal)||65;
+      const prompt=`EXACT current position: ${c.lat.toFixed(5)}°N, ${c.lng.toFixed(5)}°W. Speed: ${spd} mph. Heading: ${toDir(c.heading)}. Describe what is RIGHT HERE within 1 mile of this exact spot.`;
       const res=await callClaude(prompt);
       if(!runRef.current)return;
       setStory(res.story||"");
-      setLocName(res.location||"On the road");
-      setImgOn(false);
-      const photo=await getPhoto(res.image||"highway",res.location);
-      setImgUrl(photo);
+      setLocName(res.location||"");
+      cntRef.current+=1;
+      setCount(cntRef.current);
+      const seed=Math.round(Math.abs(c.lat*1000+c.lng*1000))%9000+1000;
+      setImgSeed(seed);
+      setImgLoaded(false);
       setStatus("ready");
-      setCount(n=>n+1);
       startCd(35);
       if(res.story)speak(res.story);
       await new Promise(r=>setTimeout(r,35000));
       if(runRef.current)loopRef.current?.();
     }catch(e){
-      setErr((e.message||"Connection error").slice(0,120));
+      setErr((e.message||"Connection error").slice(0,100));
       runRef.current=false;setStatus("idle");
     }
   };
@@ -300,7 +299,7 @@ Reply ONLY with valid JSON, no markdown:
     let c=coordsRef.current||parseCoords();
     if(!c){setErr("Tap Auto-Detect or enter coordinates");return;}
     coordsRef.current=c;setCoords(c);
-    runRef.current=true;histRef.current=[];
+    runRef.current=true;histRef.current=[];cntRef.current=0;
     setErr("");setStory("");setCount(0);
     setScreen("main");startGeoWatch();
     await requestWake();
@@ -332,25 +331,26 @@ Reply ONLY with valid JSON, no markdown:
 
   const saveKey=()=>{
     const k=apiInput.trim();
-    if(!k.startsWith("sk-ant")){setErr("Key must start with sk-ant...");return;}
+    if(!k.startsWith("sk-ant")){setErr(T("ke"));return;}
     localStorage.setItem(KEY_STORE,k);setErr("");setScreen("setup");
   };
 
   const isMain=screen==="main";
   const dotCls=!isMain?"off":status==="loading"?"ld":"on";
-  const statusTxt=!isMain?"READY":status==="loading"?"LOADING":"ON AIR";
+  const stTxt=!isMain?T("rdy"):status==="loading"?T("load"):T("air");
+  const imgUrl=`https://picsum.photos/seed/${imgSeed}/700/300`;
 
   return(
     <div className="app">
       <div className="hdr">
         <div className="logo">Road <em>Radio</em> AI</div>
-        <div className="hdr-right">
+        <div className="hdr-r">
           <select className="langsel" value={lang} onChange={e=>setLang(e.target.value)}>
-            {Object.entries(LANGS).map(([k,v])=><option key={k} value={k}>{v.label}</option>)}
+            {LK.map(k=><option key={k} value={k}>{L[k].lb}</option>)}
           </select>
           <div className="pill">
             <div className={`dot ${dotCls}`}/>
-            <span className="ptxt">{statusTxt}</span>
+            <span className="ptxt">{stTxt}</span>
           </div>
         </div>
       </div>
@@ -358,15 +358,15 @@ Reply ONLY with valid JSON, no markdown:
       {screen==="apikey"&&(
         <div className="keyscreen">
           <div className="key-icon">🔑</div>
-          <div className="key-title">One-Time Setup</div>
-          <div className="key-sub">Get your free API key at<br/><a href="https://console.anthropic.com" target="_blank">console.anthropic.com</a><br/>Free $5 credit — ~200 hours of stories</div>
+          <div className="key-title">{T("kt")}</div>
+          <div className="key-sub">{T("ks")}<br/><a href="https://console.anthropic.com" target="_blank">console.anthropic.com</a><br/>{T("kc")}</div>
           <div style={{width:"100%"}}>
-            <div className="flabel">Paste your Anthropic API key</div>
+            <div className="flabel">{T("kl")}</div>
             <input className="kinput" value={apiInput} onChange={e=>setApiInput(e.target.value)} placeholder="sk-ant-api03-..."/>
           </div>
           {err&&<div className="errbox">⚠ {err}</div>}
-          <button className="savebtn" onClick={saveKey}>✓ Save & Start →</button>
-          <div style={{fontSize:"13px",color:"#667788",textAlign:"center"}}>Stored only on your device. Never shared.</div>
+          <button className="bigbtn green" onClick={saveKey}>{T("ksv")}</button>
+          <div style={{fontSize:"13px",color:"#667788",textAlign:"center"}}>{T("kn")}</div>
         </div>
       )}
 
@@ -375,104 +375,86 @@ Reply ONLY with valid JSON, no markdown:
           <div className="s-hero">
             <div className="s-icon">🛣️</div>
             <div className="s-title">Road Radio AI</div>
-            <div className="s-sub">Your AI guide to roads worldwide</div>
+            <div className="s-sub">{T("title")}</div>
           </div>
-          <button className={`geobtn${geoOk?" ok":""}`} onClick={getGeo}>
-            {geoOk?"✓ Location Detected — Ready!":"📍 Auto-Detect My Location"}
-          </button>
-          <div className="sep">or enter manually</div>
+          <button className={`geobtn${geoOk?" ok":""}`} onClick={getGeo}>{geoOk?T("geoOk"):T("geo")}</button>
+          <div className="sep">{T("manual")}</div>
           <div>
-            <label className="flabel">📍 Coordinates (lat, lng)</label>
+            <label className="flabel">{T("coords")}</label>
             <input className="finput" value={coordInput} onChange={e=>setCoordInput(e.target.value)} placeholder="35.4615, -97.6882"/>
           </div>
           <div className="row2">
             <div>
-              <label className="flabel">🚀 Speed (mph)</label>
+              <label className="flabel">{T("speed")}</label>
               <input className="finput" type="number" value={speedVal} onChange={e=>setSpeedVal(e.target.value)}/>
             </div>
             <div>
-              <label className="flabel">🧭 Heading °</label>
+              <label className="flabel">{T("hdg")}</label>
               <input className="finput" type="number" value={headVal} onChange={e=>setHeadVal(e.target.value)}/>
-              <div className="dirhint">N=0 · E=90 · S=180 · W=270</div>
+              <div className="dirhint">{T("hint")}</div>
             </div>
           </div>
           {err&&<div className="errbox">⚠ {err}</div>}
-          <button className="keybtn" onClick={()=>{localStorage.removeItem(KEY_STORE);setApiInput("");setScreen("apikey");}}>🔑 Change API Key</button>
-          <button className="startbtn" onClick={startTour}>▶ &nbsp;Start Tour</button>
+          <button className="bigbtn blue" onClick={()=>{localStorage.removeItem(KEY_STORE);setApiInput("");setScreen("apikey");}}>{T("chKey")}</button>
+          <button className="bigbtn green" onClick={startTour}>{T("start")}</button>
         </div>
       )}
 
       {screen==="main"&&(
         <>
           <div className="imgzone">
-            {!imgOn&&<div className="imgsp">🌄</div>}
-            {imgUrl&&<img className={`locimg${imgOn?" on":""}`} src={imgUrl} alt="" onLoad={()=>setImgOn(true)} onError={()=>setImgOn(true)}/>}
+            {!imgLoaded&&<div className="imgsp">🌄</div>}
+            <img className={`locimg${imgLoaded?" on":""}`} src={imgUrl} alt=""
+              onLoad={()=>setImgLoaded(true)}
+              onError={(e)=>{e.target.src=`https://picsum.photos/700/300?random=${imgSeed}`;}}
+            />
             <div className="imgover"/>
             <div className="imgbot">
-              <div className="locname">{locName||"Loading..."}</div>
+              <div className="locname">{locName||"..."}</div>
               {coords&&<div className="loccrd">{coords.lat.toFixed(4)}°N / {Math.abs(coords.lng).toFixed(4)}°W</div>}
             </div>
           </div>
-
           <div className="dash">
-            <div className="gauge">
-              <div className="gv">{toMph(coords?.speed)||parseInt(speedVal)||"—"}</div>
-              <div className="gl">MPH</div>
-            </div>
-            <div className="gauge">
-              <div className="gv d">{toDir(coords?.heading)}</div>
-              <div className="gl">DIR</div>
-            </div>
-            <div className="gauge">
-              <div className="gv c">{count}</div>
-              <div className="gl">STORIES</div>
-            </div>
-            <div className="gauge">
-              <div className="gv w">{coords?`${coords.lat.toFixed(1)}°`:"—"}</div>
-              <div className="gl">LAT</div>
-            </div>
+            <div className="gauge"><div className="gv">{toMph(coords?.speed)||parseInt(speedVal)||"—"}</div><div className="gl">MPH</div></div>
+            <div className="gauge"><div className="gv d">{toDir(coords?.heading)}</div><div className="gl">DIR</div></div>
+            <div className="gauge"><div className="gv c">{count}</div><div className="gl">{L[lang].lb}</div></div>
+            <div className="gauge"><div className="gv w">{coords?`${coords.lat.toFixed(1)}°`:"—"}</div><div className="gl">LAT</div></div>
           </div>
-
           <div className="sa">
             <div className="airbar">
-              <div className="airlbl">{status==="ready"&&<div className="airdot"/>}{status==="loading"?"GENERATING...":"ON AIR"}</div>
-              <div className="snum">#{count} · {LANGS[lang]?.label}</div>
+              <div className="airlbl">{status==="ready"&&<div className="airdot"/>}{status==="loading"?T("gen"):T("air")}</div>
+              <div className="snum">#{count}</div>
             </div>
-            {status==="loading"&&<div className="ldtxt"><span className="sp">◌</span>&nbsp;Preparing story...</div>}
+            {status==="loading"&&<div className="ldtxt"><span className="sp">◌</span>&nbsp;{T("prep")}</div>}
             {showTxt&&story&&status!=="loading"&&<div className="stxt">{story}</div>}
-            {!showTxt&&story&&status!=="loading"&&<div className="ldtxt">🔊 Audio only</div>}
+            {!showTxt&&story&&status!=="loading"&&<div className="ldtxt">🔊</div>}
             {story&&status==="ready"&&(
               <div className="pgrow">
-                <span className="pglbl">⟳ next</span>
+                <span className="pglbl">⟳ {T("nxt")}</span>
                 <div className="pgbar"><div className="pgfill" style={{width:`${Math.max(0,(1-cd/35)*100)}%`}}/></div>
                 <span className="pglbl">{cd}s</span>
               </div>
             )}
           </div>
-
-          <div className="wakeinfo">{wakeLock?"🔆 Screen kept on (Wake Lock active)":"⚠ Screen may turn off"}</div>
-
+          <div className="wakeinfo">{wakeLock?T("scrOn"):T("scrOff")}</div>
           <div className="togrow">
-            <div className={`tog${showTxt?" act":""}`} onClick={()=>setShowTxt(t=>!t)}>{showTxt?"📄 TEXT ON":"📄 TEXT OFF"}</div>
-            <div className={`tog spk${speaking?" going":""}`} onClick={()=>story&&speak(story)}>{speaking?"🔊 SPEAKING":"🔊 REPLAY"}</div>
-            <div className={`tog wake${wakeLock?" act":""}`} onClick={()=>wakeLock?wlRef.current?.release():requestWake()}>{wakeLock?"🔆 AWAKE":"🔆 WAKE"}</div>
+            <div className={`tog${showTxt?" act":""}`} onClick={()=>setShowTxt(t=>!t)}>{showTxt?T("tOn"):T("tOff")}</div>
+            <div className={`tog spk${speaking?" going":""}`} onClick={()=>story&&speak(story)}>{speaking?T("spk"):T("rpl")}</div>
+            <div className={`tog wake${wakeLock?" act":""}`} onClick={()=>wakeLock?wlRef.current?.release():requestWake()}>{wakeLock?T("awk"):T("wk")}</div>
           </div>
-
           {err&&<div className="errbox" style={{margin:"0 14px 8px"}}>⚠ {err}</div>}
-
           {qMode&&(
             <div className="qa">
-              <input className="qi" value={qText} onChange={e=>setQText(e.target.value)} placeholder="Ask about this place..." onKeyDown={e=>e.key==="Enter"&&sendQ()} autoFocus/>
+              <input className="qi" value={qText} onChange={e=>setQText(e.target.value)} placeholder={T("qph")} onKeyDown={e=>e.key==="Enter"&&sendQ()} autoFocus/>
               <div className="qbs">
-                <button className="btn bsend" style={{flex:1,padding:"12px"}} onClick={sendQ}>Ask</button>
-                <button className="btn bcancel" style={{padding:"12px"}} onClick={()=>{setQMode(false);setQText("");}}>Cancel</button>
+                <button className="btn bsend" style={{flex:1,padding:"12px"}} onClick={sendQ}>{T("send")}</button>
+                <button className="btn bcancel" style={{padding:"12px"}} onClick={()=>{setQMode(false);setQText("");}}>{T("cnl")}</button>
               </div>
             </div>
           )}
-
           <div className="ctrl">
-            <button className="btn bstop" onClick={stop}>■ STOP</button>
-            {!qMode&&<button className="btn bq" onClick={()=>setQMode(true)}>? ASK</button>}
+            <button className="btn bstop" onClick={stop}>{T("stop")}</button>
+            {!qMode&&<button className="btn bq" onClick={()=>setQMode(true)}>{T("ask")}</button>}
           </div>
         </>
       )}
