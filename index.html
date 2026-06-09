@@ -230,6 +230,8 @@ function App(){
   const [speedVal,setSpeedVal]=useState("65");
   const [headVal,setHeadVal]=useState("90");
   const [geoOk,setGeoOk]=useState(false);
+  const [destination,setDestination]=useState("");
+  const destRef=useRef("");
   const [coords,setCoords]=useState(null);
   const [status,setStatus]=useState("idle");
   const [story,setStory]=useState("");
@@ -266,6 +268,7 @@ function App(){
   const fetchingNext=useRef(false);
 
   useEffect(()=>{langRef.current=lang;},[lang]);
+  useEffect(()=>{destRef.current=destination;},[destination]);
   useEffect(()=>{excludedRef.current=excluded;},[excluded]);
   useEffect(()=>{modeRef.current=mode;localStorage.setItem(MODE_STORE,mode);},[mode]);
 
@@ -308,6 +311,7 @@ function App(){
   const buildSystem=(isQuestion,question)=>{
     const al=L[langRef.current]?.ai||"English";
     const exl=excludedRef.current;
+    const dest=destRef.current;
     const md=modeRef.current;
     const now=new Date();
     const hr=now.getHours(),mn=now.getMinutes();
@@ -319,9 +323,11 @@ function App(){
     const c=coordsRef.current||{lat:0,lng:0,speed:0,heading:90};
     const spd=toMph(c.speed)||parseInt(speedVal)||65;
     const hdg=c.heading||90;
+    const destCtx=dest?`Driver is heading to: ${dest}. Use this to anticipate the route and what's coming up.`:""
     const modeCtx=md==="car"?`Traveler is in a car at ${spd} mph.`:md==="bus"?`Traveler is on a bus or train at ${spd} mph.`:md==="bike"?`Traveler is on a bicycle at ${spd} mph. Describe closer details.`:`Traveler is walking at ${spd} mph. Describe very close surroundings in detail.`;
     const dirCtx=`Heading: ${toDir(hdg)} (${Math.round(hdg)}°). LEFT side = ${toLeft(hdg)} direction. RIGHT side = ${toRight(hdg)} direction. Use "on your left" and "on your right" precisely.`;
-    const exStr=exl.length>0?`\nNEVER mention: ${exl.join(', ')}.`:'';
+    const exStr=exl.length>0?`\nNEVER mention: ${exl.join(', ')}.`:''
+    const routeCtx=destCtx?`\n${destCtx}`:"";;
     const nightRule=isNight?`It is NIGHT. Do NOT say "you can see" or "look at". Instead say "if it were daylight you'd see..." or describe what lights/silhouettes are visible in headlights. Talk about night sky, stars, nocturnal animals that are active right now.`:`It is daytime. Describe what is visible through the windshield.`;
 
     if(isQuestion){
@@ -346,7 +352,7 @@ ${nightRule}
 
 RADIO DJ RULES — follow these exactly:
 - Use "..." between sentences for natural dramatic pauses
-- NEVER start with the same phrase twice. Vary: "Did you know...", "Look to your right...", "Funny thing about this place...", "Here's something most people miss...", "Just ahead...", "Right at this moment..."
+- NEVER start with the same phrase twice. Especially BANNED openers: 'Вы мчитесь', 'You're racing', 'Вы несётесь', 'As you drive'. Vary: "Did you know...", "Look to your right...", "Funny thing about this place...", "Here's something most people miss...", "Just ahead...", "Right at this moment..."
 - Always use "you" personally: "you're driving through", "on your left you'll notice"
 - Use left/right directions based on heading above — be accurate
 - End with a HOOK that makes listener want more: "...and just around the bend, something remarkable awaits."
@@ -369,8 +375,18 @@ Reply ONLY valid JSON: {"story":"5 sentences with ... pauses","location":"exact 
     const data=await r.json();
     let txt=data.content?.[0]?.text??"{}";
     txt=txt.replace(/```json|```/g,"").trim();
-    try{const p=JSON.parse(txt);if(!forNext)histRef.current=[...msgs,{role:"assistant",content:txt}];return p;}
-    catch{if(!forNext)histRef.current=[...msgs,{role:"assistant",content:txt}];return{story:txt,location:"On the road",image:"highway"};}
+    if(!forNext)histRef.current=[...msgs,{role:"assistant",content:txt}];
+    try{return JSON.parse(txt);}
+    catch{
+      // Try to extract story from malformed JSON
+      const sm=txt.match(/"story"\s*:\s*"((?:[^"\\]|\\.)*)"/);
+      const lm=txt.match(/"location"\s*:\s*"((?:[^"\\]|\\.)*)"/);
+      const im=txt.match(/"image"\s*:\s*"((?:[^"\\]|\\.)*)"/);
+      if(sm){return{story:sm[1].replace(/\\"/g,'"').replace(/\\n/g,' '),location:lm?lm[1]:"On the road",image:im?im[1]:"highway"};}
+      // Strip all JSON artifacts from plain text
+      const clean=txt.replace(/\{[^}]*\}/gs,'').replace(/"[^"]*":\s*"[^"]*"/g,'').replace(/^[\s,]+/,'').trim();
+      return{story:clean||txt,location:"On the road",image:"highway"};
+    }
   };
 
   const prefetchNext=async()=>{
@@ -448,6 +464,7 @@ Reply ONLY valid JSON: {"story":"5 sentences with ... pauses","location":"exact 
     let c=coordsRef.current||parseCoords();
     if(!c){setErr("Tap Auto-Detect or enter coordinates");return;}
     coordsRef.current=c;setCoords(c);
+    destRef.current=destination;
     runRef.current=true;histRef.current=[];nextRef.current=null;
     setErr("");setStory("");setNextReady(null);
     setScreen("main");startGeoWatch();
@@ -612,6 +629,10 @@ Reply ONLY valid JSON: {"story":"5 sentences with ... pauses","location":"exact 
           </div>
           <button className={`geobtn${geoOk?" ok":""}`} onClick={getGeo}>{geoOk?Tl("geoOk"):Tl("geo")}</button>
           <div className="sep">{Tl("manual")}</div>
+          <div>
+            <label className="flabel">🏁 {lang==="ru"?"Куда едете? (город, штат)":"Destination (city, state)"}</label>
+            <input className="finput" value={destination} onChange={e=>setDestination(e.target.value)} placeholder={lang==="ru"?"Лос-Анджелес, CA":"Los Angeles, CA"}/>
+          </div>
           <div>
             <label className="flabel">{Tl("coords")}</label>
             <input className="finput" value={coordInput} onChange={e=>setCoordInput(e.target.value)} placeholder="35.4615, -97.6882"/>
