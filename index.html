@@ -11,151 +11,156 @@ html,body{background:#05070f;height:100%;overscroll-behavior:none;}
 body{font-family:'Inter',sans-serif;color:#fff;}
 .app{min-height:100vh;background:#05070f;display:flex;flex-direction:column;max-width:500px;margin:0 auto;}
 
+/* SPLASH */
+.splash{position:fixed;inset:0;background:#05070f;z-index:999;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:20px;animation:splashOut 0.6s ease forwards 2.5s;}
+@keyframes splashOut{to{opacity:0;pointer-events:none;}}
+.splash-logo{font-family:'Orbitron',monospace;font-size:36px;font-weight:900;color:#ff6b35;letter-spacing:3px;text-align:center;}
+.splash-logo em{color:#4a9eff;font-style:normal;}
+.splash-tag{font-size:18px;color:#aabbcc;letter-spacing:2px;text-align:center;}
+.splash-line{width:120px;height:2px;background:linear-gradient(to right,#ff6b35,#4a9eff);border-radius:2px;animation:lineGrow 1s ease forwards;}
+@keyframes lineGrow{from{width:0}to{width:120px}}
+.splash-road{display:flex;gap:4px;margin-top:10px;}
+.splash-dot{width:8px;height:8px;border-radius:50%;background:#ff6b35;animation:dotPulse 1.5s ease-in-out infinite;}
+.splash-dot:nth-child(2){animation-delay:.2s;background:#f5c842;}
+.splash-dot:nth-child(3){animation-delay:.4s;background:#4a9eff;}
+@keyframes dotPulse{0%,100%{transform:scale(1);opacity:.4}50%{transform:scale(1.5);opacity:1}}
+
 /* HEADER */
-.hdr{padding:12px 16px;border-bottom:2px solid #1e2d45;display:flex;align-items:center;justify-content:space-between;background:#060912;position:sticky;top:0;z-index:99;}
+.hdr{padding:12px 16px;border-bottom:2px solid #1e2d45;display:flex;align-items:center;justify-content:space-between;background:#060912;position:sticky;top:0;z-index:98;}
 .logo-wrap{display:flex;flex-direction:column;}
-.logo{font-family:'Orbitron',monospace;font-size:16px;font-weight:900;letter-spacing:2px;color:#ff6b35;}
+.logo{font-family:'Orbitron',monospace;font-size:17px;font-weight:900;letter-spacing:2px;color:#ff6b35;}
 .logo em{color:#4a9eff;font-style:normal;}
-.logo-ver{font-family:'Orbitron',monospace;font-size:9px;color:#334455;letter-spacing:2px;margin-top:1px;}
+.logo-ver{font-family:'Orbitron',monospace;font-size:10px;color:#445566;letter-spacing:2px;margin-top:1px;}
 .hdr-r{display:flex;align-items:center;gap:8px;}
-.langsel{background:#0d1525;border:2px solid #4a9eff;border-radius:8px;padding:5px 8px;color:#4a9eff;font-family:'Orbitron',monospace;font-size:10px;font-weight:700;cursor:pointer;outline:none;}
-.setbtn{background:#0d1525;border:2px solid #1e2d45;border-radius:8px;padding:5px 10px;color:#aabbcc;font-size:16px;cursor:pointer;outline:none;}
-.pill{display:flex;align-items:center;gap:6px;padding:5px 12px;border-radius:20px;border:2px solid #1e2d45;background:#0d1525;}
-.dot{width:9px;height:9px;border-radius:50%;}
-.dot.on{background:#00e87a;box-shadow:0 0 8px #00e87a;animation:pulse 1.5s infinite;}
+.langsel{background:#0d1525;border:2px solid #4a9eff;border-radius:8px;padding:6px 9px;color:#4a9eff;font-family:'Orbitron',monospace;font-size:10px;font-weight:700;cursor:pointer;outline:none;}
+.setbtn{background:#0d1525;border:2px solid #1e2d45;border-radius:8px;padding:6px 12px;color:#aabbcc;font-size:18px;cursor:pointer;outline:none;}
+.pill{display:flex;align-items:center;gap:6px;padding:6px 14px;border-radius:20px;border:2px solid #1e2d45;background:#0d1525;}
+.dot{width:10px;height:10px;border-radius:50%;}
+.dot.on{background:#00e87a;box-shadow:0 0 10px #00e87a;animation:pulse 1.5s infinite;}
 .dot.ld{background:#f5c842;box-shadow:0 0 8px #f5c842;animation:pulse .8s infinite;}
 .dot.off{background:#334466;}
-.ptxt{font-family:'Orbitron',monospace;font-size:9px;font-weight:700;letter-spacing:2px;color:#aabbcc;text-transform:uppercase;}
-
+.ptxt{font-family:'Orbitron',monospace;font-size:10px;font-weight:700;letter-spacing:2px;color:#aabbcc;text-transform:uppercase;}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
 @keyframes spin{from{transform:rotate(0)}to{transform:rotate(360deg)}}
 @keyframes fadeUp{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
-@keyframes roadMove{from{background-position:0 0}to{background-position:0 200px}}
-@keyframes starTwinkle{0%,100%{opacity:.4}50%{opacity:1}}
 
-/* OVERLAY / SETTINGS */
-.overlay{position:fixed;inset:0;background:rgba(0,0,0,.9);z-index:200;display:flex;align-items:flex-end;}
-.sheet{background:#060912;border-top:2px solid #1e2d45;border-radius:20px 20px 0 0;padding:24px 18px 32px;width:100%;max-width:500px;margin:0 auto;max-height:88vh;overflow-y:auto;}
-.sheet-title{font-family:'Orbitron',monospace;font-size:15px;font-weight:900;color:#ff6b35;margin-bottom:18px;letter-spacing:2px;}
-.set-sect{font-family:'Orbitron',monospace;font-size:10px;color:#445566;letter-spacing:2px;text-transform:uppercase;margin:16px 0 10px;}
+/* OVERLAY */
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,.92);z-index:200;display:flex;align-items:flex-end;}
+.sheet{background:#060912;border-top:2px solid #1e2d45;border-radius:20px 20px 0 0;padding:24px 18px 34px;width:100%;max-width:500px;margin:0 auto;max-height:88vh;overflow-y:auto;}
+.sheet-title{font-family:'Orbitron',monospace;font-size:16px;font-weight:900;color:#ff6b35;margin-bottom:20px;letter-spacing:2px;}
+.set-sect{font-family:'Orbitron',monospace;font-size:10px;color:#445566;letter-spacing:2px;text-transform:uppercase;margin:18px 0 10px;}
 
-/* MODE GRID */
-.mode-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:4px;}
-.mode-btn{padding:12px 4px;background:#0d1525;border:2px solid #1e2d45;border-radius:10px;text-align:center;cursor:pointer;transition:all .15s;}
-.mode-btn.sel{border-color:#ff6b35;background:#1a0c05;}
-.mode-icon{font-size:22px;display:block;margin-bottom:4px;}
-.mode-lbl{font-family:'Orbitron',monospace;font-size:7px;color:#778899;letter-spacing:1px;text-transform:uppercase;}
-.mode-btn.sel .mode-lbl{color:#ff6b35;}
-
-/* BROADCAST MODE */
-.bcast-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
-.bcast-btn{padding:12px;background:#0d1525;border:2px solid #1e2d45;border-radius:10px;cursor:pointer;transition:all .15s;display:flex;align-items:center;gap:10px;}
+.bcast-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+.bcast-btn{padding:14px 12px;background:#0d1525;border:2px solid #1e2d45;border-radius:12px;cursor:pointer;display:flex;align-items:center;gap:10px;transition:all .15s;}
 .bcast-btn.sel{border-color:#aa66ff;background:#0d0a1a;}
-.bcast-icon{font-size:20px;flex-shrink:0;}
-.bcast-info{text-align:left;}
-.bcast-name{font-size:13px;font-weight:700;color:#aabbcc;}
+.bcast-icon{font-size:22px;flex-shrink:0;}
+.bcast-name{font-size:14px;font-weight:700;color:#aabbcc;}
 .bcast-desc{font-size:11px;color:#445566;margin-top:2px;}
 .bcast-btn.sel .bcast-name{color:#cc88ff;}
 
-/* TOPICS */
+.mode-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;}
+.mode-btn{padding:14px 4px;background:#0d1525;border:2px solid #1e2d45;border-radius:10px;text-align:center;cursor:pointer;transition:all .15s;}
+.mode-btn.sel{border-color:#ff6b35;background:#1a0c05;}
+.mode-icon{font-size:24px;display:block;margin-bottom:5px;}
+.mode-lbl{font-family:'Orbitron',monospace;font-size:8px;color:#778899;letter-spacing:1px;text-transform:uppercase;}
+.mode-btn.sel .mode-lbl{color:#ff6b35;}
+
+.voice-sel{width:100%;background:#0d1525;border:2px solid #4a9eff;border-radius:10px;padding:12px 14px;color:#4a9eff;font-size:14px;outline:none;margin-top:4px;}
+
 .topic-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
-.topic-item{display:flex;align-items:center;gap:9px;padding:11px 12px;background:#0d1525;border:2px solid #1e2d45;border-radius:10px;cursor:pointer;}
+.topic-item{display:flex;align-items:center;gap:10px;padding:12px 14px;background:#0d1525;border:2px solid #1e2d45;border-radius:10px;cursor:pointer;transition:all .15s;}
 .topic-item.on{border-color:#cc3333;background:#1a0808;}
-.topic-check{width:22px;height:22px;border-radius:5px;background:#1a2535;border:2px solid #334455;display:flex;align-items:center;justify-content:center;font-size:12px;flex-shrink:0;color:#fff;}
+.topic-check{width:22px;height:22px;border-radius:6px;background:#1a2535;border:2px solid #334455;display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0;color:#fff;}
 .topic-item.on .topic-check{background:#cc3333;border-color:#cc3333;}
-.topic-lbl{font-size:13px;color:#aabbcc;font-weight:600;}
+.topic-lbl{font-size:14px;color:#aabbcc;font-weight:600;}
 .topic-item.on .topic-lbl{color:#ff9090;}
 
 /* INPUTS */
-.flabel{font-family:'Orbitron',monospace;font-size:11px;font-weight:700;letter-spacing:2px;color:#4a9eff;text-transform:uppercase;margin-bottom:9px;display:block;}
-.finput{background:#0d1525;border:2px solid #ffffff;border-radius:12px;padding:16px 18px;color:#ffffff;font-size:18px;outline:none;width:100%;}
-.finput::placeholder{color:#445566;font-size:15px;}
-.finput:focus{border-color:#4a9eff;background:#0a1020;}
-.kinput{background:#0d1525;border:2px solid #ffffff;border-radius:12px;padding:15px 18px;color:#ffffff;font-size:14px;font-family:monospace;outline:none;width:100%;letter-spacing:1px;}
+.flabel{font-family:'Orbitron',monospace;font-size:11px;font-weight:700;letter-spacing:2px;color:#4a9eff;text-transform:uppercase;margin-bottom:10px;display:block;}
+.finput{background:#0d1525;border:2px solid #ffffff;border-radius:12px;padding:17px 18px;color:#ffffff;font-size:19px;outline:none;width:100%;}
+.finput::placeholder{color:#445566;font-size:16px;}
+.finput:focus{border-color:#4a9eff;}
+.kinput{background:#0d1525;border:2px solid #ffffff;border-radius:12px;padding:16px 18px;color:#ffffff;font-size:15px;font-family:monospace;outline:none;width:100%;letter-spacing:1px;}
 .kinput::placeholder{color:#445566;}
 .kinput:focus{border-color:#4a9eff;}
 .row2{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
 .dirhint{font-size:13px;color:#667788;margin-top:6px;}
-.errbox{padding:14px 16px;background:#1a0606;border:2px solid #aa2020;border-radius:10px;color:#ff9090;font-size:15px;font-weight:600;}
-.bigbtn{border-radius:14px;padding:18px;font-size:16px;font-weight:700;cursor:pointer;width:100%;letter-spacing:1px;border:2px solid transparent;}
+.errbox{padding:14px 17px;background:#1a0606;border:2px solid #aa2020;border-radius:10px;color:#ff9090;font-size:16px;font-weight:600;}
+.bigbtn{border-radius:14px;padding:19px;font-size:17px;font-weight:700;cursor:pointer;width:100%;letter-spacing:1px;border:2px solid transparent;}
 .bigbtn.green{background:linear-gradient(135deg,#0d3a0d,#1a6a1a);color:#00e87a;border-color:#2a6a2a;}
 .bigbtn.blue{background:#0d1828;color:#4a9eff;border-color:#2a4a80;}
-.sep{display:flex;align-items:center;gap:12px;color:#556677;font-size:14px;}
+.sep{display:flex;align-items:center;gap:12px;color:#556677;font-size:15px;}
 .sep:before,.sep:after{content:'';flex:1;height:1px;background:#1e2d45;}
 
-/* KEY SCREEN */
-.keyscreen{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:32px 24px;gap:22px;text-align:center;}
-.key-icon{font-size:58px;}
-.key-title{font-family:'Orbitron',monospace;font-size:20px;font-weight:900;color:#ff6b35;letter-spacing:2px;}
-.key-sub{font-size:16px;color:#aabbcc;line-height:1.7;}
+/* KEY + SETUP */
+.keyscreen{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:32px 24px;gap:24px;text-align:center;}
+.key-icon{font-size:60px;}
+.key-title{font-family:'Orbitron',monospace;font-size:22px;font-weight:900;color:#ff6b35;letter-spacing:2px;}
+.key-sub{font-size:17px;color:#aabbcc;line-height:1.7;}
 .key-sub a{color:#4a9eff;text-decoration:none;}
-
-/* SETUP */
-.setup{flex:1;padding:22px 18px;display:flex;flex-direction:column;gap:16px;}
+.setup{flex:1;padding:22px 18px;display:flex;flex-direction:column;gap:17px;}
 .s-hero{text-align:center;}
-.s-icon{font-size:52px;margin-bottom:8px;}
-.s-title{font-family:'Orbitron',monospace;font-size:20px;font-weight:900;color:#ff6b35;letter-spacing:2px;margin-bottom:5px;}
-.s-sub{font-size:16px;color:#aabbcc;line-height:1.5;}
-.geobtn{background:#0d1828;border:2px solid #4a9eff;border-radius:12px;padding:16px;color:#4a9eff;font-size:15px;font-weight:700;cursor:pointer;width:100%;}
+.s-icon{font-size:54px;margin-bottom:9px;}
+.s-title{font-family:'Orbitron',monospace;font-size:22px;font-weight:900;color:#ff6b35;letter-spacing:2px;margin-bottom:6px;}
+.s-sub{font-size:17px;color:#aabbcc;line-height:1.5;}
+.geobtn{background:#0d1828;border:2px solid #4a9eff;border-radius:12px;padding:17px;color:#4a9eff;font-size:16px;font-weight:700;cursor:pointer;width:100%;}
 .geobtn.ok{border-color:#00e87a;color:#00e87a;background:#071410;}
 
-/* ROAD BACKGROUND */
-.road-bg{position:relative;height:190px;overflow:hidden;flex-shrink:0;}
+/* ROAD BG */
+.road-bg{position:relative;height:195px;overflow:hidden;flex-shrink:0;background:#04060e;}
 .road-canvas{position:absolute;inset:0;width:100%;height:100%;}
-.road-over{position:absolute;inset:0;background:linear-gradient(to top,rgba(5,7,15,1) 0%,rgba(5,7,15,.2) 65%,transparent 100%);}
+.road-over{position:absolute;inset:0;background:linear-gradient(to top,rgba(5,7,15,1) 0%,rgba(5,7,15,.15) 65%,transparent 100%);}
 .road-top{position:absolute;top:0;left:0;right:0;padding:10px 14px;display:flex;justify-content:space-between;align-items:flex-start;}
-.weather-badge{background:rgba(6,9,18,.85);border:1px solid #1e2d45;border-radius:16px;padding:5px 12px;font-family:'Orbitron',monospace;font-size:11px;color:#f5c842;letter-spacing:1px;}
-.mode-badge{background:rgba(6,9,18,.85);border:1px solid #1e2d45;border-radius:16px;padding:5px 12px;font-size:16px;}
+.weather-badge{background:rgba(6,9,18,.9);border:1px solid #1e2d45;border-radius:16px;padding:6px 14px;font-family:'Orbitron',monospace;font-size:12px;color:#f5c842;letter-spacing:1px;}
+.bcast-badge{background:rgba(6,9,18,.9);border:1px solid #1e2d45;border-radius:16px;padding:6px 10px;font-size:18px;}
 .road-bot{position:absolute;bottom:0;left:0;right:0;padding:12px 18px;}
-.locname{font-family:'Orbitron',monospace;font-size:12px;font-weight:700;letter-spacing:2px;color:#ff6b35;text-transform:uppercase;margin-bottom:3px;}
+.locname{font-family:'Orbitron',monospace;font-size:12px;font-weight:700;letter-spacing:2px;color:#ff6b35;text-transform:uppercase;margin-bottom:4px;}
 .loccrd{font-family:'Orbitron',monospace;font-size:10px;color:#aabbcc;letter-spacing:1px;}
-.poi-strip{font-family:'Orbitron',monospace;font-size:9px;color:#2a5a8a;letter-spacing:1px;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.poi-strip{font-size:11px;color:#2a5a8a;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 
 /* DASH */
-.dash{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;padding:12px 14px;border-bottom:2px solid #1e2d45;}
-.gauge{text-align:center;padding:12px 6px;background:#0d1525;border:2px solid #1e2d45;border-radius:12px;}
-.gv{font-family:'Orbitron',monospace;font-size:28px;font-weight:900;color:#00e87a;line-height:1;}
-.gv.d{font-size:24px;color:#4a9eff;}
-.gv.t{font-size:22px;color:#f5c842;}
-.gl{font-family:'Orbitron',monospace;font-size:9px;letter-spacing:2px;color:#667788;text-transform:uppercase;margin-top:5px;}
+.dash{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;padding:12px 14px;border-bottom:2px solid #1e2d45;}
+.gauge{text-align:center;padding:14px 6px;background:#0d1525;border:2px solid #1e2d45;border-radius:12px;}
+.gv{font-family:'Orbitron',monospace;font-size:30px;font-weight:900;color:#00e87a;line-height:1;}
+.gv.d{font-size:26px;color:#4a9eff;}
+.gv.t{font-size:24px;color:#f5c842;}
+.gl{font-family:'Orbitron',monospace;font-size:10px;letter-spacing:2px;color:#667788;text-transform:uppercase;margin-top:6px;}
 
 /* STORY */
 .sa{flex:1;padding:16px 18px 10px;overflow-y:auto;}
 .airbar{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;}
-.airlbl{font-family:'Orbitron',monospace;font-size:10px;letter-spacing:3px;color:#667788;text-transform:uppercase;display:flex;align-items:center;gap:6px;}
-.airdot{width:7px;height:7px;border-radius:50%;background:#ff6b35;animation:pulse 1.4s infinite;}
-.timeinfo{font-family:'Orbitron',monospace;font-size:9px;color:#334455;letter-spacing:1px;}
-.stxt{font-size:22px;line-height:1.85;color:#ffffff;font-style:italic;animation:fadeUp .5s ease;font-weight:400;}
-.ldtxt{color:#667788;font-family:'Orbitron',monospace;font-size:12px;display:flex;align-items:center;gap:10px;letter-spacing:1px;}
+.airlbl{font-family:'Orbitron',monospace;font-size:11px;letter-spacing:3px;color:#667788;text-transform:uppercase;display:flex;align-items:center;gap:6px;}
+.airdot{width:8px;height:8px;border-radius:50%;background:#ff6b35;animation:pulse 1.4s infinite;}
+.timeinfo{font-family:'Orbitron',monospace;font-size:10px;color:#334455;letter-spacing:1px;}
+.stxt{font-size:23px;line-height:1.85;color:#ffffff;font-style:italic;animation:fadeUp .5s ease;}
+.ldtxt{color:#667788;font-family:'Orbitron',monospace;font-size:13px;display:flex;align-items:center;gap:10px;letter-spacing:1px;}
 .spinico{display:inline-block;animation:spin 1s linear infinite;}
 .pgrow{display:flex;align-items:center;gap:10px;margin-top:12px;}
-.pglbl{font-family:'Orbitron',monospace;font-size:9px;color:#889aaa;white-space:nowrap;}
+.pglbl{font-family:'Orbitron',monospace;font-size:10px;color:#889aaa;white-space:nowrap;}
 .pgbar{flex:1;height:3px;background:#1a2535;border-radius:2px;overflow:hidden;}
 .pgfill{height:100%;background:linear-gradient(to right,#ff6b35,#f5c842);border-radius:2px;transition:width 1s linear;}
 
 /* CONTROLS */
-.wakeinfo{font-size:11px;color:#445566;text-align:center;padding:4px 0;}
-.togrow{padding:8px 14px;display:flex;gap:8px;border-top:2px solid #1e2d45;}
-.tog{flex:1;padding:11px 4px;background:#0d1525;border:2px solid #1e2d45;border-radius:10px;font-size:12px;color:#aabbcc;cursor:pointer;text-align:center;font-weight:600;}
+.wakeinfo{font-size:12px;color:#445566;text-align:center;padding:5px 0;}
+.togrow{padding:9px 14px;display:flex;gap:9px;border-top:2px solid #1e2d45;}
+.tog{flex:1;padding:12px 4px;background:#0d1525;border:2px solid #1e2d45;border-radius:10px;font-size:13px;color:#aabbcc;cursor:pointer;text-align:center;font-weight:600;}
 .tog.act{background:#0a1a30;border-color:#4a9eff;color:#4a9eff;}
 .tog.spk.going{border-color:#00e87a;color:#00e87a;background:#071410;}
 .tog.wake.act{border-color:#f5c842;color:#f5c842;background:#120f04;}
-
-.voice-area{padding:8px 14px;border-top:2px solid #1e2d45;}
-.mic-btn{width:100%;padding:16px;background:#0d1828;border:2px solid #4a9eff;border-radius:12px;color:#4a9eff;font-family:'Orbitron',monospace;font-size:13px;font-weight:700;cursor:pointer;letter-spacing:1px;text-transform:uppercase;display:flex;align-items:center;justify-content:center;gap:10px;}
+.voice-area{padding:9px 14px;border-top:2px solid #1e2d45;}
+.mic-btn{width:100%;padding:17px;background:#0d1828;border:2px solid #4a9eff;border-radius:12px;color:#4a9eff;font-family:'Orbitron',monospace;font-size:13px;font-weight:700;cursor:pointer;letter-spacing:1px;text-transform:uppercase;display:flex;align-items:center;justify-content:center;gap:10px;}
 .mic-btn.listening{background:#1a0808;border-color:#ff4444;color:#ff4444;animation:pulse .8s infinite;}
 .mic-btn.processing{background:#080e1a;border-color:#f5c842;color:#f5c842;}
-
-.qa{padding:8px 14px;border-top:2px solid #1e2d45;}
-.qi{width:100%;background:#0d1525;border:2px solid #ffffff;border-radius:10px;padding:13px 15px;color:#ffffff;font-size:17px;outline:none;margin-bottom:8px;}
+.qa{padding:9px 14px;border-top:2px solid #1e2d45;}
+.qi{width:100%;background:#0d1525;border:2px solid #fff;border-radius:10px;padding:14px 16px;color:#fff;font-size:18px;outline:none;margin-bottom:9px;}
 .qi::placeholder{color:#445566;}
 .qi:focus{border-color:#4a9eff;}
-.qbs{display:flex;gap:8px;}
-.ctrl{padding:12px 14px 24px;display:flex;gap:10px;border-top:2px solid #1e2d45;}
-.btn{flex:1;padding:17px;border:none;border-radius:12px;font-size:14px;font-weight:700;cursor:pointer;text-transform:uppercase;letter-spacing:1px;}
+.qbs{display:flex;gap:9px;}
+.ctrl{padding:13px 14px 26px;display:flex;gap:10px;border-top:2px solid #1e2d45;}
+.btn{flex:1;padding:18px;border:none;border-radius:12px;font-size:15px;font-weight:700;cursor:pointer;text-transform:uppercase;letter-spacing:1px;}
 .btn:active{transform:scale(.96);}
 .bstop{background:linear-gradient(135deg,#2e0d0d,#5a1a1a);color:#ff9090;border:2px solid #5a2020;}
-.bq{flex:.55;background:#0d1525;color:#4a9eff;border:2px solid #1e3a60;font-size:11px;}
+.bq{flex:.5;background:#0d1525;color:#4a9eff;border:2px solid #1e3a60;font-size:12px;}
 .bsend{background:#0d1e3a;color:#88bbff;border:2px solid #1e3a70;}
 .bcancel{background:#0d1020;color:#889aaa;border:2px solid #1e2d45;flex:.5;}
 </style>
@@ -169,44 +174,40 @@ body{font-family:'Inter',sans-serif;color:#fff;}
 const {useState,useRef,useEffect}=React;
 const PROXY="https://corsproxy.io/?https://api.anthropic.com/v1/messages";
 const KEY_STORE="rr_key_v3";
-const EX_STORE="rr_excl_v2";
-const MODE_STORE="rr_mode_v1";
-const BCAST_STORE="rr_bcast_v1";
-const VER="v12";
+const VER="v13";
 
-const TRAVEL_MODES=[
+const TRAVEL=[
   {id:"car",icon:"🚗",en:"Car",ru:"Машина"},
   {id:"bus",icon:"🚌",en:"Bus/Train",ru:"Автобус"},
   {id:"bike",icon:"🚲",en:"Bike",ru:"Велосипед"},
   {id:"walk",icon:"🚶",en:"Walk",ru:"Пешком"},
 ];
 
-const BCAST_MODES=[
-  {id:"normal",icon:"📻",en:"Road Radio",ru:"Обычный",desc:"Classic narration",descRu:"Классика",style:"Warm, knowledgeable radio host. Balanced mix of all topics."},
-  {id:"night",icon:"🌌",en:"Night Drive",ru:"Ночная езда",desc:"Poetic & atmospheric",descRu:"Поэтично",style:"Poetic, intimate, atmospheric. Night sky, stars, nocturnal creatures, headlight silhouettes, quiet beauty of darkness. Slow and dreamy."},
-  {id:"trucker",icon:"🚛",en:"Trucker Mode",ru:"Дальнобойщик",desc:"Practical & straight",descRu:"По-дальнобойщицки",style:"Like a veteran trucker on CB radio. Direct, practical, no fluff. Mention truck stops, weigh stations, grade changes, rest areas. Respect for the road."},
-  {id:"discovery",icon:"🔍",en:"Discovery",ru:"Открытия",desc:"Facts & science",descRu:"Факты и наука",style:"Like a National Geographic documentary. Rich facts about geology, ecology, wildlife, geography. Educational but captivating."},
-  {id:"americana",icon:"🇺🇸",en:"Americana",ru:"Американа",desc:"History & culture",descRu:"История США",style:"Deep American history, Route 66 spirit, Native American heritage, frontier stories, small town America, country music connections. Nostalgic and proud."},
-  {id:"zen",icon:"🌲",en:"Nature Zen",ru:"Природа",desc:"Calm & peaceful",descRu:"Спокойно",style:"Calm, meditative, nature-focused. Trees, rivers, wildlife, seasons, quiet landscapes. Peaceful and restorative."},
-  {id:"mystery",icon:"👻",en:"Mysteries",ru:"Тайны",desc:"Legends & stories",descRu:"Легенды",style:"Local legends, ghost towns, mysterious disappearances, Native American legends, UFO sightings, strange history. Intriguing and slightly eerie."},
-  {id:"funny",icon:"😄",en:"Road DJ",ru:"Весёлый DJ",desc:"Fun & humorous",descRu:"С юмором",style:"Funny road DJ. Light humor, amusing local facts, puns, pop culture references. Entertaining without being silly."},
+const BCASTS=[
+  {id:"normal",icon:"📻",en:"Road Radio",ru:"Обычный",desc:"Classic",descRu:"Классика",
+    prompt:"You are a warm, knowledgeable road companion. Balance history, nature, and local color. Conversational and engaging."},
+  {id:"night",icon:"🌌",en:"Night Drive",ru:"Ночная езда",desc:"Poetic",descRu:"Поэтично",
+    prompt:"You are a late-night radio poet. Speak softly about stars, shadows, the emptiness of night roads, nocturnal creatures, the philosophy of driving in darkness. Slow, intimate, dreamlike."},
+  {id:"trucker",icon:"🚛",en:"Trucker",ru:"Дальнобойщик",desc:"CB Radio style",descRu:"По-дальнобойщицки",
+    prompt:"You are a veteran trucker on CB radio. Speak like a trucker to a trucker: mile markers, grade changes, weigh stations ahead, rest areas, truck stops, road conditions, elevation changes. No poetry — just road intelligence that matters to a professional driver. Mention I-40, US highways, exit numbers when known."},
+  {id:"discovery",icon:"🔍",en:"Discovery",ru:"Открытия",desc:"Science & facts",descRu:"Факты",
+    prompt:"You are a National Geographic narrator. Rich scientific facts: ecology, geology (briefly), wildlife biology, geography, climate. Educational but never dry — always a 'wow factor'."},
+  {id:"americana",icon:"🇺🇸",en:"Americana",ru:"Американа",desc:"History & soul",descRu:"История США",
+    prompt:"You are a storyteller of American history. Route 66 era, Native American heritage, frontier settlers, Civil War connections, small town America, country music roots, oil boom stories. Nostalgic, proud, soulful."},
+  {id:"zen",icon:"🌲",en:"Nature Zen",ru:"Природа",desc:"Peaceful",descRu:"Спокойно",
+    prompt:"You are a nature meditation guide. Focus on trees, rivers, wildlife, seasons, light, silence. Calm, healing, restorative. Help the driver feel connected to the land they're passing through."},
+  {id:"mystery",icon:"👻",en:"Mysteries",ru:"Тайны",desc:"Legends",descRu:"Легенды",
+    prompt:"You are a storyteller of the strange and unknown. Local legends, ghost towns, unexplained disappearances, Native American spirit stories, old mining tragedies, UFO lore, abandoned places. Intriguing, slightly eerie."},
+  {id:"funny",icon:"😄",en:"Road DJ",ru:"Весёлый DJ",desc:"Fun & humor",descRu:"С юмором",
+    prompt:"You are a funny road trip DJ. Light humor, amusing local facts, playful observations about the landscape, pop culture references. Keep it entertaining — like a road trip friend who makes miles fly by."},
 ];
 
 const TOPICS=[
-  {id:"geology",en:"Geology",ru:"Геология"},
-  {id:"weather",en:"Weather",ru:"Погода"},
-  {id:"wildlife",en:"Wildlife",ru:"Животные"},
-  {id:"plants",en:"Plants",ru:"Растения"},
-  {id:"history",en:"History",ru:"История"},
-  {id:"towns",en:"Towns",ru:"Города"},
-  {id:"road",en:"Roads",ru:"Дороги"},
-  {id:"humor",en:"Humor",ru:"Юмор"},
+  {id:"geology",en:"Geology",ru:"Геология"},{id:"weather",en:"Weather",ru:"Погода"},
+  {id:"wildlife",en:"Wildlife",ru:"Животные"},{id:"plants",en:"Plants",ru:"Растения"},
+  {id:"history",en:"History",ru:"История"},{id:"towns",en:"Towns",ru:"Города"},
+  {id:"road",en:"Roads",ru:"Дороги"},{id:"humor",en:"Humor",ru:"Юмор"},
 ];
-
-const toDir=h=>{if(h==null||isNaN(h))return"—";const d=["N","NE","E","SE","S","SW","W","NW"];return d[Math.round(((h%360)+360)%360/45)%8];};
-const toLeft=h=>h==null?"?":toDir((h+90)%360);
-const toRight=h=>h==null?"?":toDir((h-90+360)%360);
-const toMph=ms=>ms&&ms>0?Math.round(ms*2.237):0;
 
 const L={
   en:{lb:"EN",tts:"en-US",ai:"English"},ru:{lb:"RU",tts:"ru-RU",ai:"Russian"},
@@ -219,9 +220,17 @@ const L={
 };
 const LK=["en","ru","uk","es","pt","de","fr","ja","zh","ko","ar","hi","it","tr"];
 
+const toDir=h=>{if(h==null||isNaN(h))return"—";const d=["N","NE","E","SE","S","SW","W","NW"];return d[Math.round(((h%360)+360)%360/45)%8];};
+const toLeft=h=>h==null?"?":toDir((h+90)%360);
+const toRight=h=>h==null?"?":toDir((h-90+360)%360);
+const toMph=ms=>ms&&ms>0?Math.round(ms*2.237):0;
+const WI={0:"☀️",1:"🌤",2:"⛅",3:"☁️",45:"🌫",51:"🌦",61:"🌧",71:"❄️",80:"🌧",95:"⛈"};
+const getWI=c=>{const k=Object.keys(WI).map(Number).sort((a,b)=>b-a).find(k=>c>=k);return WI[k]||"☀️";};
+
 function App(){
   const saved=localStorage.getItem(KEY_STORE)||"";
   const autoL=(navigator.language||"en").split("-")[0].toLowerCase();
+  const [splash,setSplash]=useState(true);
   const [screen,setScreen]=useState(saved?"setup":"apikey");
   const [apiInput,setApiInput]=useState("");
   const [lang,setLang]=useState(L[autoL]?autoL:"en");
@@ -234,6 +243,7 @@ function App(){
   const [status,setStatus]=useState("idle");
   const [story,setStory]=useState("");
   const [locName,setLocName]=useState("");
+  const [highwayInfo,setHighwayInfo]=useState("");
   const [nearbyPOI,setNearbyPOI]=useState([]);
   const [err,setErr]=useState("");
   const [qMode,setQMode]=useState(false);
@@ -245,12 +255,13 @@ function App(){
   const [weather,setWeather]=useState(null);
   const [micState,setMicState]=useState("idle");
   const [settingsOpen,setSettingsOpen]=useState(false);
-  const [excluded,setExcluded]=useState(JSON.parse(localStorage.getItem(EX_STORE)||"[]"));
-  const [travelMode,setTravelMode]=useState(localStorage.getItem(MODE_STORE)||"car");
-  const [bcastMode,setBcastMode]=useState(localStorage.getItem(BCAST_STORE)||"normal");
+  const [excluded,setExcluded]=useState(JSON.parse(localStorage.getItem("rr_excl_v2")||"[]"));
+  const [travelMode,setTravelMode]=useState(localStorage.getItem("rr_mode_v1")||"car");
+  const [bcastMode,setBcastMode]=useState(localStorage.getItem("rr_bcast_v1")||"normal");
+  const [voices,setVoices]=useState([]);
+  const [selectedVoice,setSelectedVoice]=useState("");
   const [timeStr,setTimeStr]=useState("");
   const canvasRef=useRef(null);
-
   const runRef=useRef(false);
   const histRef=useRef([]);
   const loopRef=useRef(null);
@@ -258,72 +269,64 @@ function App(){
   const cdRef=useRef(null);
   const wlRef=useRef(null);
   const langRef=useRef(lang);
-  const excludedRef=useRef(excluded);
-  const travelModeRef=useRef(travelMode);
-  const bcastModeRef=useRef(bcastMode);
+  const bcastRef=useRef(bcastMode);
+  const travelRef=useRef(travelMode);
   const destRef=useRef(destination);
-  const nextStoryRef=useRef(null);
+  const nextRef=useRef(null);
   const fetchingNext=useRef(false);
+  const excludedRef=useRef(excluded);
 
+  useEffect(()=>{const t=setTimeout(()=>setSplash(false),3200);return()=>clearTimeout(t);},[]);
   useEffect(()=>{langRef.current=lang;},[lang]);
-  useEffect(()=>{excludedRef.current=excluded;localStorage.setItem(EX_STORE,JSON.stringify(excluded));},[excluded]);
-  useEffect(()=>{travelModeRef.current=travelMode;localStorage.setItem(MODE_STORE,travelMode);},[travelMode]);
-  useEffect(()=>{bcastModeRef.current=bcastMode;localStorage.setItem(BCAST_STORE,bcastMode);},[bcastMode]);
+  useEffect(()=>{bcastRef.current=bcastMode;localStorage.setItem("rr_bcast_v1",bcastMode);},[bcastMode]);
+  useEffect(()=>{travelRef.current=travelMode;localStorage.setItem("rr_mode_v1",travelMode);},[travelMode]);
   useEffect(()=>{destRef.current=destination;},[destination]);
   useEffect(()=>{if(coords)coordsRef.current=coords;},[coords]);
+  useEffect(()=>{excludedRef.current=excluded;localStorage.setItem("rr_excl_v2",JSON.stringify(excluded));},[excluded]);
+  useEffect(()=>{const u=()=>{const n=new Date();setTimeStr(`${n.getHours().toString().padStart(2,'0')}:${n.getMinutes().toString().padStart(2,'0')}`);};u();const t=setInterval(u,30000);return()=>clearInterval(t);},[]);
 
+  // Load voices
   useEffect(()=>{
-    const u=()=>{const n=new Date();setTimeStr(`${n.getHours().toString().padStart(2,'0')}:${n.getMinutes().toString().padStart(2,'0')}`);};
-    u();const t=setInterval(u,30000);return()=>clearInterval(t);
+    const load=()=>{
+      const vs=window.speechSynthesis?.getVoices()||[];
+      setVoices(vs);
+    };
+    load();
+    if(window.speechSynthesis?.onvoiceschanged!==undefined)
+      window.speechSynthesis.onvoiceschanged=load;
   },[]);
 
-  // Animated road canvas
+  // Road canvas
   useEffect(()=>{
     if(!canvasRef.current)return;
     const canvas=canvasRef.current;
     const ctx=canvas.getContext('2d');
-    canvas.width=500;canvas.height=190;
-    let frame=0;
-    let raf;
+    canvas.width=500;canvas.height=195;
+    let frame=0,raf;
     const draw=()=>{
       frame++;
-      const bm=bcastModeRef.current;
+      const bm=bcastRef.current;
       const hr=new Date().getHours();
       const isNight=hr>=21||hr<6;
-      // Background gradient based on mode
-      let bg1,bg2;
-      if(bm==="night"||isNight){bg1="#020408";bg2="#0a0d18";}
-      else if(bm==="zen"){bg1="#061008";bg2="#0a1a0c";}
-      else if(bm==="mystery"){bg1="#080410";bg2="#100818";}
-      else{bg1="#04060f";bg2="#080c1a";}
-      const grad=ctx.createLinearGradient(0,0,0,190);
-      grad.addColorStop(0,bg1);grad.addColorStop(1,bg2);
-      ctx.fillStyle=grad;ctx.fillRect(0,0,500,190);
-      // Stars for night/mystery
+      let sky1=bm==="night"||isNight?"#020408":bm==="zen"?"#061008":bm==="mystery"?"#080412":"#04060f";
+      let sky2=bm==="night"||isNight?"#060c18":bm==="zen"?"#0a180c":bm==="mystery"?"#0e0820":"#080c1a";
+      const g=ctx.createLinearGradient(0,0,0,195);
+      g.addColorStop(0,sky1);g.addColorStop(1,sky2);
+      ctx.fillStyle=g;ctx.fillRect(0,0,500,195);
       if(bm==="night"||bm==="mystery"||isNight){
-        for(let i=0;i<60;i++){
-          const x=(i*73+frame*0.1)%500;
-          const y=(i*37)%120;
-          const opacity=0.3+0.4*Math.sin(frame*0.03+i);
-          ctx.fillStyle=`rgba(255,255,255,${opacity})`;
-          ctx.beginPath();ctx.arc(x,y,i%3===0?1.2:0.7,0,Math.PI*2);ctx.fill();
+        for(let i=0;i<80;i++){
+          ctx.fillStyle=`rgba(255,255,255,${0.2+0.5*Math.sin(frame*.02+i*.7)})`;
+          ctx.beginPath();ctx.arc((i*97+frame*.05)%500,(i*43)%130,i%4===0?1.5:0.8,0,Math.PI*2);ctx.fill();
         }
       }
-      // Horizon glow
-      let glowColor;
-      if(bm==="trucker"){glowColor="rgba(255,107,53,0.15)";}
-      else if(bm==="americana"){glowColor="rgba(74,158,255,0.12)";}
-      else if(bm==="zen"){glowColor="rgba(0,232,122,0.1)";}
-      else{glowColor="rgba(255,107,53,0.1)";}
-      const hg=ctx.createRadialGradient(250,140,10,250,140,200);
-      hg.addColorStop(0,glowColor);hg.addColorStop(1,"transparent");
-      ctx.fillStyle=hg;ctx.fillRect(0,0,500,190);
-      // Road lines
-      ctx.strokeStyle="rgba(255,107,53,0.15)";ctx.lineWidth=1;
-      const offset=(frame*2)%40;
-      for(let y=100+offset;y<200;y+=40){
-        const prog=(y-100)/100;
-        const w=10+prog*80;
+      const hg=ctx.createRadialGradient(250,160,5,250,160,220);
+      const gc=bm==="trucker"?"rgba(255,107,53,0.2)":bm==="americana"?"rgba(74,158,255,0.15)":bm==="zen"?"rgba(0,232,122,0.12)":"rgba(255,107,53,0.12)";
+      hg.addColorStop(0,gc);hg.addColorStop(1,"transparent");
+      ctx.fillStyle=hg;ctx.fillRect(0,0,500,195);
+      ctx.strokeStyle="rgba(255,107,53,0.12)";ctx.lineWidth=1;
+      const off=(frame*2)%40;
+      for(let y=100+off;y<210;y+=40){
+        const p=(y-100)/110,w=8+p*90;
         ctx.beginPath();ctx.moveTo(250-w/2,y);ctx.lineTo(250+w/2,y);ctx.stroke();
       }
       raf=requestAnimationFrame(draw);
@@ -343,13 +346,15 @@ function App(){
 
   const fetchPOI=async(lat,lng)=>{
     try{
-      const q=`[out:json][timeout:12];(node["place"~"city|town|village|hamlet"](around:15000,${lat},${lng});way["waterway"~"river|stream"]["name"](around:8000,${lat},${lng});node["natural"~"peak|lake"](around:10000,${lat},${lng});way["bridge"="yes"]["name"](around:5000,${lat},${lng});node["historic"](around:8000,${lat},${lng}););out body qt 20;`;
+      const q=`[out:json][timeout:12];(node["place"~"city|town|village|hamlet"](around:15000,${lat},${lng});way["waterway"~"river|stream"]["name"](around:8000,${lat},${lng});node["natural"~"peak|lake"](around:10000,${lat},${lng});way["highway"~"motorway|trunk"]["ref"](around:500,${lat},${lng});way["bridge"="yes"]["name"](around:5000,${lat},${lng});node["historic"](around:8000,${lat},${lng}););out body qt 25;`;
       const r=await fetch(`https://overpass-api.de/api/interpreter?data=${encodeURIComponent(q)}`);
       const d=await r.json();
+      const highways=d.elements?.filter(e=>e.tags?.highway&&e.tags?.ref).map(e=>e.tags.ref).filter(Boolean);
+      if(highways?.length>0)setHighwayInfo([...new Set(highways)].slice(0,2).join(", "));
       const names=[...new Set(d.elements?.map(e=>e.tags?.name).filter(Boolean))].slice(0,8);
       setNearbyPOI(names);
-      return names;
-    }catch{return[];}
+      return{pois:names,highways:[...new Set(highways||[])].slice(0,2)};
+    }catch{return{pois:[],highways:[]};}
   };
 
   const requestWake=async()=>{try{if("wakeLock" in navigator){wlRef.current=await navigator.wakeLock.request("screen");setWakeLock(true);wlRef.current.addEventListener("release",()=>setWakeLock(false));}}catch{}};
@@ -363,98 +368,92 @@ function App(){
       const tl=L[langRef.current]?.tts||"en-US";
       const u=new SpeechSynthesisUtterance(text);
       u.lang=tl;u.rate=0.84;u.pitch=1.0;
-      try{const vs=s.getVoices();const v=vs.find(x=>x.lang===tl)||vs.find(x=>x.lang.startsWith(tl.split("-")[0]))||vs[0];if(v)u.voice=v;}catch{}
+      try{
+        const vs=s.getVoices();
+        const picked=selectedVoice?vs.find(v=>v.name===selectedVoice):null;
+        const fallback=vs.find(x=>x.lang===tl)||vs.find(x=>x.lang.startsWith(tl.split("-")[0]))||vs[0];
+        if(picked||fallback)u.voice=picked||fallback;
+      }catch{}
       setSpeaking(true);
       u.onend=u.onerror=()=>{setSpeaking(false);res();};
       s.speak(u);
     }catch{setSpeaking(false);res();}
   });
 
-  const extractStory=txt=>{
-    try{const p=JSON.parse(txt);return p;}catch{}
+  const extract=txt=>{
+    try{return JSON.parse(txt);}catch{}
     const sm=txt.match(/"story"\s*:\s*"((?:[^"\\]|\\.)*)"/);
     const lm=txt.match(/"location"\s*:\s*"((?:[^"\\]|\\.)*)"/);
-    const im=txt.match(/"image"\s*:\s*"((?:[^"\\]|\\.)*)"/);
-    if(sm){return{story:sm[1].replace(/\\"/g,'"').replace(/\\n/g,' '),location:lm?lm[1]:"",image:im?im[1]:"highway"};}
+    if(sm)return{story:sm[1].replace(/\\"/g,'"').replace(/\\n/g,' '),location:lm?lm[1]:""};
     const clean=txt.replace(/\{[^}]*\}/gs,'').replace(/"[^"]*"\s*:\s*"[^"]*"/g,'').replace(/^\s*[,{}\s]+/,'').trim();
-    return{story:clean||txt,location:"",image:"highway"};
+    return{story:clean||txt,location:""};
   };
 
-  const buildSystem=(isQ,question)=>{
+  const buildSys=(isQ,question)=>{
     const al=L[langRef.current]?.ai||"English";
-    const bm=BCAST_MODES.find(b=>b.id===bcastModeRef.current)||BCAST_MODES[0];
-    const tm=travelModeRef.current;
+    const bm=BCASTS.find(b=>b.id===bcastRef.current)||BCASTS[0];
+    const tm=travelRef.current;
     const exl=excludedRef.current;
     const dest=destRef.current;
     const c=coordsRef.current||{lat:0,lng:0,speed:0,heading:90};
     const spd=toMph(c.speed)||parseInt(speedVal)||65;
-    const hr=new Date().getHours(),mn=new Date().getMinutes();
-    const month=new Date().toLocaleString('en',{month:'long'});
-    const isNight=hr>=22||hr<5;
-    const isDusk=hr>=19&&hr<22;
-    const isDawn=hr>=5&&hr<7;
-    const timeDesc=isNight?`NIGHT (${hr}:${mn.toString().padStart(2,'0')}) — dark outside`:
-      isDusk?`DUSK (${hr}:${mn.toString().padStart(2,'0')}) — sun setting, fading light`:
-      isDawn?`DAWN (${hr}:${mn.toString().padStart(2,'0')}) — sun rising`:
-      `DAYTIME (${hr}:${mn.toString().padStart(2,'0')}, ${month})`;
-    const tmDesc=tm==="car"?`car at ${spd} mph`:tm==="bus"?`bus/train at ${spd} mph`:tm==="bike"?`bicycle at ${spd} mph`:`walking at ${spd} mph`;
     const hdg=c.heading||90;
-    const destLine=dest?`\nTraveling toward: ${dest}. Use this to anticipate the route ahead.`:"";
-    const exLine=exl.length>0?`\nNEVER mention these topics: ${exl.join(', ')}.`:"";
-    const nightLine=isNight?`It is NIGHT. Do NOT say "you can see" or "look at the landscape". Say "in your headlights...", "against the night sky...", "if it were daylight...", or describe what's audible/imaginable.`
-      :isDusk?`It is DUSK. Describe the fading light, silhouettes, golden hour colors still visible.`
-      :`It is daytime. Describe what is visible through the windshield.`;
+    const hr=new Date().getHours(),mn=new Date().getMinutes();
+    const mo=new Date().toLocaleString('en',{month:'long'});
+    const isNight=hr>=22||hr<5,isDusk=hr>=19&&hr<22,isDawn=hr>=5&&hr<7;
+    const timeCtx=isNight?`NIGHT ${hr}:${mn.toString().padStart(2,'0')} — completely dark`:isDusk?`DUSK ${hr}:${mn.toString().padStart(2,'0')} — fading light, silhouettes`:isDawn?`DAWN — sun just rising`:`DAYTIME ${hr}:${mn.toString().padStart(2,'0')} ${mo}`;
+    const tmCtx=tm==="car"?`car at ${spd} mph`:tm==="bus"?`bus/train at ${spd} mph`:tm==="bike"?`bicycle at ~${spd} mph`:`walking`;
+    const destCtx=dest?`\nDestination: ${dest} — use to anticipate the route ahead.`:"";
+    const exCtx=exl.length>0?`\nNEVER mention: ${exl.join(', ')}.`:"";
+    const nightCtx=isNight?`NIGHT: Do NOT say "you can see" or "look at". Say "in the headlights", "against the night sky", "if it were day". Focus on what's perceivable at night.`:isDusk?`DUSK: Describe fading light, golden silhouettes, the transition.`:`DAYTIME: Describe what's visible through the windshield.`;
 
-    if(isQ){
-      return`You are Road Radio, a road companion. A traveler asked: "${question}"
-Answer warmly in 2-3 sentences in ${al}, then say you're returning to the road.
-Time: ${timeDesc}. Mode: ${bm.name}.
-Reply ONLY valid JSON: {"story":"answer + brief return transition","location":"current place name in English","image":"2-3 english words"}`;
-    }
+    if(isQ)return`You are Road Radio. A traveler asked: "${question}". Answer warmly in 2-3 sentences in ${al}. Then briefly say you're returning to the road. Reply ONLY valid JSON: {"story":"answer + return","location":"current place"}`;
 
-    return`You are Road Radio — ${bm.style}
+    return`${bm.prompt}
 
-TIME: ${timeDesc}
-TRAVELER: In a ${tmDesc}
-HEADING: ${toDir(hdg)} (${Math.round(hdg)}°) — LEFT = ${toLeft(hdg)}, RIGHT = ${toRight(hdg)}
-COORDINATES: ${c.lat.toFixed(5)}°N, ${c.lng.toFixed(5)}°W${destLine}${exLine}
+CONTEXT:
+- Time: ${timeCtx}
+- Vehicle: ${tmCtx}
+- Position: ${c.lat.toFixed(5)}°N, ${c.lng.toFixed(5)}°W
+- Heading: ${toDir(hdg)} (${Math.round(hdg)}°) — LEFT=${toLeft(hdg)}, RIGHT=${toRight(hdg)}${destCtx}${exCtx}
 
-${nightLine}
+${nightCtx}
 
-CRITICAL RULES — NO EXCEPTIONS:
-1. NEVER use: "Вы мчитесь", "Вы несётесь", "Вы едете", "You're racing", "You're driving", "As you drive", "As you travel". PERMANENTLY BANNED.
-2. Start with the PLACE or SCENE — never with the traveler. Good openings: "Just ahead...", "The hills here...", "Cherokee, Oklahoma...", "This stretch of highway...", "Rolling farmland gives way to...", "A story about this land..."
-3. Use left/right directions based on heading above — be precise
-4. NEVER invent specific objects (rivers, bridges, towns) that might not exist nearby. If unsure, use "somewhere in this region..." or "these hills typically..."
-5. If nearby POI data is provided — use it as FACTS. Only mention objects that are in the list.
-6. 5 sentences. Use "..." for natural pauses. Vary sentence length.
-7. End with a hook — something ahead, a mystery, a teaser
-8. DO NOT address the traveler more than once per response
-9. EVERY WORD must be in ${al}
+ABSOLUTE RULES — ZERO TOLERANCE:
+1. FORBIDDEN openers — NEVER use these words to start: "Впереди", "Ahead", "In front of you", "As you drive", "As you travel", "You're driving", "Вы едете", "Вы мчитесь", "Вы несётесь", "В свете фар" AT THE START.
+2. START with a FACT, PLACE NAME, or OBSERVATION about the location. Good examples:
+   - "The North Canadian River cuts through..."
+   - "Cherokee County, Oklahoma — a land where..."
+   - "Mile marker 156 on I-40..."
+   - "Oil was first struck here in..."
+   - "The rolling hills of eastern Oklahoma..."
+3. Left/right based on heading above — be precise
+4. ONLY mention specific objects (rivers, bridges, towns) if they appear in the provided POI list
+5. If no POI data — describe the general region truthfully without inventing specifics
+6. 5 sentences. Use "..." for pauses. Vary length.
+7. End with a hook about what's ahead or a fascinating fact
+8. Address the traveler directly AT MOST ONCE per story
+9. EVERY WORD in ${al}
 
-Reply ONLY valid JSON no markdown: {"story":"5 sentences with ... pauses","location":"exact place name in English","image":"2-3 english words for photo"}`;
+Reply ONLY valid JSON: {"story":"5 sentences","location":"exact place in English"}`;
   };
 
-  const callClaude=async(system,msg,forNext)=>{
+  const callClaude=async(sys,msg,forNext)=>{
     const key=localStorage.getItem(KEY_STORE);
     const msgs=forNext?[{role:"user",content:msg}]:[...histRef.current.slice(-4),{role:"user",content:msg}];
-    const r=await fetch(PROXY,{method:"POST",headers:{"Content-Type":"application/json","x-api-key":key,"anthropic-version":"2023-06-01","anthropic-dangerous-direct-browser-access":"true"},body:JSON.stringify({model:"claude-haiku-4-5-20251001",max_tokens:500,system,messages:msgs})});
+    const r=await fetch(PROXY,{method:"POST",headers:{"Content-Type":"application/json","x-api-key":key,"anthropic-version":"2023-06-01","anthropic-dangerous-direct-browser-access":"true"},body:JSON.stringify({model:"claude-haiku-4-5-20251001",max_tokens:500,system:sys,messages:msgs})});
     if(!r.ok)throw new Error(await r.text());
-    const data=await r.json();
-    const txt=(data.content?.[0]?.text||"{}").replace(/```json|```/g,"").trim();
-    const result=extractStory(txt);
+    const d=await r.json();
+    const txt=(d.content?.[0]?.text||"{}").replace(/```json|```/g,"").trim();
+    const res=extract(txt);
     if(!forNext)histRef.current=[...msgs,{role:"assistant",content:txt}];
-    return result;
+    return res;
   };
 
-  const prefetchNext=async()=>{
-    if(fetchingNext.current||nextStoryRef.current)return;
+  const prefetch=async()=>{
+    if(fetchingNext.current||nextRef.current)return;
     fetchingNext.current=true;
-    try{
-      const system=buildSystem(false,null);
-      const res=await callClaude(system,"What's coming up next on the road ahead?",true);
-      nextStoryRef.current=res;
-    }catch{}
+    try{const sys=buildSys(false,null);nextRef.current=await callClaude(sys,"What's coming up next?",true);}catch{}
     fetchingNext.current=false;
   };
 
@@ -462,31 +461,23 @@ Reply ONLY valid JSON no markdown: {"story":"5 sentences with ... pauses","locat
     if(!runRef.current)return;
     const c=coordsRef.current;if(!c)return;
     let res=null;
-    if(useNext&&nextStoryRef.current){
-      res=nextStoryRef.current;nextStoryRef.current=null;
-      setStatus("ready");
-    }else{
+    if(useNext&&nextRef.current){res=nextRef.current;nextRef.current=null;setStatus("ready");}
+    else{
       setStatus("loading");
-      // Fetch real POI data first
-      const pois=await fetchPOI(c.lat,c.lng);
-      const system=buildSystem(false,null);
-      const poiLine=pois.length>0?`\nREAL NEARBY OBJECTS (use these — do not invent others): ${pois.join(", ")}`:"";
-      try{
-        res=await callClaude(system+poiLine,"Describe what's here right now and what's immediately ahead.",false);
-      }catch(e){
-        setErr((e.message||"Connection error").slice(0,100));
-        runRef.current=false;setStatus("idle");return;
-      }
+      const{pois,highways}=await fetchPOI(c.lat,c.lng);
+      const sys=buildSys(false,null);
+      const poiLine=pois.length>0?`\nREAL NEARBY OBJECTS (only mention these): ${pois.join(", ")}`:"\nNo specific POI data — describe the general region.";
+      const hwLine=highways.length>0?`\nCURRENT HIGHWAY: ${highways.join(", ")} — mention this highway by name.`:"";
+      try{res=await callClaude(sys+poiLine+hwLine,"Describe this exact location right now.",false);}
+      catch(e){setErr((e.message||"Connection error").slice(0,100));runRef.current=false;setStatus("idle");return;}
     }
     if(!runRef.current)return;
-    setStory(res.story||"");
-    setLocName(res.location||"");
-    setStatus("ready");startCd(55);
-    prefetchNext();
+    setStory(res.story||"");setLocName(res.location||"");
+    setStatus("ready");startCd(55);prefetch();
     if(res.story)await speak(res.story);
     if(!runRef.current)return;
     await new Promise(r=>setTimeout(r,2000));
-    if(runRef.current)loopRef.current?.(!!nextStoryRef.current);
+    if(runRef.current)loopRef.current?.(!!nextRef.current);
   };
   loopRef.current=loop;
 
@@ -523,7 +514,7 @@ Reply ONLY valid JSON no markdown: {"story":"5 sentences with ... pauses","locat
     let c=coordsRef.current||parseCoords();
     if(!c){setErr(lang==="ru"?"Нажмите автоопределение или введите координаты":"Tap auto-detect or enter coordinates");return;}
     coordsRef.current=c;setCoords(c);destRef.current=destination;
-    runRef.current=true;histRef.current=[];nextStoryRef.current=null;
+    runRef.current=true;histRef.current=[];nextRef.current=null;
     setErr("");setStory("");
     setScreen("main");startGeoWatch();
     await requestWake();
@@ -553,11 +544,10 @@ Reply ONLY valid JSON no markdown: {"story":"5 sentences with ... pauses","locat
         const q=e.results[0][0].transcript;
         setMicState("processing");
         try{window.speechSynthesis?.cancel();}catch{}
-        const system=buildSystem(true,q);
         try{
-          const res=await callClaude(system,q,false);
+          const res=await callClaude(buildSys(true,q),q,false);
           setStory(res.story||res);setStatus("ready");startCd(55);
-          setMicState("idle");nextStoryRef.current=null;
+          setMicState("idle");nextRef.current=null;
           if(res.story)await speak(res.story);
           await new Promise(r=>setTimeout(r,1500));
           if(runRef.current)loopRef.current?.(false);
@@ -573,11 +563,10 @@ Reply ONLY valid JSON no markdown: {"story":"5 sentences with ... pauses","locat
     if(!qText.trim())return;
     try{window.speechSynthesis?.cancel();}catch{}
     setQMode(false);setStatus("loading");
-    const system=buildSystem(true,qText);
     try{
-      const res=await callClaude(system,qText,false);
+      const res=await callClaude(buildSys(true,qText),qText,false);
       setStory(res.story||res);setQText("");setStatus("ready");startCd(55);
-      nextStoryRef.current=null;
+      nextRef.current=null;
       if(res.story)await speak(res.story);
       await new Promise(r=>setTimeout(r,1500));
       if(runRef.current)loopRef.current?.(false);else setStatus("idle");
@@ -590,58 +579,79 @@ Reply ONLY valid JSON no markdown: {"story":"5 sentences with ... pauses","locat
     localStorage.setItem(KEY_STORE,k);setErr("");setScreen("setup");
   };
 
-  const WI={0:"☀️",1:"🌤",2:"⛅",3:"☁️",45:"🌫",51:"🌦",61:"🌧",71:"❄️",80:"🌧",95:"⛈"};
-  const getWI=c=>{const k=Object.keys(WI).map(Number).sort((a,b)=>b-a).find(k=>c>=k);return WI[k]||"☀️";};
-  const wBadge=weather?`${getWI(weather.code)} ${weather.temp}°F`:null;
-  const tmObj=TRAVEL_MODES.find(m=>m.id===travelMode)||TRAVEL_MODES[0];
-  const bmObj=BCAST_MODES.find(b=>b.id===bcastMode)||BCAST_MODES[0];
   const isMain=screen==="main";
   const dotCls=!isMain?"off":status==="loading"?"ld":"on";
   const stTxt=!isMain?(lang==="ru"?"ГОТОВ":"READY"):status==="loading"?(lang==="ru"?"ЗАГРУЗКА":"LOADING"):(lang==="ru"?"В ЭФИРЕ":"ON AIR");
+  const wBadge=weather?`${getWI(weather.code)} ${weather.temp}°F`:null;
+  const bmObj=BCASTS.find(b=>b.id===bcastMode)||BCASTS[0];
+  const tmObj=TRAVEL.find(t=>t.id===travelMode)||TRAVEL[0];
+  const isRu=lang==="ru";
+  const slogan=isRu?"Радио, которое знает, где ты едёшь.":"Every mile has a story.";
+
+  // Filter voices for current language
+  const curVoices=voices.filter(v=>v.lang.startsWith(L[lang]?.tts?.split("-")[0]||"en"));
 
   return(
     <div className="app">
+      {splash&&(
+        <div className="splash">
+          <div className="splash-logo">Road <em>Radio</em></div>
+          <div className="splash-line"/>
+          <div className="splash-tag">{slogan}</div>
+          <div className="splash-road">
+            <div className="splash-dot"/>
+            <div className="splash-dot"/>
+            <div className="splash-dot"/>
+          </div>
+        </div>
+      )}
+
       {settingsOpen&&(
         <div className="overlay" onClick={e=>{if(e.target.className==="overlay")setSettingsOpen(false);}}>
           <div className="sheet">
-            <div className="sheet-title">⚙️ {lang==="ru"?"Настройки":"Settings"}</div>
+            <div className="sheet-title">⚙️ {isRu?"Настройки":"Settings"}</div>
 
-            <div className="set-sect">{lang==="ru"?"Режим эфира":"Broadcast Mode"}</div>
+            <div className="set-sect">{isRu?"Режим эфира":"Broadcast Mode"}</div>
             <div className="bcast-grid">
-              {BCAST_MODES.map(b=>(
+              {BCASTS.map(b=>(
                 <div key={b.id} className={`bcast-btn${bcastMode===b.id?" sel":""}`} onClick={()=>setBcastMode(b.id)}>
                   <div className="bcast-icon">{b.icon}</div>
-                  <div className="bcast-info">
-                    <div className="bcast-name">{lang==="ru"?b.ru:b.en}</div>
-                    <div className="bcast-desc">{lang==="ru"?b.descRu:b.desc}</div>
-                  </div>
+                  <div><div className="bcast-name">{isRu?b.ru:b.en}</div><div className="bcast-desc">{isRu?b.descRu:b.desc}</div></div>
                 </div>
               ))}
             </div>
 
-            <div className="set-sect">{lang==="ru"?"Способ передвижения":"Travel Mode"}</div>
+            <div className="set-sect">{isRu?"Способ передвижения":"Travel Mode"}</div>
             <div className="mode-grid">
-              {TRAVEL_MODES.map(m=>(
+              {TRAVEL.map(m=>(
                 <div key={m.id} className={`mode-btn${travelMode===m.id?" sel":""}`} onClick={()=>setTravelMode(m.id)}>
                   <span className="mode-icon">{m.icon}</span>
-                  <div className="mode-lbl">{lang==="ru"?m.ru:m.en}</div>
+                  <div className="mode-lbl">{isRu?m.ru:m.en}</div>
                 </div>
               ))}
             </div>
 
-            <div className="set-sect">{lang==="ru"?"Что НЕ рассказывать":"What NOT to narrate"}</div>
+            {curVoices.length>1&&(
+              <>
+                <div className="set-sect">{isRu?"Голос":"Voice"}</div>
+                <select className="voice-sel" value={selectedVoice} onChange={e=>setSelectedVoice(e.target.value)}>
+                  <option value="">{isRu?"— Голос по умолчанию —":"— Default voice —"}</option>
+                  {curVoices.map(v=><option key={v.name} value={v.name}>{v.name} {v.localService?"(local)":""}</option>)}
+                </select>
+              </>
+            )}
+
+            <div className="set-sect">{isRu?"Что НЕ рассказывать":"What NOT to narrate"}</div>
             <div className="topic-grid">
               {TOPICS.map(t=>(
                 <div key={t.id} className={`topic-item${excluded.includes(t.id)?" on":""}`} onClick={()=>setExcluded(p=>p.includes(t.id)?p.filter(x=>x!==t.id):[...p,t.id])}>
                   <div className="topic-check">{excluded.includes(t.id)?"✕":""}</div>
-                  <div className="topic-lbl">{lang==="ru"?t.ru:t.en}</div>
+                  <div className="topic-lbl">{isRu?t.ru:t.en}</div>
                 </div>
               ))}
             </div>
 
-            <button className="bigbtn green" style={{marginTop:"16px"}} onClick={()=>setSettingsOpen(false)}>
-              ✓ {lang==="ru"?"Сохранить":"Save"}
-            </button>
+            <button className="bigbtn green" style={{marginTop:"18px"}} onClick={()=>setSettingsOpen(false)}>✓ {isRu?"Сохранить":"Save"}</button>
           </div>
         </div>
       )}
@@ -674,7 +684,7 @@ Reply ONLY valid JSON no markdown: {"story":"5 sentences with ... pauses","locat
           </div>
           {err&&<div className="errbox">⚠ {err}</div>}
           <button className="bigbtn green" onClick={saveKey}>✓ Save & Start →</button>
-          <div style={{fontSize:"13px",color:"#556677",textAlign:"center"}}>Stored only on your device</div>
+          <div style={{fontSize:"14px",color:"#556677",textAlign:"center"}}>Stored only on your device</div>
         </div>
       )}
 
@@ -683,40 +693,34 @@ Reply ONLY valid JSON no markdown: {"story":"5 sentences with ... pauses","locat
           <div className="s-hero">
             <div className="s-icon">{bmObj.icon}</div>
             <div className="s-title">Road Radio</div>
-            <div className="s-sub">{lang==="ru"?"Ваш AI-гид по дорогам мира":"Your AI guide to roads worldwide"}</div>
+            <div className="s-sub">{slogan}</div>
           </div>
-
           <button className={`geobtn${geoOk?" ok":""}`} onClick={getGeo}>
-            {geoOk?(lang==="ru"?"✓ Местоположение найдено!":"✓ Location Detected!"):(lang==="ru"?"📍 Определить местоположение":"📍 Auto-Detect My Location")}
+            {geoOk?(isRu?"✓ Местоположение найдено!":"✓ Location Detected!"):(isRu?"📍 Определить местоположение":"📍 Auto-Detect My Location")}
           </button>
-
-          <div className="sep">{lang==="ru"?"или введите вручную":"or enter manually"}</div>
-
+          <div className="sep">{isRu?"или введите вручную":"or enter manually"}</div>
           <div>
-            <label className="flabel">📍 {lang==="ru"?"Координаты (широта, долгота)":"Coordinates (lat, lng)"}</label>
+            <label className="flabel">📍 {isRu?"Координаты (широта, долгота)":"Coordinates (lat, lng)"}</label>
             <input className="finput" value={coordInput} onChange={e=>setCoordInput(e.target.value)} placeholder="35.4615, -97.6882"/>
           </div>
-
           <div>
-            <label className="flabel">🏁 {lang==="ru"?"Куда едете?":"Destination?"}</label>
-            <input className="finput" value={destination} onChange={e=>setDestination(e.target.value)} placeholder={lang==="ru"?"Лос-Анджелес, CA":"Los Angeles, CA"}/>
+            <label className="flabel">🏁 {isRu?"Куда едете?":"Destination?"}</label>
+            <input className="finput" value={destination} onChange={e=>setDestination(e.target.value)} placeholder={isRu?"Лос-Анджелес, CA":"Los Angeles, CA"}/>
           </div>
-
           <div className="row2">
             <div>
-              <label className="flabel">🚀 {lang==="ru"?"Скорость mph":"Speed mph"}</label>
+              <label className="flabel">🚀 {isRu?"Скорость mph":"Speed mph"}</label>
               <input className="finput" type="number" value={speedVal} onChange={e=>setSpeedVal(e.target.value)}/>
             </div>
             <div>
-              <label className="flabel">🧭 {lang==="ru"?"Направление °":"Heading °"}</label>
+              <label className="flabel">🧭 {isRu?"Направление °":"Heading °"}</label>
               <input className="finput" type="number" value={headVal} onChange={e=>setHeadVal(e.target.value)}/>
               <div className="dirhint">N=0 · E=90 · S=180 · W=270</div>
             </div>
           </div>
-
           {err&&<div className="errbox">⚠ {err}</div>}
-          <button className="bigbtn blue" onClick={()=>{localStorage.removeItem(KEY_STORE);setApiInput("");setScreen("apikey");}}>🔑 {lang==="ru"?"Сменить ключ":"Change API Key"}</button>
-          <button className="bigbtn green" onClick={startTour}>▶ {lang==="ru"?"Начать тур":"Start Tour"}</button>
+          <button className="bigbtn blue" onClick={()=>{localStorage.removeItem(KEY_STORE);setApiInput("");setScreen("apikey");}}>🔑 {isRu?"Сменить ключ":"Change API Key"}</button>
+          <button className="bigbtn green" onClick={startTour}>▶ {isRu?"Начать тур":"Start Tour"}</button>
         </div>
       )}
 
@@ -726,11 +730,11 @@ Reply ONLY valid JSON no markdown: {"story":"5 sentences with ... pauses","locat
             <canvas ref={canvasRef} className="road-canvas"/>
             <div className="road-over"/>
             <div className="road-top">
-              <div className="mode-badge">{bmObj.icon} {tmObj.icon}</div>
+              <div className="bcast-badge">{bmObj.icon}</div>
               {wBadge&&<div className="weather-badge">{wBadge}</div>}
             </div>
             <div className="road-bot">
-              <div className="locname">{locName||"On the road..."}</div>
+              <div className="locname">{locName||highwayInfo||"On the road..."}</div>
               {coords&&<div className="loccrd">{coords.lat.toFixed(4)}°N / {Math.abs(coords.lng).toFixed(4)}°W</div>}
               {nearbyPOI.length>0&&<div className="poi-strip">📍 {nearbyPOI.slice(0,4).join(" · ")}</div>}
             </div>
@@ -744,34 +748,33 @@ Reply ONLY valid JSON no markdown: {"story":"5 sentences with ... pauses","locat
 
           <div className="sa">
             <div className="airbar">
-              <div className="airlbl">{status==="ready"&&<div className="airdot"/>}{status==="loading"?(lang==="ru"?"ГЕНЕРИРУЮ...":"GENERATING..."):(lang==="ru"?"В ЭФИРЕ":"ON AIR")}</div>
+              <div className="airlbl">{status==="ready"&&<div className="airdot"/>}{status==="loading"?(isRu?"ГЕНЕРИРУЮ...":"GENERATING..."):(isRu?"В ЭФИРЕ":"ON AIR")}</div>
               <div className="timeinfo">{timeStr}</div>
             </div>
-            {status==="loading"&&<div className="ldtxt"><span className="spinico">◌</span>&nbsp;{lang==="ru"?"Готовлю рассказ...":"Preparing story..."}</div>}
+            {status==="loading"&&<div className="ldtxt"><span className="spinico">◌</span>&nbsp;{isRu?"Готовлю рассказ...":"Preparing story..."}</div>}
             {showTxt&&story&&status!=="loading"&&<div className="stxt">{story}</div>}
-            {!showTxt&&story&&status!=="loading"&&<div className="ldtxt">🔊 {lang==="ru"?"Только голос":"Audio only"}</div>}
+            {!showTxt&&story&&status!=="loading"&&<div className="ldtxt">🔊 {isRu?"Только голос":"Audio only"}</div>}
             {story&&status==="ready"&&(
               <div className="pgrow">
-                <span className="pglbl">⟳ {lang==="ru"?"след.":"next"}</span>
+                <span className="pglbl">⟳ {isRu?"след.":"next"}</span>
                 <div className="pgbar"><div className="pgfill" style={{width:`${Math.max(0,(1-cd/55)*100)}%`}}/></div>
                 <span className="pglbl">{cd}s</span>
               </div>
             )}
           </div>
 
-          <div className="wakeinfo">{wakeLock?(lang==="ru"?"🔆 Экран включён":"🔆 Screen kept on"):(lang==="ru"?"⚠ Экран может погаснуть":"⚠ Screen may turn off")}</div>
+          <div className="wakeinfo">{wakeLock?(isRu?"🔆 Экран включён":"🔆 Screen on"):(isRu?"⚠ Экран может погаснуть":"⚠ Screen may turn off")}</div>
 
           <div className="togrow">
-            <div className={`tog${showTxt?" act":""}`} onClick={()=>setShowTxt(t=>!t)}>{showTxt?"📄 ✓":"📄 ○"}</div>
+            <div className={`tog${showTxt?" act":""}`} onClick={()=>setShowTxt(t=>!t)}>{showTxt?"📄 ✓":"📄"}</div>
             <div className={`tog spk${speaking?" going":""}`} onClick={()=>story&&speak(story)}>{speaking?"🔊 ●":"🔊"}</div>
             <div className={`tog wake${wakeLock?" act":""}`} onClick={()=>wakeLock?wlRef.current?.release():requestWake()}>{wakeLock?"🔆 ✓":"🔆"}</div>
           </div>
 
           <div className="voice-area">
             <button className={`mic-btn${micState==="listening"?" listening":micState==="processing"?" processing":""}`}
-              onMouseDown={startVoice} onTouchStart={startVoice}
-              onMouseUp={()=>{}} onTouchEnd={()=>{}}>
-              {micState==="listening"?(lang==="ru"?"🔴 Слушаю...":"🔴 Listening..."):micState==="processing"?(lang==="ru"?"⏳ Обрабатываю...":"⏳ Processing..."):(lang==="ru"?"🎤 Держите для вопроса":"🎤 Hold to Speak")}
+              onMouseDown={startVoice} onTouchStart={startVoice} onMouseUp={()=>{}} onTouchEnd={()=>{}}>
+              {micState==="listening"?(isRu?"🔴 Слушаю...":"🔴 Listening..."):micState==="processing"?(isRu?"⏳ Обрабатываю...":"⏳ Processing..."):(isRu?"🎤 Держите для вопроса":"🎤 Hold to Speak")}
             </button>
           </div>
 
@@ -779,17 +782,17 @@ Reply ONLY valid JSON no markdown: {"story":"5 sentences with ... pauses","locat
 
           {qMode&&(
             <div className="qa">
-              <input className="qi" value={qText} onChange={e=>setQText(e.target.value)} placeholder={lang==="ru"?"Введите вопрос...":"Type your question..."} onKeyDown={e=>e.key==="Enter"&&sendQ()} autoFocus/>
+              <input className="qi" value={qText} onChange={e=>setQText(e.target.value)} placeholder={isRu?"Введите вопрос...":"Type your question..."} onKeyDown={e=>e.key==="Enter"&&sendQ()} autoFocus/>
               <div className="qbs">
-                <button className="btn bsend" style={{flex:1,padding:"12px"}} onClick={sendQ}>{lang==="ru"?"Спросить":"Ask"}</button>
-                <button className="btn bcancel" style={{padding:"12px"}} onClick={()=>{setQMode(false);setQText("");}}>{lang==="ru"?"Отмена":"Cancel"}</button>
+                <button className="btn bsend" style={{flex:1,padding:"13px"}} onClick={sendQ}>{isRu?"Спросить":"Ask"}</button>
+                <button className="btn bcancel" style={{padding:"13px"}} onClick={()=>{setQMode(false);setQText("");}}>{isRu?"Отмена":"Cancel"}</button>
               </div>
             </div>
           )}
 
           <div className="ctrl">
-            <button className="btn bstop" onClick={stop}>{lang==="ru"?"■ Стоп":"■ Stop"}</button>
-            <button className="btn bq" onClick={()=>setQMode(t=>!t)}>{lang==="ru"?"? Текст":"? Type"}</button>
+            <button className="btn bstop" onClick={stop}>{isRu?"■ Стоп":"■ Stop"}</button>
+            <button className="btn bq" onClick={()=>setQMode(t=>!t)}>{isRu?"? Текст":"? Type"}</button>
           </div>
         </>
       )}
