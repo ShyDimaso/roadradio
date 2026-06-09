@@ -10,62 +10,71 @@
 html,body{background:#05070f;height:100%;overscroll-behavior:none;}
 body{font-family:'Inter',sans-serif;color:#fff;}
 .app{min-height:100vh;background:#05070f;display:flex;flex-direction:column;max-width:500px;margin:0 auto;position:relative;}
-.hdr{padding:12px 16px;border-bottom:2px solid #2a3550;display:flex;align-items:center;justify-content:space-between;background:#080b15;position:sticky;top:0;z-index:99;}
-.logo{font-family:'Orbitron',monospace;font-size:14px;font-weight:900;letter-spacing:2px;color:#ff6b35;}
+.hdr{padding:11px 14px;border-bottom:2px solid #2a3550;display:flex;align-items:center;justify-content:space-between;background:#080b15;position:sticky;top:0;z-index:99;}
+.logo{font-family:'Orbitron',monospace;font-size:13px;font-weight:900;letter-spacing:2px;color:#ff6b35;}
 .logo em{color:#4a9eff;font-style:normal;}
-.hdr-r{display:flex;align-items:center;gap:8px;}
-.langsel{background:#0d1525;border:2px solid #4a9eff;border-radius:8px;padding:5px 8px;color:#4a9eff;font-family:'Orbitron',monospace;font-size:9px;font-weight:700;cursor:pointer;outline:none;}
-.setbtn{background:#0d1525;border:2px solid #2a3550;border-radius:8px;padding:5px 10px;color:#aabbcc;font-size:16px;cursor:pointer;outline:none;}
-.pill{display:flex;align-items:center;gap:6px;padding:5px 12px;border-radius:20px;border:2px solid #2a3550;background:#0d1525;}
-.dot{width:9px;height:9px;border-radius:50%;}
-.dot.on{background:#00e87a;box-shadow:0 0 10px #00e87a;animation:pulse 1.5s infinite;}
+.hdr-r{display:flex;align-items:center;gap:7px;}
+.langsel{background:#0d1525;border:2px solid #4a9eff;border-radius:8px;padding:4px 7px;color:#4a9eff;font-family:'Orbitron',monospace;font-size:9px;font-weight:700;cursor:pointer;outline:none;}
+.setbtn{background:#0d1525;border:2px solid #2a3550;border-radius:8px;padding:4px 9px;color:#aabbcc;font-size:15px;cursor:pointer;outline:none;}
+.pill{display:flex;align-items:center;gap:5px;padding:4px 10px;border-radius:20px;border:2px solid #2a3550;background:#0d1525;}
+.dot{width:8px;height:8px;border-radius:50%;}
+.dot.on{background:#00e87a;box-shadow:0 0 8px #00e87a;animation:pulse 1.5s infinite;}
 .dot.ld{background:#f5c842;box-shadow:0 0 8px #f5c842;animation:pulse .8s infinite;}
 .dot.off{background:#334466;}
-.ptxt{font-family:'Orbitron',monospace;font-size:9px;font-weight:700;letter-spacing:2px;color:#aabbcc;text-transform:uppercase;}
+.ptxt{font-family:'Orbitron',monospace;font-size:8px;font-weight:700;letter-spacing:2px;color:#aabbcc;text-transform:uppercase;}
+.ver{font-family:'Orbitron',monospace;font-size:7px;color:#223344;position:absolute;bottom:3px;right:6px;letter-spacing:1px;}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
 @keyframes spin{from{transform:rotate(0)}to{transform:rotate(360deg)}}
 @keyframes fadeUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
 
-/* SETTINGS OVERLAY */
-.overlay{position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:200;display:flex;align-items:flex-end;}
-.settings-box{background:#080b15;border-top:2px solid #2a3550;border-radius:20px 20px 0 0;padding:24px 20px 32px;width:100%;max-width:500px;margin:0 auto;}
-.set-title{font-family:'Orbitron',monospace;font-size:14px;font-weight:900;color:#ff6b35;margin-bottom:18px;letter-spacing:2px;}
-.set-subtitle{font-size:13px;color:#778899;margin-bottom:14px;}
-.set-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:20px;}
-.set-item{display:flex;align-items:center;gap:10px;padding:10px 12px;background:#0d1525;border:2px solid #2a3550;border-radius:10px;cursor:pointer;}
+/* OVERLAY */
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,.88);z-index:200;display:flex;align-items:flex-end;}
+.sheet{background:#080b15;border-top:2px solid #2a3550;border-radius:20px 20px 0 0;padding:22px 18px 30px;width:100%;max-width:500px;margin:0 auto;max-height:85vh;overflow-y:auto;}
+.sheet-title{font-family:'Orbitron',monospace;font-size:13px;font-weight:900;color:#ff6b35;margin-bottom:16px;letter-spacing:2px;}
+.set-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:18px;}
+.set-item{display:flex;align-items:center;gap:9px;padding:10px 12px;background:#0d1525;border:2px solid #2a3550;border-radius:10px;cursor:pointer;transition:all .15s;}
 .set-item.on{border-color:#cc3333;background:#1a0808;}
-.set-check{width:20px;height:20px;border-radius:5px;background:#1a2535;border:2px solid #334455;display:flex;align-items:center;justify-content:center;font-size:12px;flex-shrink:0;}
+.set-check{width:20px;height:20px;border-radius:5px;background:#1a2535;border:2px solid #334455;display:flex;align-items:center;justify-content:center;font-size:11px;flex-shrink:0;}
 .set-item.on .set-check{background:#cc3333;border-color:#cc3333;}
-.set-label{font-size:13px;color:#aabbcc;font-weight:600;}
-.set-item.on .set-label{color:#ff9090;}
+.set-lbl{font-size:13px;color:#aabbcc;font-weight:600;}
+.set-item.on .set-lbl{color:#ff9090;}
+.set-sect{font-family:'Orbitron',monospace;font-size:9px;color:#445566;letter-spacing:2px;text-transform:uppercase;margin:14px 0 8px;}
+
+/* MODE SELECTOR */
+.mode-row{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:4px;}
+.mode-btn{padding:12px 6px;background:#0d1525;border:2px solid #2a3550;border-radius:10px;text-align:center;cursor:pointer;transition:all .15s;}
+.mode-btn.sel{border-color:#4a9eff;background:#081428;}
+.mode-icon{font-size:22px;display:block;margin-bottom:4px;}
+.mode-lbl{font-family:'Orbitron',monospace;font-size:8px;color:#778899;letter-spacing:1px;}
+.mode-btn.sel .mode-lbl{color:#4a9eff;}
 
 /* INPUTS */
-.flabel{font-family:'Orbitron',monospace;font-size:11px;font-weight:700;letter-spacing:2px;color:#4a9eff;text-transform:uppercase;margin-bottom:9px;display:block;}
-.finput{background:#0d1525;border:2px solid #ffffff;border-radius:12px;padding:16px 18px;color:#ffffff;font-size:18px;outline:none;width:100%;}
+.flabel{font-family:'Orbitron',monospace;font-size:10px;font-weight:700;letter-spacing:2px;color:#4a9eff;text-transform:uppercase;margin-bottom:8px;display:block;}
+.finput{background:#0d1525;border:2px solid #ffffff;border-radius:12px;padding:15px 17px;color:#ffffff;font-size:18px;outline:none;width:100%;}
 .finput::placeholder{color:#556688;font-size:15px;}
 .finput:focus{border-color:#4a9eff;}
-.kinput{background:#0d1525;border:2px solid #ffffff;border-radius:12px;padding:15px 18px;color:#ffffff;font-size:13px;font-family:monospace;outline:none;width:100%;letter-spacing:1px;}
+.kinput{background:#0d1525;border:2px solid #ffffff;border-radius:12px;padding:14px 17px;color:#ffffff;font-size:13px;font-family:monospace;outline:none;width:100%;letter-spacing:1px;}
 .kinput::placeholder{color:#556688;}
 .kinput:focus{border-color:#4a9eff;}
-.keyscreen{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:32px 24px;gap:20px;text-align:center;}
-.key-icon{font-size:56px;}
-.key-title{font-family:'Orbitron',monospace;font-size:20px;font-weight:900;color:#ff6b35;letter-spacing:2px;}
-.key-sub{font-size:16px;color:#aabbcc;line-height:1.7;}
+.keyscreen{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:30px 22px;gap:18px;text-align:center;}
+.key-icon{font-size:54px;}
+.key-title{font-family:'Orbitron',monospace;font-size:19px;font-weight:900;color:#ff6b35;letter-spacing:2px;}
+.key-sub{font-size:15px;color:#aabbcc;line-height:1.7;}
 .key-sub a{color:#4a9eff;text-decoration:none;}
-.setup{flex:1;padding:22px 18px;display:flex;flex-direction:column;gap:16px;}
+.setup{flex:1;padding:20px 16px;display:flex;flex-direction:column;gap:15px;}
 .s-hero{text-align:center;}
-.s-icon{font-size:50px;margin-bottom:8px;}
-.s-title{font-family:'Orbitron',monospace;font-size:20px;font-weight:900;color:#ff6b35;letter-spacing:2px;margin-bottom:5px;}
-.s-sub{font-size:16px;color:#aabbcc;line-height:1.5;}
-.geobtn{background:#0d1828;border:2px solid #4a9eff;border-radius:12px;padding:16px;color:#4a9eff;font-size:14px;font-weight:700;cursor:pointer;width:100%;}
+.s-icon{font-size:48px;margin-bottom:7px;}
+.s-title{font-family:'Orbitron',monospace;font-size:19px;font-weight:900;color:#ff6b35;letter-spacing:2px;margin-bottom:4px;}
+.s-sub{font-size:15px;color:#aabbcc;line-height:1.5;}
+.geobtn{background:#0d1828;border:2px solid #4a9eff;border-radius:12px;padding:15px;color:#4a9eff;font-size:14px;font-weight:700;cursor:pointer;width:100%;}
 .geobtn.ok{border-color:#00e87a;color:#00e87a;background:#081810;}
-.row2{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
-.dirhint{font-size:13px;color:#778899;margin-top:6px;}
-.errbox{padding:14px 16px;background:#200808;border:2px solid #cc2020;border-radius:10px;color:#ff9090;font-size:15px;font-weight:600;}
-.bigbtn{border-radius:14px;padding:18px;font-size:15px;font-weight:700;cursor:pointer;width:100%;letter-spacing:1px;border:none;}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+.dirhint{font-size:12px;color:#778899;margin-top:5px;}
+.errbox{padding:13px 15px;background:#200808;border:2px solid #cc2020;border-radius:10px;color:#ff9090;font-size:14px;font-weight:600;}
+.bigbtn{border-radius:14px;padding:17px;font-size:15px;font-weight:700;cursor:pointer;width:100%;letter-spacing:1px;border:none;}
 .bigbtn.green{background:linear-gradient(135deg,#0d3a0d,#1a6a1a);color:#00e87a;border:2px solid #2a6a2a;}
 .bigbtn.blue{background:#0d1828;color:#4a9eff;border:2px solid #2a4a80;}
-.sep{display:flex;align-items:center;gap:12px;color:#667788;font-size:14px;}
+.sep{display:flex;align-items:center;gap:10px;color:#667788;font-size:13px;}
 .sep:before,.sep:after{content:'';flex:1;height:1px;background:#2a3550;}
 
 /* MAIN */
@@ -73,54 +82,60 @@ body{font-family:'Inter',sans-serif;color:#fff;}
 .locimg{width:100%;height:100%;object-fit:cover;opacity:0;transition:opacity .8s;}
 .locimg.on{opacity:.75;}
 .imgover{position:absolute;inset:0;background:linear-gradient(to top,rgba(5,7,15,1) 0%,rgba(5,7,15,.15) 65%,transparent 100%);}
-.imgbot{position:absolute;bottom:0;left:0;right:0;padding:12px 18px;}
+.imgbot{position:absolute;bottom:0;left:0;right:0;padding:11px 16px;}
 .locname{font-family:'Orbitron',monospace;font-size:11px;font-weight:700;letter-spacing:2px;color:#ff6b35;text-transform:uppercase;margin-bottom:3px;}
 .loccrd{font-family:'Orbitron',monospace;font-size:9px;color:#aabbcc;letter-spacing:1px;}
-.imgtop{position:absolute;top:0;left:0;right:0;padding:10px 14px;display:flex;justify-content:flex-end;}
-.weather-badge{background:rgba(5,7,15,.75);border:1px solid #2a3550;border-radius:20px;padding:5px 12px;font-family:'Orbitron',monospace;font-size:10px;color:#f5c842;letter-spacing:1px;}
-.imgsp{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:36px;opacity:.2;animation:spin 4s linear infinite;}
+.imgtop{position:absolute;top:0;left:0;right:0;padding:9px 12px;display:flex;justify-content:space-between;align-items:flex-start;}
+.weather-badge{background:rgba(5,7,15,.8);border:1px solid #2a3550;border-radius:16px;padding:4px 10px;font-family:'Orbitron',monospace;font-size:10px;color:#f5c842;letter-spacing:1px;}
+.mode-badge{background:rgba(5,7,15,.8);border:1px solid #2a3550;border-radius:16px;padding:4px 10px;font-size:14px;}
+.imgsp{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:34px;opacity:.2;animation:spin 4s linear infinite;}
 
-.dash{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;padding:12px 14px;border-bottom:2px solid #2a3550;}
-.gauge{text-align:center;padding:12px 4px;background:#0d1525;border:2px solid #2a3550;border-radius:10px;}
-.gv{font-family:'Orbitron',monospace;font-size:22px;font-weight:700;color:#00e87a;line-height:1;}
-.gv.d{font-size:20px;color:#4a9eff;}
-.gv.t{font-size:18px;color:#f5c842;}
-.gl{font-family:'Orbitron',monospace;font-size:8px;letter-spacing:1.5px;color:#778899;text-transform:uppercase;margin-top:5px;}
+.dash{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;padding:10px 12px;border-bottom:2px solid #2a3550;}
+.gauge{text-align:center;padding:11px 4px;background:#0d1525;border:2px solid #2a3550;border-radius:10px;}
+.gv{font-family:'Orbitron',monospace;font-size:21px;font-weight:700;color:#00e87a;line-height:1;}
+.gv.d{font-size:19px;color:#4a9eff;}
+.gv.t{font-size:17px;color:#f5c842;}
+.gl{font-family:'Orbitron',monospace;font-size:7px;letter-spacing:1.5px;color:#778899;text-transform:uppercase;margin-top:4px;}
 
-.sa{flex:1;padding:16px 18px 10px;overflow-y:auto;}
-.airbar{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;}
-.airlbl{font-family:'Orbitron',monospace;font-size:9px;letter-spacing:3px;color:#778899;text-transform:uppercase;display:flex;align-items:center;gap:7px;}
-.airdot{width:7px;height:7px;border-radius:50%;background:#ff6b35;animation:pulse 1.4s infinite;}
-.timeinfo{font-family:'Orbitron',monospace;font-size:9px;color:#445566;letter-spacing:1px;}
+.sa{flex:1;padding:14px 16px 8px;overflow-y:auto;}
+.airbar{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;}
+.airlbl{font-family:'Orbitron',monospace;font-size:9px;letter-spacing:3px;color:#778899;text-transform:uppercase;display:flex;align-items:center;gap:6px;}
+.airdot{width:6px;height:6px;border-radius:50%;background:#ff6b35;animation:pulse 1.4s infinite;}
+.timeinfo{font-family:'Orbitron',monospace;font-size:8px;color:#334455;letter-spacing:1px;}
 .stxt{font-size:20px;line-height:1.85;color:#ffffff;font-style:italic;animation:fadeUp .5s ease;}
-.ldtxt{color:#778899;font-family:'Orbitron',monospace;font-size:12px;display:flex;align-items:center;gap:10px;letter-spacing:1px;}
+.ldtxt{color:#778899;font-family:'Orbitron',monospace;font-size:11px;display:flex;align-items:center;gap:8px;letter-spacing:1px;}
 .sp{display:inline-block;animation:spin 1s linear infinite;}
-.pgrow{display:flex;align-items:center;gap:10px;margin-top:12px;}
-.pglbl{font-family:'Orbitron',monospace;font-size:9px;color:#889aaa;white-space:nowrap;}
+.pgrow{display:flex;align-items:center;gap:8px;margin-top:10px;}
+.pglbl{font-family:'Orbitron',monospace;font-size:8px;color:#889aaa;white-space:nowrap;}
 .pgbar{flex:1;height:3px;background:#1a2535;border-radius:2px;overflow:hidden;}
 .pgfill{height:100%;background:linear-gradient(to right,#ff6b35,#f5c842);border-radius:2px;transition:width 1s linear;}
 
-/* CONTROLS */
-.togrow{padding:8px 14px;display:flex;gap:8px;border-top:2px solid #2a3550;}
-.tog{flex:1;padding:10px 4px;background:#0d1525;border:2px solid #2a3550;border-radius:9px;font-size:11px;color:#aabbcc;cursor:pointer;text-align:center;font-weight:600;}
+/* AMBIENT CONTROLS */
+.ambient-row{padding:7px 12px;border-top:2px solid #2a3550;display:flex;align-items:center;gap:8px;}
+.amb-btns{display:flex;gap:5px;}
+.amb-btn{padding:6px 10px;background:#0d1525;border:1px solid #2a3550;border-radius:7px;font-size:14px;cursor:pointer;line-height:1;}
+.amb-btn.sel{border-color:#4a9eff;background:#081428;}
+.vol-slider{flex:1;height:4px;cursor:pointer;accent-color:#4a9eff;}
+
+.togrow{padding:7px 12px;display:flex;gap:7px;border-top:2px solid #2a3550;}
+.tog{flex:1;padding:9px 4px;background:#0d1525;border:2px solid #2a3550;border-radius:9px;font-size:10px;color:#aabbcc;cursor:pointer;text-align:center;font-weight:600;}
 .tog.act{background:#0a1a30;border-color:#4a9eff;color:#4a9eff;}
 .tog.spk.going{border-color:#00e87a;color:#00e87a;background:#081810;}
 .tog.wake.act{border-color:#f5c842;color:#f5c842;background:#151005;}
-.wakeinfo{font-size:10px;color:#445566;text-align:center;padding:4px 0;}
+.wakeinfo{font-size:10px;color:#334455;text-align:center;padding:3px 0;}
 
-/* VOICE BUTTON */
-.voice-area{padding:8px 14px;border-top:2px solid #2a3550;}
-.mic-btn{width:100%;padding:16px;background:#0d1828;border:2px solid #4a9eff;border-radius:12px;color:#4a9eff;font-family:'Orbitron',monospace;font-size:12px;font-weight:700;cursor:pointer;letter-spacing:1px;text-transform:uppercase;transition:all .15s;display:flex;align-items:center;justify-content:center;gap:10px;}
-.mic-btn.listening{background:#1a0808;border-color:#ff4444;color:#ff4444;animation:pulse .8s ease-in-out infinite;}
+.voice-area{padding:7px 12px;border-top:2px solid #2a3550;}
+.mic-btn{width:100%;padding:14px;background:#0d1828;border:2px solid #4a9eff;border-radius:12px;color:#4a9eff;font-family:'Orbitron',monospace;font-size:11px;font-weight:700;cursor:pointer;letter-spacing:1px;text-transform:uppercase;display:flex;align-items:center;justify-content:center;gap:8px;}
+.mic-btn.listening{background:#1a0808;border-color:#ff4444;color:#ff4444;animation:pulse .8s infinite;}
 .mic-btn.processing{background:#080e1a;border-color:#f5c842;color:#f5c842;}
 
-.qa{padding:8px 14px;border-top:2px solid #2a3550;}
-.qi{width:100%;background:#0d1525;border:2px solid #ffffff;border-radius:10px;padding:12px 15px;color:#ffffff;font-size:16px;outline:none;margin-bottom:8px;}
+.qa{padding:7px 12px;border-top:2px solid #2a3550;}
+.qi{width:100%;background:#0d1525;border:2px solid #ffffff;border-radius:10px;padding:11px 14px;color:#ffffff;font-size:16px;outline:none;margin-bottom:7px;}
 .qi::placeholder{color:#556688;}
 .qi:focus{border-color:#4a9eff;}
-.qbs{display:flex;gap:8px;}
-.ctrl{padding:12px 14px 22px;display:flex;gap:10px;border-top:2px solid #2a3550;}
-.btn{flex:1;padding:16px;border:none;border-radius:12px;font-size:13px;font-weight:700;cursor:pointer;text-transform:uppercase;letter-spacing:1px;}
+.qbs{display:flex;gap:7px;}
+.ctrl{padding:11px 12px 22px;display:flex;gap:8px;border-top:2px solid #2a3550;}
+.btn{flex:1;padding:15px;border:none;border-radius:12px;font-size:12px;font-weight:700;cursor:pointer;text-transform:uppercase;letter-spacing:1px;}
 .btn:active{transform:scale(.96);}
 .bstop{background:linear-gradient(135deg,#2e0d0d,#5a1a1a);color:#ff9090;border:2px solid #5a2020;}
 .bq{flex:.55;background:#0d1525;color:#4a9eff;border:2px solid #2a4a70;font-size:10px;}
@@ -137,42 +152,77 @@ body{font-family:'Inter',sans-serif;color:#fff;}
 const {useState,useRef,useEffect}=React;
 const PROXY="https://corsproxy.io/?https://api.anthropic.com/v1/messages";
 const KEY_STORE="rr_key_v3";
-const EX_STORE="rr_exclude_v1";
+const EX_STORE="rr_excl_v2";
+const MODE_STORE="rr_mode_v1";
+const VER="v10";
 
-const WC={0:"☀️ Clear",1:"🌤 Mostly clear",2:"⛅ Partly cloudy",3:"☁️ Overcast",45:"🌫 Fog",51:"🌦 Drizzle",61:"🌧 Rain",71:"❄️ Snow",80:"🌧 Showers",95:"⛈ Thunderstorm"};
-const getWC=c=>{for(const k of Object.keys(WC).sort((a,b)=>b-a))if(c>=parseInt(k))return WC[k];return"☀️";};
-
-const L={
-  en:{lb:"EN",tts:"en-US",ai:"English",ui:{title:"Your AI guide to roads worldwide",geo:"📍 Auto-Detect My Location",geoOk:"✓ Location Detected!",manual:"or enter manually",coords:"Coordinates (lat, lng)",speed:"Speed (mph)",hdg:"Heading °",hint:"N=0 · E=90 · S=180 · W=270",chKey:"🔑 Change API Key",start:"▶ Start Tour",stop:"■ Stop",ask:"? Type",tOn:"📄 Text ON",tOff:"📄 Text OFF",spk:"🔊 Speaking",rpl:"🔊 Replay",awk:"🔆 Awake",wk:"🔆 Wake",scrOn:"🔆 Screen kept on",scrOff:"⚠ Screen may turn off",air:"ON AIR",load:"LOADING",rdy:"READY",gen:"Generating...",prep:"Preparing...",nxt:"next",qph:"Type your question...",send:"Ask",cnl:"Cancel",kt:"One-Time Setup",ks:"Get free key at",kc:"Free $5 — ~200 hours",kl:"Paste Anthropic API key",ksv:"✓ Save & Start",kn:"Stored only on your device",ke:"Key must start with sk-ant...",mic:"🎤 Hold to Speak",micL:"🔴 Listening...",micP:"⏳ Processing...",set:"⚙️ Preferences",setTitle:"What NOT to narrate",setClose:"✓ Save Preferences",back:"Continuing the road tour..."}},
-  ru:{lb:"RU",tts:"ru-RU",ai:"Russian",ui:{title:"Ваш AI-гид по дорогам мира",geo:"📍 Определить местоположение",geoOk:"✓ Местоположение найдено!",manual:"или введите вручную",coords:"Координаты (широта, долгота)",speed:"Скорость (mph)",hdg:"Направление °",hint:"С=0 · В=90 · Ю=180 · З=270",chKey:"🔑 Сменить ключ",start:"▶ Начать тур",stop:"■ Стоп",ask:"? Текст",tOn:"📄 Текст ВКЛ",tOff:"📄 Текст ВЫКЛ",spk:"🔊 Говорю...",rpl:"🔊 Повтор",awk:"🔆 Не сплю",wk:"🔆 Экран",scrOn:"🔆 Экран включён",scrOff:"⚠ Экран может погаснуть",air:"В ЭФИРЕ",load:"ЗАГРУЗКА",rdy:"ГОТОВ",gen:"Генерирую...",prep:"Готовлю рассказ...",nxt:"след.",qph:"Введите вопрос...",send:"Спросить",cnl:"Отмена",kt:"Первичная настройка",ks:"Получи ключ на",kc:"Бесплатно $5 — ~200 часов",kl:"Вставь Anthropic API ключ",ksv:"✓ Сохранить и начать",kn:"Только на вашем устройстве",ke:"Ключ должен начинаться с sk-ant...",mic:"🎤 Держите для вопроса",micL:"🔴 Слушаю...",micP:"⏳ Обрабатываю...",set:"⚙️ Настройки",setTitle:"Что НЕ рассказывать",setClose:"✓ Сохранить настройки",back:"Возвращаюсь к дороге..."}},
-  uk:{lb:"UA",tts:"uk-UA",ai:"Ukrainian",ui:{title:"Ваш AI-гід дорогами світу",geo:"📍 Визначити місцезнаходження",geoOk:"✓ Місцезнаходження знайдено!",manual:"або введіть вручну",coords:"Координати (широта, довгота)",speed:"Швидкість (mph)",hdg:"Напрям °",hint:"П=0 · С=90 · Пд=180 · З=270",chKey:"🔑 Змінити ключ",start:"▶ Розпочати тур",stop:"■ Стоп",ask:"? Текст",tOn:"📄 Текст УВІМК",tOff:"📄 Текст ВИМК",spk:"🔊 Говорю...",rpl:"🔊 Повтор",awk:"🔆 Активний",wk:"🔆 Екран",scrOn:"🔆 Екран увімкнено",scrOff:"⚠ Екран може погаснути",air:"В ЕФІРІ",load:"ЗАВАНТАЖЕННЯ",rdy:"ГОТОВО",gen:"Генерую...",prep:"Готую розповідь...",nxt:"наст.",qph:"Введіть питання...",send:"Запитати",cnl:"Скасувати",kt:"Налаштування",ks:"Отримай ключ на",kc:"Безкоштовно $5 — ~200 годин",kl:"Вставте Anthropic API ключ",ksv:"✓ Зберегти і почати",kn:"Тільки на вашому пристрої",ke:"Ключ має починатися з sk-ant...",mic:"🎤 Тримайте для питання",micL:"🔴 Слухаю...",micP:"⏳ Обробляю...",set:"⚙️ Налаштування",setTitle:"Що НЕ розповідати",setClose:"✓ Зберегти",back:"Повертаюся до дороги..."}},
-  es:{lb:"ES",tts:"es-ES",ai:"Spanish",ui:{title:"Tu guía AI para carreteras",geo:"📍 Detectar mi ubicación",geoOk:"✓ ¡Ubicación detectada!",manual:"o ingresa manualmente",coords:"Coordenadas (lat, lng)",speed:"Velocidad (mph)",hdg:"Rumbo °",hint:"N=0 · E=90 · S=180 · O=270",chKey:"🔑 Cambiar clave",start:"▶ Iniciar",stop:"■ Parar",ask:"? Texto",tOn:"📄 Texto ON",tOff:"📄 Texto OFF",spk:"🔊 Hablando...",rpl:"🔊 Repetir",awk:"🔆 Activo",wk:"🔆 Pantalla",scrOn:"🔆 Pantalla encendida",scrOff:"⚠ La pantalla puede apagarse",air:"EN AIRE",load:"CARGANDO",rdy:"LISTO",gen:"Generando...",prep:"Preparando...",nxt:"próx.",qph:"Tu pregunta...",send:"Preguntar",cnl:"Cancelar",kt:"Configuración",ks:"Obtén la clave en",kc:"$5 gratis — ~200 horas",kl:"Pega tu clave Anthropic",ksv:"✓ Guardar y empezar",kn:"Solo en tu dispositivo",ke:"La clave debe comenzar con sk-ant...",mic:"🎤 Mantén para hablar",micL:"🔴 Escuchando...",micP:"⏳ Procesando...",set:"⚙️ Preferencias",setTitle:"Qué NO narrar",setClose:"✓ Guardar",back:"Volviendo a la carretera..."}},
-  pt:{lb:"PT",tts:"pt-BR",ai:"Portuguese",ui:{title:"Seu guia AI pelas estradas",geo:"📍 Detectar minha localização",geoOk:"✓ Localização detectada!",manual:"ou insira manualmente",coords:"Coordenadas (lat, lng)",speed:"Velocidade (mph)",hdg:"Direção °",hint:"N=0 · L=90 · S=180 · O=270",chKey:"🔑 Mudar chave",start:"▶ Iniciar",stop:"■ Parar",ask:"? Texto",tOn:"📄 Texto ON",tOff:"📄 Texto OFF",spk:"🔊 Falando...",rpl:"🔊 Repetir",awk:"🔆 Ativo",wk:"🔆 Tela",scrOn:"🔆 Tela mantida acesa",scrOff:"⚠ A tela pode apagar",air:"NO AR",load:"CARREGANDO",rdy:"PRONTO",gen:"Gerando...",prep:"Preparando...",nxt:"próx.",qph:"Sua pergunta...",send:"Perguntar",cnl:"Cancelar",kt:"Configuração",ks:"Obtenha a chave em",kc:"$5 grátis — ~200 horas",kl:"Cole sua chave Anthropic",ksv:"✓ Salvar e começar",kn:"Somente no seu dispositivo",ke:"A chave deve começar com sk-ant...",mic:"🎤 Segure para falar",micL:"🔴 Ouvindo...",micP:"⏳ Processando...",set:"⚙️ Preferências",setTitle:"O que NÃO narrar",setClose:"✓ Salvar",back:"Voltando à estrada..."}},
-  de:{lb:"DE",tts:"de-DE",ai:"German",ui:{title:"Ihr KI-Reiseführer für Straßen",geo:"📍 Standort ermitteln",geoOk:"✓ Standort erkannt!",manual:"oder manuell eingeben",coords:"Koordinaten (Breite, Länge)",speed:"Geschwindigkeit (mph)",hdg:"Richtung °",hint:"N=0 · O=90 · S=180 · W=270",chKey:"🔑 API Key ändern",start:"▶ Tour starten",stop:"■ Stopp",ask:"? Text",tOn:"📄 Text AN",tOff:"📄 Text AUS",spk:"🔊 Spreche...",rpl:"🔊 Wiederholen",awk:"🔆 Aktiv",wk:"🔆 Bildschirm",scrOn:"🔆 Bildschirm bleibt an",scrOff:"⚠ Bildschirm kann ausschalten",air:"AUF SENDUNG",load:"LADEN",rdy:"BEREIT",gen:"Generiere...",prep:"Vorbereiten...",nxt:"nächste",qph:"Ihre Frage...",send:"Fragen",cnl:"Abbrechen",kt:"Ersteinrichtung",ks:"API-Schlüssel auf",kc:"Kostenlos $5 — ~200 Stunden",kl:"Anthropic API-Schlüssel einfügen",ksv:"✓ Speichern und starten",kn:"Nur auf Ihrem Gerät",ke:"Schlüssel muss mit sk-ant... beginnen",mic:"🎤 Halten zum Sprechen",micL:"🔴 Höre zu...",micP:"⏳ Verarbeite...",set:"⚙️ Einstellungen",setTitle:"Was NICHT erzählen",setClose:"✓ Speichern",back:"Zurück zur Straße..."}},
-  fr:{lb:"FR",tts:"fr-FR",ai:"French",ui:{title:"Votre guide AI pour les routes",geo:"📍 Détecter ma position",geoOk:"✓ Position détectée!",manual:"ou entrer manuellement",coords:"Coordonnées (lat, lng)",speed:"Vitesse (mph)",hdg:"Cap °",hint:"N=0 · E=90 · S=180 · O=270",chKey:"🔑 Changer la clé",start:"▶ Démarrer",stop:"■ Arrêt",ask:"? Texte",tOn:"📄 Texte ON",tOff:"📄 Texte OFF",spk:"🔊 Parle...",rpl:"🔊 Rejouer",awk:"🔆 Actif",wk:"🔆 Écran",scrOn:"🔆 Écran allumé",scrOff:"⚠ L'écran peut s'éteindre",air:"EN DIRECT",load:"CHARGEMENT",rdy:"PRÊT",gen:"Génération...",prep:"Préparation...",nxt:"suiv.",qph:"Votre question...",send:"Demander",cnl:"Annuler",kt:"Configuration",ks:"Obtenez la clé sur",kc:"$5 gratuit — ~200 heures",kl:"Collez votre clé Anthropic",ksv:"✓ Enregistrer et démarrer",kn:"Stocké sur votre appareil",ke:"La clé doit commencer par sk-ant...",mic:"🎤 Maintenez pour parler",micL:"🔴 J'écoute...",micP:"⏳ Traitement...",set:"⚙️ Préférences",setTitle:"Ce qu'il ne faut PAS raconter",setClose:"✓ Enregistrer",back:"Retour à la route..."}}
-};
-const LK=["en","ru","uk","es","pt","de","fr"];
-
-const TOPICS=[
-  {id:"geology",en:"Geology & underground",ru:"Геология и недра"},
-  {id:"weather",en:"Weather & climate",ru:"Погода и климат"},
-  {id:"wildlife",en:"Wildlife & animals",ru:"Животный мир"},
-  {id:"plants",en:"Plants & forests",ru:"Растения и леса"},
-  {id:"history",en:"History & legends",ru:"История и легенды"},
-  {id:"towns",en:"Towns & cities",ru:"Города и сёла"},
-  {id:"road",en:"Road & infrastructure",ru:"Дороги и мосты"},
-  {id:"humor",en:"Humor & jokes",ru:"Юмор и шутки"},
+const MODES=[
+  {id:"car",icon:"🚗",en:"Car",ru:"Машина"},
+  {id:"bus",icon:"🚌",en:"Bus/Train",ru:"Автобус/Поезд"},
+  {id:"bike",icon:"🚲",en:"Bicycle",ru:"Велосипед"},
+  {id:"walk",icon:"🚶",en:"Walking",ru:"Пешком"},
 ];
 
+const TOPICS=[
+  {id:"geology",en:"Geology",ru:"Геология"},
+  {id:"weather",en:"Weather",ru:"Погода"},
+  {id:"wildlife",en:"Wildlife",ru:"Животные"},
+  {id:"plants",en:"Plants",ru:"Растения"},
+  {id:"history",en:"History",ru:"История"},
+  {id:"towns",en:"Towns",ru:"Города"},
+  {id:"road",en:"Roads",ru:"Дороги"},
+  {id:"humor",en:"Humor",ru:"Юмор"},
+];
+
+const AMBIENT=[
+  {id:"off",icon:"🔇",en:"Off",ru:"Выкл"},
+  {id:"forest",icon:"🌲",en:"Forest",ru:"Лес"},
+  {id:"rain",icon:"🌧",en:"Rain",ru:"Дождь"},
+  {id:"river",icon:"🌊",en:"River",ru:"Река"},
+  {id:"wind",icon:"🌬",en:"Wind",ru:"Ветер"},
+];
+
+const WC={0:"☀️",1:"🌤",2:"⛅",3:"☁️",45:"🌫",51:"🌦",61:"🌧",71:"❄️",80:"🌧",95:"⛈"};
+const getWI=c=>{const k=Object.keys(WC).map(Number).sort((a,b)=>b-a).find(k=>c>=k);return WC[k]||"☀️";};
 const toDir=h=>{if(h==null||isNaN(h))return"—";const d=["N","NE","E","SE","S","SW","W","NW"];return d[Math.round(((h%360)+360)%360/45)%8];};
+const toLeft=h=>{if(h==null)return"?";return toDir((h+90)%360);};
+const toRight=h=>{if(h==null)return"?";return toDir((h-90+360)%360);};
 const toMph=ms=>ms&&ms>0?Math.round(ms*2.237):0;
-const getTimeOfDay=()=>{const h=new Date().getHours();if(h>=5&&h<12)return"morning";if(h>=12&&h<17)return"afternoon";if(h>=17&&h<21)return"evening";return"night";};
-const getTimeStr=()=>{const now=new Date();return now.toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"});};
+
+const L={
+  en:{lb:"EN",tts:"en-US",ai:"English"},
+  ru:{lb:"RU",tts:"ru-RU",ai:"Russian"},
+  uk:{lb:"UA",tts:"uk-UA",ai:"Ukrainian"},
+  es:{lb:"ES",tts:"es-ES",ai:"Spanish"},
+  pt:{lb:"PT",tts:"pt-BR",ai:"Portuguese"},
+  de:{lb:"DE",tts:"de-DE",ai:"German"},
+  fr:{lb:"FR",tts:"fr-FR",ai:"French"},
+  ja:{lb:"JA",tts:"ja-JP",ai:"Japanese"},
+  zh:{lb:"ZH",tts:"zh-CN",ai:"Chinese"},
+  ko:{lb:"KO",tts:"ko-KR",ai:"Korean"},
+  ar:{lb:"AR",tts:"ar-SA",ai:"Arabic"},
+  hi:{lb:"HI",tts:"hi-IN",ai:"Hindi"},
+  it:{lb:"IT",tts:"it-IT",ai:"Italian"},
+  tr:{lb:"TR",tts:"tr-TR",ai:"Turkish"},
+};
+const LK=["en","ru","uk","es","pt","de","fr","ja","zh","ko","ar","hi","it","tr"];
+
+const UI={
+  en:{title:"Your AI guide to roads worldwide",geo:"📍 Auto-Detect My Location",geoOk:"✓ Location Detected!",manual:"or enter manually",coords:"Coordinates (lat, lng)",speed:"Speed (mph)",hdg:"Heading °",hint:"N=0 · E=90 · S=180 · W=270",chKey:"🔑 Change API Key",start:"▶ Start Tour",stop:"■ Stop",ask:"? Type",tOn:"📄 Text",tOff:"📄 Text",spk:"🔊 Speaking",rpl:"🔊 Replay",awk:"🔆 Awake",wk:"🔆 Wake",scrOn:"🔆 Screen on",scrOff:"⚠ Screen off",air:"ON AIR",load:"LOADING",rdy:"READY",gen:"Generating...",prep:"Preparing...",nxt:"next",qph:"Type your question...",send:"Ask",cnl:"Cancel",kt:"One-Time Setup",ks:"Get free key at",kc:"Free $5 — ~200 hours",kl:"Paste Anthropic API key",ksv:"✓ Save & Start",kn:"Stored only on your device",ke:"Key must start with sk-ant...",mic:"🎤 Hold to Speak",micL:"🔴 Listening...",micP:"⏳ Processing...",set:"⚙️",setTitle:"Preferences",setClose:"✓ Save",notTell:"What NOT to narrate",modeTitle:"How are you traveling?",ambTitle:"Background sounds",volLbl:"Volume"},
+  ru:{title:"Ваш AI-гид по дорогам мира",geo:"📍 Определить местоположение",geoOk:"✓ Местоположение найдено!",manual:"или введите вручную",coords:"Координаты (широта, долгота)",speed:"Скорость (mph)",hdg:"Направление °",hint:"С=0 · В=90 · Ю=180 · З=270",chKey:"🔑 Сменить ключ",start:"▶ Начать тур",stop:"■ Стоп",ask:"? Текст",tOn:"📄 Текст",tOff:"📄 Текст",spk:"🔊 Говорю",rpl:"🔊 Повтор",awk:"🔆 Экран",wk:"🔆 Экран",scrOn:"🔆 Экран включён",scrOff:"⚠ Экран погаснет",air:"В ЭФИРЕ",load:"ЗАГРУЗКА",rdy:"ГОТОВ",gen:"Генерирую...",prep:"Готовлю...",nxt:"след.",qph:"Введите вопрос...",send:"Спросить",cnl:"Отмена",kt:"Первичная настройка",ks:"Получи ключ на",kc:"Бесплатно $5 — ~200 часов",kl:"Вставь Anthropic API ключ",ksv:"✓ Сохранить и начать",kn:"Только на вашем устройстве",ke:"Ключ должен начинаться с sk-ant...",mic:"🎤 Держите для вопроса",micL:"🔴 Слушаю...",micP:"⏳ Обрабатываю...",set:"⚙️",setTitle:"Настройки",setClose:"✓ Сохранить",notTell:"Что НЕ рассказывать",modeTitle:"Как вы путешествуете?",ambTitle:"Фоновые звуки",volLbl:"Громкость"},
+};
+const T=(lang,k)=>(UI[lang]||UI.en)[k]||UI.en[k]||k;
+
+// Ambient placeholder (Web Audio disabled for compatibility)
+const createAmbient=(type,volume)=>{};
+const setAmbientVolume=v=>{};
 
 function App(){
   const saved=localStorage.getItem(KEY_STORE)||"";
   const savedEx=JSON.parse(localStorage.getItem(EX_STORE)||"[]");
+  const savedMode=localStorage.getItem(MODE_STORE)||"car";
   const autoL=(navigator.language||"en").split("-")[0].toLowerCase();
+
   const [screen,setScreen]=useState(saved?"setup":"apikey");
   const [apiInput,setApiInput]=useState("");
   const [lang,setLang]=useState(L[autoL]?autoL:"en");
@@ -197,7 +247,11 @@ function App(){
   const [micState,setMicState]=useState("idle");
   const [settingsOpen,setSettingsOpen]=useState(false);
   const [excluded,setExcluded]=useState(savedEx);
-  const [timeStr,setTimeStr]=useState(getTimeStr());
+  const [mode,setMode]=useState(savedMode);
+  const [ambient,setAmbient]=useState("off");
+  const [ambVol,setAmbVol]=useState(0.4);
+  const [timeStr,setTimeStr]=useState("");
+  const [nextReady,setNextReady]=useState(null);
 
   const runRef=useRef(false);
   const histRef=useRef([]);
@@ -207,22 +261,29 @@ function App(){
   const wlRef=useRef(null);
   const langRef=useRef(lang);
   const excludedRef=useRef(excluded);
-  const recogRef=useRef(null);
-  const weatherRef=useRef(null);
+  const modeRef=useRef(mode);
+  const nextRef=useRef(null);
+  const fetchingNext=useRef(false);
 
   useEffect(()=>{langRef.current=lang;},[lang]);
   useEffect(()=>{excludedRef.current=excluded;},[excluded]);
-  useEffect(()=>{if(coords)coordsRef.current=coords;},[coords]);
-  useEffect(()=>{const t=setInterval(()=>setTimeStr(getTimeStr()),30000);return()=>clearInterval(t);},[]);
+  useEffect(()=>{modeRef.current=mode;localStorage.setItem(MODE_STORE,mode);},[mode]);
 
-  const T=k=>(L[lang]?.ui||L.en.ui)[k]||L.en.ui[k]||k;
+  useEffect(()=>{
+    const upd=()=>{const n=new Date();setTimeStr(`${n.getHours().toString().padStart(2,'0')}:${n.getMinutes().toString().padStart(2,'0')}`);};
+    upd();const t=setInterval(upd,30000);return()=>clearInterval(t);
+  },[]);
+
+  useEffect(()=>{if(coords)coordsRef.current=coords;},[coords]);
+
+  const Tl=k=>T(lang,k);
 
   const fetchWeather=async(lat,lng)=>{
     try{
-      const r=await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&current_weather=true&current=temperature_2m,windspeed_10m,precipitation_probability&temperature_unit=fahrenheit&windspeed_unit=mph&timezone=auto`);
+      const r=await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat.toFixed(4)}&longitude=${lng.toFixed(4)}&current_weather=true&current=temperature_2m,windspeed_10m&temperature_unit=fahrenheit&windspeed_unit=mph&timezone=auto`);
       const d=await r.json();
-      const w={temp:Math.round(d.current_weather?.temperature||d.current?.temperature_2m||70),wind:Math.round(d.current_weather?.windspeed||d.current?.windspeed_10m||0),code:d.current_weather?.weathercode||0,is_day:d.current_weather?.is_day??1,precip:d.current?.precipitation_probability||0};
-      setWeather(w);weatherRef.current=w;
+      const w={temp:Math.round(d.current_weather?.temperature||d.current?.temperature_2m||72),wind:Math.round(d.current_weather?.windspeed||d.current?.windspeed_10m||0),code:d.current_weather?.weathercode||0,is_day:d.current_weather?.is_day??1};
+      setWeather(w);
     }catch{}
   };
 
@@ -233,12 +294,10 @@ function App(){
 
   const speak=text=>new Promise(res=>{
     try{
-      const s=window.speechSynthesis;
-      if(!s){res();return;}
-      s.cancel();
+      const s=window.speechSynthesis;if(!s){res();return;}s.cancel();
       const tl=L[langRef.current]?.tts||"en-US";
       const u=new SpeechSynthesisUtterance(text);
-      u.lang=tl;u.rate=0.85;u.pitch=1.0;
+      u.lang=tl;u.rate=0.84;u.pitch=1.0;
       try{const vs=s.getVoices();const v=vs.find(x=>x.lang===tl)||vs.find(x=>x.lang.startsWith(tl.split("-")[0]))||vs[0];if(v)u.voice=v;}catch{}
       setSpeaking(true);
       u.onend=u.onerror=()=>{setSpeaking(false);res();};
@@ -246,87 +305,113 @@ function App(){
     }catch{setSpeaking(false);res();}
   });
 
-  const buildPrompt=(c,isQuestion,question)=>{
+  const buildSystem=(isQuestion,question)=>{
     const al=L[langRef.current]?.ai||"English";
-    const tod=getTimeOfDay();
-    const hr=new Date().getHours();
-    const isNight=tod==="night"||tod==="evening";
-    const w=weatherRef.current;
-    const exTopics=excludedRef.current;
-    const exStr=exTopics.length>0?`\nDO NOT mention: ${exTopics.join(", ")}.`:"";
-    const weatherStr=w?`Current weather: ${getWC(w.code)} ${w.temp}°F, wind ${w.wind} mph.`:"";
-    const timeCtx=`Time: ${hr}:00 (${tod}).${isNight?" It is DARK outside — the driver cannot see the landscape clearly.":""}`;
+    const exl=excludedRef.current;
+    const md=modeRef.current;
+    const now=new Date();
+    const hr=now.getHours(),mn=now.getMinutes();
+    const month=now.toLocaleString('en',{month:'long'});
+    const isNight=hr>=22||hr<5;
+    const isDusk=hr>=19&&hr<22;
+    const isDawn=hr>=5&&hr<7;
+    const timeCtx=`Exact local time: ${hr}:${mn.toString().padStart(2,'0')} (${month}). ${isNight?'It is NIGHT — dark outside.':isDusk?'It is DUSK — getting dark.':isDawn?'It is DAWN — just getting light.':'It is DAYTIME — good visibility.'}`;
+    const c=coordsRef.current||{lat:0,lng:0,speed:0,heading:90};
+    const spd=toMph(c.speed)||parseInt(speedVal)||65;
+    const hdg=c.heading||90;
+    const modeCtx=md==="car"?`Traveler is in a car at ${spd} mph.`:md==="bus"?`Traveler is on a bus or train at ${spd} mph.`:md==="bike"?`Traveler is on a bicycle at ${spd} mph. Describe closer details.`:`Traveler is walking at ${spd} mph. Describe very close surroundings in detail.`;
+    const dirCtx=`Heading: ${toDir(hdg)} (${Math.round(hdg)}°). LEFT side = ${toLeft(hdg)} direction. RIGHT side = ${toRight(hdg)} direction. Use "on your left" and "on your right" precisely.`;
+    const exStr=exl.length>0?`\nNEVER mention: ${exl.join(', ')}.`:'';
+    const nightRule=isNight?`It is NIGHT. Do NOT say "you can see" or "look at". Instead say "if it were daylight you'd see..." or describe what lights/silhouettes are visible in headlights. Talk about night sky, stars, nocturnal animals that are active right now.`:`It is daytime. Describe what is visible through the windshield.`;
 
     if(isQuestion){
-      return{
-        system:`You are Road Radio AI — a warm, knowledgeable road companion like Nikolai Drozdov. The driver just asked you a question while driving. Answer warmly and conversationally in 2-3 sentences. Then say you're returning to the road tour. CRITICAL: Respond entirely in ${al}.
-Reply ONLY valid JSON: {"story":"answer + transition back to road","location":"current location name","image":"2-3 english words"}`,
-        msg:question
-      };
+      return`You are Road Radio AI. The traveler just asked: "${question}"
+Answer warmly in 2-3 sentences in ${al}. Be like a knowledgeable friend.
+Then naturally say you're returning to the road tour.
+${timeCtx}
+${modeCtx}
+CRITICAL: Every word in ${al}. Reply ONLY valid JSON:
+{"story":"answer then transition back","location":"current place name","image":"2-3 english words"}`;
     }
 
-    return{
-      system:`You are Road Radio AI — a warm, soulful road companion. Think Nikolai Drozdov from "In the Animal World" — genuinely excited, knowledgeable, never dry.
+    return`You are Road Radio AI — a warm, charismatic road companion. Style: Nikolai Drozdov meets a great radio DJ. Knowledgeable, personal, never dry.
 
 ${timeCtx}
-${weatherStr}
-Position: ${c.lat.toFixed(5)}°N, ${c.lng.toFixed(5)}°W. Speed: ${toMph(c.speed)||65} mph. Heading: ${toDir(c.heading)}.
+${modeCtx}
+${dirCtx}
+Position: ${c.lat.toFixed(5)}°N, ${c.lng.toFixed(5)}°W.
 ${exStr}
 
-THE DRIVER IS IN A MOVING CAR. They experience the world through the WINDSHIELD.
-${isNight?"NIGHT DRIVING: Don't say 'you can see' — say 'if it were daylight, you'd see...' or describe what lights/silhouettes are visible.":"Describe what is VISIBLE through the windshield right now."}
+${nightRule}
 
-STYLE RULES:
-- Warm, personal, like a wise friend pointing things out: "Look over there..." / "Did you know..."
-- Use "..." between sentences for natural pauses
-- SHORT sentences. Natural rhythm.
-- Always name specific things: river names, town names, highway numbers, exit numbers
-- If a river or bridge is 1-3 miles ahead: start building excitement NOW
-- Rotate topics naturally: landscape → history → wildlife → upcoming attraction → road fact
-- End EVERY story with a teaser: "...and just ahead..." or "...keep an eye out for..."
-- NEVER mention geology layers or rock ages
-- NEVER invent animals not found in this region
-- 3-4 sentences ONLY. Make every word count.
-- CRITICAL: Every single word must be in ${al}.
+RADIO DJ RULES — follow these exactly:
+- Use "..." between sentences for natural dramatic pauses
+- NEVER start with the same phrase twice. Vary: "Did you know...", "Look to your right...", "Funny thing about this place...", "Here's something most people miss...", "Just ahead...", "Right at this moment..."
+- Always use "you" personally: "you're driving through", "on your left you'll notice"
+- Use left/right directions based on heading above — be accurate
+- End with a HOOK that makes listener want more: "...and just around the bend, something remarkable awaits."
+- If river/bridge within 2 miles: start building excitement NOW
+- Name EVERYTHING specific: river names, town names, exit numbers, highway names
+- 5 sentences. Vary length — some short punchy, some longer
+- NEVER mention geology layers, rock strata, or underground formations
+- NEVER invent wildlife not found in this exact region
+- Mention weather naturally once in a while if interesting
 
-Reply ONLY valid JSON: {"story":"3-4 sentences with ... pauses","location":"exact location name in English","image":"2-3 english words for landscape photo"}`,
-      msg:`What do I see right now and what's coming up ahead?`
-    };
+CRITICAL: Every single word must be in ${al}.
+Reply ONLY valid JSON: {"story":"5 sentences with ... pauses","location":"exact location in English","image":"2-3 english words for photo"}`;
   };
 
-  const callClaude=async(system,userMsg)=>{
+  const callClaude=async(system,userMsg,forNext)=>{
     const key=localStorage.getItem(KEY_STORE);
-    const msgs=[...histRef.current.slice(-4),{role:"user",content:userMsg}];
-    const r=await fetch(PROXY,{method:"POST",headers:{"Content-Type":"application/json","x-api-key":key,"anthropic-version":"2023-06-01","anthropic-dangerous-direct-browser-access":"true"},body:JSON.stringify({model:"claude-haiku-4-5-20251001",max_tokens:400,system,messages:msgs})});
+    const msgs=forNext?[{role:"user",content:userMsg}]:[...histRef.current.slice(-4),{role:"user",content:userMsg}];
+    const r=await fetch(PROXY,{method:"POST",headers:{"Content-Type":"application/json","x-api-key":key,"anthropic-version":"2023-06-01","anthropic-dangerous-direct-browser-access":"true"},body:JSON.stringify({model:"claude-haiku-4-5-20251001",max_tokens:500,system,messages:msgs})});
     if(!r.ok)throw new Error(await r.text());
     const data=await r.json();
     let txt=data.content?.[0]?.text??"{}";
     txt=txt.replace(/```json|```/g,"").trim();
-    try{const p=JSON.parse(txt);histRef.current=[...msgs,{role:"assistant",content:txt}];return p;}
-    catch{histRef.current=[...msgs,{role:"assistant",content:txt}];return{story:txt,location:"On the road",image:"highway"};}
+    try{const p=JSON.parse(txt);if(!forNext)histRef.current=[...msgs,{role:"assistant",content:txt}];return p;}
+    catch{if(!forNext)histRef.current=[...msgs,{role:"assistant",content:txt}];return{story:txt,location:"On the road",image:"highway"};}
   };
 
-  const loop=async()=>{
-    if(!runRef.current)return;
-    const c=coordsRef.current;
-    if(!c)return;
-    setStatus("loading");
+  const prefetchNext=async()=>{
+    if(fetchingNext.current||nextRef.current)return;
+    fetchingNext.current=true;
     try{
-      const {system,msg}=buildPrompt(c,false,null);
-      const res=await callClaude(system,msg);
-      if(!runRef.current)return;
-      setStory(res.story||"");
-      setLocName(res.location||"");
-      const seed=Math.round(Math.abs(c.lat*1000+c.lng*1000))%9000+1000;
-      setImgSeed(seed);setImgLoaded(false);
-      setStatus("ready");startCd(50);
-      if(res.story)await speak(res.story);
-      await new Promise(r=>setTimeout(r,Math.max(0,50000)));
-      if(runRef.current)loopRef.current?.();
-    }catch(e){
-      setErr((e.message||"Connection error").slice(0,100));
-      runRef.current=false;setStatus("idle");
+      const system=buildSystem(false,null);
+      const res=await callClaude(system,"What's coming up next on the road?",true);
+      nextRef.current=res;setNextReady(res);
+    }catch{}
+    fetchingNext.current=false;
+  };
+
+  const loop=async(useNext)=>{
+    if(!runRef.current)return;
+    const c=coordsRef.current;if(!c)return;
+    let res=null;
+    if(useNext&&nextRef.current){
+      res=nextRef.current;nextRef.current=null;setNextReady(null);
+      setStatus("ready");
+    }else{
+      setStatus("loading");
+      try{
+        const system=buildSystem(false,null);
+        res=await callClaude(system,"Describe what I see right now and what's immediately ahead.",false);
+      }catch(e){
+        setErr((e.message||"Connection error").slice(0,100));
+        runRef.current=false;setStatus("idle");return;
+      }
     }
+    if(!runRef.current)return;
+    setStory(res.story||"");
+    setLocName(res.location||"");
+    const seed=Math.round(Math.abs(c.lat*1000+c.lng*1000))%9000+1000;
+    setImgSeed(seed);setImgLoaded(false);
+    setStatus("ready");startCd(55);
+    prefetchNext();
+    if(res.story)await speak(res.story);
+    if(!runRef.current)return;
+    await new Promise(r=>setTimeout(r,2000));
+    if(runRef.current)loopRef.current?.(!!nextRef.current);
   };
   loopRef.current=loop;
 
@@ -351,12 +436,11 @@ Reply ONLY valid JSON: {"story":"3-4 sentences with ... pauses","location":"exac
 
   const startGeoWatch=()=>{
     if(!navigator.geolocation)return;
-    let weatherTimer=0;
+    let wt=0;
     navigator.geolocation.watchPosition(pos=>{
       const c={lat:pos.coords.latitude,lng:pos.coords.longitude,speed:pos.coords.speed||0,heading:pos.coords.heading};
       coordsRef.current=c;setCoords(c);
-      weatherTimer++;
-      if(weatherTimer%60===0)fetchWeather(c.lat,c.lng);
+      if(++wt%60===0)fetchWeather(c.lat,c.lng);
     },()=>{},{enableHighAccuracy:true,maximumAge:5000});
   };
 
@@ -364,12 +448,12 @@ Reply ONLY valid JSON: {"story":"3-4 sentences with ... pauses","location":"exac
     let c=coordsRef.current||parseCoords();
     if(!c){setErr("Tap Auto-Detect or enter coordinates");return;}
     coordsRef.current=c;setCoords(c);
-    runRef.current=true;histRef.current=[];
-    setErr("");setStory("");
+    runRef.current=true;histRef.current=[];nextRef.current=null;
+    setErr("");setStory("");setNextReady(null);
     setScreen("main");startGeoWatch();
     await requestWake();
     fetchWeather(c.lat,c.lng);
-    setTimeout(()=>loopRef.current?.(),300);
+    setTimeout(()=>loopRef.current?.(false),300);
   };
 
   const stop=()=>{
@@ -379,6 +463,7 @@ Reply ONLY valid JSON: {"story":"3-4 sentences with ... pauses","location":"exac
     try{wlRef.current?.release();}catch{}
     setWakeLock(false);
     if(cdRef.current)clearInterval(cdRef.current);
+    createAmbient("off",0);
     setScreen("setup");
   };
 
@@ -394,84 +479,101 @@ Reply ONLY valid JSON: {"story":"3-4 sentences with ... pauses","location":"exac
         const q=e.results[0][0].transcript;
         setMicState("processing");
         try{window.speechSynthesis?.cancel();}catch{}
-        const c=coordsRef.current;
-        const {system}=buildPrompt(c,true,q);
+        const system=buildSystem(true,q);
         try{
-          const res=await callClaude(system,q);
-          setStory(res.story||res);setStatus("ready");startCd(50);
+          const res=await callClaude(system,q,false);
+          setStory(res.story||res);setStatus("ready");startCd(55);
           setMicState("idle");
+          nextRef.current=null;
           if(res.story)await speak(res.story);
-          await new Promise(r=>setTimeout(r,2000));
-          if(runRef.current)loopRef.current?.();
+          await new Promise(r=>setTimeout(r,1500));
+          if(runRef.current)loopRef.current?.(false);
         }catch{setMicState("idle");}
       };
       rec.onerror=()=>setMicState("idle");
-      rec.onend=()=>{if(micState==="listening")setMicState("idle");};
+      rec.onend=()=>setMicState(s=>s==="listening"?"idle":s);
       rec.start();
-      recogRef.current=rec;
     }catch{setQMode(true);}
   };
 
-  const stopVoice=()=>{
-    try{recogRef.current?.stop();}catch{}
-  };
+  const stopVoice=()=>{};
 
   const sendQ=async()=>{
     if(!qText.trim())return;
     try{window.speechSynthesis?.cancel();}catch{}
     setQMode(false);setStatus("loading");
+    const system=buildSystem(true,qText);
     try{
-      const c=coordsRef.current;
-      const {system}=buildPrompt(c,true,qText);
-      const res=await callClaude(system,qText);
-      setStory(res.story||res);setQText("");setStatus("ready");startCd(50);
+      const res=await callClaude(system,qText,false);
+      setStory(res.story||res);setQText("");setStatus("ready");startCd(55);
+      nextRef.current=null;
       if(res.story)await speak(res.story);
-      await new Promise(r=>setTimeout(r,2000));
-      if(runRef.current)loopRef.current?.();else setStatus("idle");
+      await new Promise(r=>setTimeout(r,1500));
+      if(runRef.current)loopRef.current?.(false);else setStatus("idle");
     }catch{setStatus("idle");}
   };
 
   const saveKey=()=>{
     const k=apiInput.trim();
-    if(!k.startsWith("sk-ant")){setErr(T("ke"));return;}
+    if(!k.startsWith("sk-ant")){setErr(Tl("ke"));return;}
     localStorage.setItem(KEY_STORE,k);setErr("");setScreen("setup");
   };
 
-  const toggleExclude=id=>{
+  const toggleEx=id=>{
     const n=excluded.includes(id)?excluded.filter(x=>x!==id):[...excluded,id];
     setExcluded(n);localStorage.setItem(EX_STORE,JSON.stringify(n));
   };
 
+  const handleAmbient=id=>{
+    setAmbient(id);
+    createAmbient(id,ambVol);
+  };
+
+  const handleVol=v=>{
+    setAmbVol(v);
+    setAmbientVolume(v);
+  };
+
   const isMain=screen==="main";
   const dotCls=!isMain?"off":status==="loading"?"ld":"on";
-  const stTxt=!isMain?T("rdy"):status==="loading"?T("load"):T("air");
+  const stTxt=!isMain?Tl("rdy"):status==="loading"?Tl("load"):Tl("air");
   const imgUrl=`https://picsum.photos/seed/${imgSeed}/700/300`;
-  const weatherBadge=weather?`${getWC(weather.code)} ${weather.temp}°F`:null;
-  const tod=getTimeOfDay();
+  const wBadge=weather?`${getWI(weather.code)} ${weather.temp}°F`:null;
+  const modeObj=MODES.find(m=>m.id===mode)||MODES[0];
 
   return(
     <div className="app">
       {settingsOpen&&(
         <div className="overlay" onClick={e=>{if(e.target.className==="overlay")setSettingsOpen(false);}}>
-          <div className="settings-box">
-            <div className="set-title">{T("setTitle")}</div>
-            <div className="set-subtitle" style={{color:"#778899",fontSize:"13px",marginBottom:"14px"}}>
-              {lang==="ru"?"Отметьте темы, которые вам НЕ интересны:":"Check topics you do NOT want to hear:"}
-            </div>
-            <div className="set-grid">
-              {TOPICS.map(t=>(
-                <div key={t.id} className={`set-item${excluded.includes(t.id)?" on":""}`} onClick={()=>toggleExclude(t.id)}>
-                  <div className="set-check">{excluded.includes(t.id)?"✕":""}</div>
-                  <div className="set-label">{lang==="ru"?t.ru:t.en}</div>
+          <div className="sheet">
+            <div className="sheet-title">{Tl("setTitle")}</div>
+
+            <div className="set-sect">{Tl("modeTitle")}</div>
+            <div className="mode-row">
+              {MODES.map(m=>(
+                <div key={m.id} className={`mode-btn${mode===m.id?" sel":""}`} onClick={()=>setMode(m.id)}>
+                  <span className="mode-icon">{m.icon}</span>
+                  <div className="mode-lbl">{lang==="ru"?m.ru:m.en}</div>
                 </div>
               ))}
             </div>
-            <button className="bigbtn green" onClick={()=>setSettingsOpen(false)}>{T("setClose")}</button>
+
+            <div className="set-sect">{Tl("notTell")}</div>
+            <div className="set-grid">
+              {TOPICS.map(t=>(
+                <div key={t.id} className={`set-item${excluded.includes(t.id)?" on":""}`} onClick={()=>toggleEx(t.id)}>
+                  <div className="set-check">{excluded.includes(t.id)?"✕":""}</div>
+                  <div className="set-lbl">{lang==="ru"?t.ru:t.en}</div>
+                </div>
+              ))}
+            </div>
+
+            <button className="bigbtn green" onClick={()=>setSettingsOpen(false)}>{Tl("setClose")}</button>
           </div>
         </div>
       )}
 
-      <div className="hdr">
+      <div className="hdr" style={{position:"relative"}}>
         <div className="logo">Road <em>Radio</em> AI</div>
         <div className="hdr-r">
           <button className="setbtn" onClick={()=>setSettingsOpen(true)}>⚙️</button>
@@ -483,20 +585,21 @@ Reply ONLY valid JSON: {"story":"3-4 sentences with ... pauses","location":"exac
             <span className="ptxt">{stTxt}</span>
           </div>
         </div>
+        <div className="ver">{VER}</div>
       </div>
 
       {screen==="apikey"&&(
         <div className="keyscreen">
           <div className="key-icon">🔑</div>
-          <div className="key-title">{T("kt")}</div>
-          <div className="key-sub">{T("ks")}<br/><a href="https://console.anthropic.com" target="_blank">console.anthropic.com</a><br/>{T("kc")}</div>
+          <div className="key-title">{Tl("kt")}</div>
+          <div className="key-sub">{Tl("ks")}<br/><a href="https://console.anthropic.com" target="_blank">console.anthropic.com</a><br/>{Tl("kc")}</div>
           <div style={{width:"100%"}}>
-            <div className="flabel">{T("kl")}</div>
+            <div className="flabel">{Tl("kl")}</div>
             <input className="kinput" value={apiInput} onChange={e=>setApiInput(e.target.value)} placeholder="sk-ant-api03-..."/>
           </div>
           {err&&<div className="errbox">⚠ {err}</div>}
-          <button className="bigbtn green" onClick={saveKey}>{T("ksv")}</button>
-          <div style={{fontSize:"13px",color:"#667788",textAlign:"center"}}>{T("kn")}</div>
+          <button className="bigbtn green" onClick={saveKey}>{Tl("ksv")}</button>
+          <div style={{fontSize:"12px",color:"#667788",textAlign:"center"}}>{Tl("kn")}</div>
         </div>
       )}
 
@@ -505,28 +608,28 @@ Reply ONLY valid JSON: {"story":"3-4 sentences with ... pauses","location":"exac
           <div className="s-hero">
             <div className="s-icon">🛣️</div>
             <div className="s-title">Road Radio AI</div>
-            <div className="s-sub">{T("title")}</div>
+            <div className="s-sub">{Tl("title")}</div>
           </div>
-          <button className={`geobtn${geoOk?" ok":""}`} onClick={getGeo}>{geoOk?T("geoOk"):T("geo")}</button>
-          <div className="sep">{T("manual")}</div>
+          <button className={`geobtn${geoOk?" ok":""}`} onClick={getGeo}>{geoOk?Tl("geoOk"):Tl("geo")}</button>
+          <div className="sep">{Tl("manual")}</div>
           <div>
-            <label className="flabel">{T("coords")}</label>
+            <label className="flabel">{Tl("coords")}</label>
             <input className="finput" value={coordInput} onChange={e=>setCoordInput(e.target.value)} placeholder="35.4615, -97.6882"/>
           </div>
           <div className="row2">
             <div>
-              <label className="flabel">{T("speed")}</label>
+              <label className="flabel">{Tl("speed")}</label>
               <input className="finput" type="number" value={speedVal} onChange={e=>setSpeedVal(e.target.value)}/>
             </div>
             <div>
-              <label className="flabel">{T("hdg")}</label>
+              <label className="flabel">{Tl("hdg")}</label>
               <input className="finput" type="number" value={headVal} onChange={e=>setHeadVal(e.target.value)}/>
-              <div className="dirhint">{T("hint")}</div>
+              <div className="dirhint">{Tl("hint")}</div>
             </div>
           </div>
           {err&&<div className="errbox">⚠ {err}</div>}
-          <button className="bigbtn blue" onClick={()=>{localStorage.removeItem(KEY_STORE);setApiInput("");setScreen("apikey");}}>{T("chKey")}</button>
-          <button className="bigbtn green" onClick={startTour}>{T("start")}</button>
+          <button className="bigbtn blue" onClick={()=>{localStorage.removeItem(KEY_STORE);setApiInput("");setScreen("apikey");}}>{Tl("chKey")}</button>
+          <button className="bigbtn green" onClick={startTour}>{Tl("start")}</button>
         </div>
       )}
 
@@ -536,7 +639,10 @@ Reply ONLY valid JSON: {"story":"3-4 sentences with ... pauses","location":"exac
             {!imgLoaded&&<div className="imgsp">🌄</div>}
             <img className={`locimg${imgLoaded?" on":""}`} src={imgUrl} alt="" onLoad={()=>setImgLoaded(true)} onError={e=>{e.target.src=`https://picsum.photos/700/300?random=${imgSeed}`;}}/>
             <div className="imgover"/>
-            {weatherBadge&&<div className="imgtop"><div className="weather-badge">{weatherBadge}</div></div>}
+            <div className="imgtop">
+              <div className="mode-badge">{modeObj.icon}</div>
+              {wBadge&&<div className="weather-badge">{wBadge}</div>}
+            </div>
             <div className="imgbot">
               <div className="locname">{locName||"..."}</div>
               {coords&&<div className="loccrd">{coords.lat.toFixed(4)}°N / {Math.abs(coords.lng).toFixed(4)}°W</div>}
@@ -551,55 +657,65 @@ Reply ONLY valid JSON: {"story":"3-4 sentences with ... pauses","location":"exac
 
           <div className="sa">
             <div className="airbar">
-              <div className="airlbl">{status==="ready"&&<div className="airdot"/>}{status==="loading"?T("gen"):T("air")}</div>
-              <div className="timeinfo">{timeStr} · {tod}</div>
+              <div className="airlbl">{status==="ready"&&<div className="airdot"/>}{status==="loading"?Tl("gen"):Tl("air")}{nextReady&&<span style={{fontSize:"8px",color:"#2a4a2a",marginLeft:"6px"}}>⬇ ready</span>}</div>
+              <div className="timeinfo">{timeStr}</div>
             </div>
-            {status==="loading"&&<div className="ldtxt"><span className="sp">◌</span>&nbsp;{T("prep")}</div>}
+            {status==="loading"&&<div className="ldtxt"><span className="sp">◌</span>&nbsp;{Tl("prep")}</div>}
             {showTxt&&story&&status!=="loading"&&<div className="stxt">{story}</div>}
             {!showTxt&&story&&status!=="loading"&&<div className="ldtxt">🔊</div>}
             {story&&status==="ready"&&(
               <div className="pgrow">
-                <span className="pglbl">⟳ {T("nxt")}</span>
-                <div className="pgbar"><div className="pgfill" style={{width:`${Math.max(0,(1-cd/50)*100)}%`}}/></div>
+                <span className="pglbl">⟳ {Tl("nxt")}</span>
+                <div className="pgbar"><div className="pgfill" style={{width:`${Math.max(0,(1-cd/55)*100)}%`}}/></div>
                 <span className="pglbl">{cd}s</span>
               </div>
             )}
           </div>
 
-          <div className="wakeinfo">{wakeLock?T("scrOn"):T("scrOff")}</div>
+          <div className="wakeinfo">{wakeLock?Tl("scrOn"):Tl("scrOff")}</div>
+
+          <div className="ambient-row">
+            <div className="amb-btns">
+              {AMBIENT.map(a=>(
+                <button key={a.id} className={`amb-btn${ambient===a.id?" sel":""}`} onClick={()=>handleAmbient(a.id)} title={lang==="ru"?a.ru:a.en}>
+                  {a.icon}
+                </button>
+              ))}
+            </div>
+            {ambient!=="off"&&(
+              <input type="range" className="vol-slider" min="0" max="1" step="0.05" value={ambVol} onChange={e=>handleVol(parseFloat(e.target.value))}/>
+            )}
+          </div>
 
           <div className="togrow">
-            <div className={`tog${showTxt?" act":""}`} onClick={()=>setShowTxt(t=>!t)}>{showTxt?T("tOn"):T("tOff")}</div>
-            <div className={`tog spk${speaking?" going":""}`} onClick={()=>story&&speak(story)}>{speaking?T("spk"):T("rpl")}</div>
-            <div className={`tog wake${wakeLock?" act":""}`} onClick={()=>wakeLock?wlRef.current?.release():requestWake()}>{wakeLock?T("awk"):T("wk")}</div>
+            <div className={`tog${showTxt?" act":""}`} onClick={()=>setShowTxt(t=>!t)}>{showTxt?Tl("tOn")+" ✓":Tl("tOff")+" ○"}</div>
+            <div className={`tog spk${speaking?" going":""}`} onClick={()=>story&&speak(story)}>{speaking?Tl("spk"):Tl("rpl")}</div>
+            <div className={`tog wake${wakeLock?" act":""}`} onClick={()=>wakeLock?wlRef.current?.release():requestWake()}>{wakeLock?Tl("awk"):Tl("wk")}</div>
           </div>
 
           <div className="voice-area">
-            <button
-              className={`mic-btn${micState==="listening"?" listening":micState==="processing"?" processing":""}`}
+            <button className={`mic-btn${micState==="listening"?" listening":micState==="processing"?" processing":""}`}
               onMouseDown={startVoice} onTouchStart={startVoice}
-              onMouseUp={stopVoice} onTouchEnd={stopVoice}
-              onClick={micState==="idle"?undefined:undefined}
-            >
-              {micState==="listening"?T("micL"):micState==="processing"?T("micP"):T("mic")}
+              onMouseUp={()=>{}} onTouchEnd={()=>{}}>
+              {micState==="listening"?Tl("micL"):micState==="processing"?Tl("micP"):Tl("mic")}
             </button>
           </div>
 
-          {err&&<div className="errbox" style={{margin:"0 14px 8px"}}>⚠ {err}</div>}
+          {err&&<div className="errbox" style={{margin:"0 12px 6px"}}>⚠ {err}</div>}
 
           {qMode&&(
             <div className="qa">
-              <input className="qi" value={qText} onChange={e=>setQText(e.target.value)} placeholder={T("qph")} onKeyDown={e=>e.key==="Enter"&&sendQ()} autoFocus/>
+              <input className="qi" value={qText} onChange={e=>setQText(e.target.value)} placeholder={Tl("qph")} onKeyDown={e=>e.key==="Enter"&&sendQ()} autoFocus/>
               <div className="qbs">
-                <button className="btn bsend" style={{flex:1,padding:"11px"}} onClick={sendQ}>{T("send")}</button>
-                <button className="btn bcancel" style={{padding:"11px"}} onClick={()=>{setQMode(false);setQText("");}}>{T("cnl")}</button>
+                <button className="btn bsend" style={{flex:1,padding:"10px"}} onClick={sendQ}>{Tl("send")}</button>
+                <button className="btn bcancel" style={{padding:"10px"}} onClick={()=>{setQMode(false);setQText("");}}>{Tl("cnl")}</button>
               </div>
             </div>
           )}
 
           <div className="ctrl">
-            <button className="btn bstop" onClick={stop}>{T("stop")}</button>
-            <button className="btn bq" onClick={()=>setQMode(t=>!t)}>{T("ask")}</button>
+            <button className="btn bstop" onClick={stop}>{Tl("stop")}</button>
+            <button className="btn bq" onClick={()=>setQMode(t=>!t)}>{Tl("ask")}</button>
           </div>
         </>
       )}
