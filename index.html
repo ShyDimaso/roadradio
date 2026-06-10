@@ -235,28 +235,72 @@ body{font-family:'Inter',sans-serif;color:#fff;}
 const {useState,useRef,useEffect}=React;
 const PROXY="https://corsproxy.io/?https://api.anthropic.com/v1/messages";
 const KEY_STORE="rr_key_v3";
-const VER="v15";
+const VER="v17";
 
 const OPENERS_RU=["На этой земле...","Да, кстати...","Мало кто знает, но...","Справа от вас...","История этого края...","Сто лет назад здесь...","Тишина здесь обманчива...","Когда-то давно здесь...","Через пару миль...","Вот что примечательно..."];
 const OPENERS_EN=["On this land...","Here's something few know...","Just to your right...","The history here...","A hundred years ago...","Locals know that...","In a few miles...","What's remarkable is...","This stretch of highway...","Worth knowing..."];
 
 const TRAVEL=[{id:"car",icon:"🚗",en:"Car",ru:"Машина"},{id:"bus",icon:"🚌",en:"Bus/Train",ru:"Автобус"},{id:"bike",icon:"🚲",en:"Bike",ru:"Велосипед"},{id:"walk",icon:"🚶",en:"Walk",ru:"Пешком"}];
 const BCASTS=[
-  {id:"normal",icon:"📻",en:"Road Radio",ru:"Обычный",desc:"Classic",descRu:"Классика",prompt:"Warm, knowledgeable road companion. Conversational, engaging, history, nature, local color."},
-  {id:"night",icon:"🌌",en:"Night Drive",ru:"Ночная езда",desc:"Poetic",descRu:"Поэтично",prompt:"Late-night radio poet. Stars, shadows, night roads, nocturnal wildlife. Slow, intimate, dreamlike."},
-  {id:"trucker",icon:"🚛",en:"Trucker",ru:"Дальнобойщик",desc:"CB Radio",descRu:"Дальнобойщик",prompt:"Veteran trucker on CB radio. Mile markers, grade changes, weigh stations, road conditions, highway numbers. Practical, direct."},
-  {id:"discovery",icon:"🔍",en:"Discovery",ru:"Открытия",desc:"Science",descRu:"Наука",prompt:"National Geographic narrator. Ecology, wildlife, geography, climate. Educational with wow factor."},
-  {id:"americana",icon:"🇺🇸",en:"Americana",ru:"Американа",desc:"History",descRu:"История",prompt:"Storyteller of American history. Native heritage, settlers, Route 66, oil booms, small towns. Nostalgic and proud."},
-  {id:"zen",icon:"🌲",en:"Nature Zen",ru:"Природа",desc:"Peaceful",descRu:"Спокойно",prompt:"Nature meditation guide. Trees, rivers, wildlife, seasons. Calm, healing, restorative."},
-  {id:"mystery",icon:"👻",en:"Mysteries",ru:"Тайны",desc:"Legends",descRu:"Легенды",prompt:"Storyteller of the strange. Local legends, ghost towns, mysterious history. Intriguing, slightly eerie."},
-  {id:"funny",icon:"😄",en:"Road DJ",ru:"Весёлый DJ",desc:"Fun",descRu:"С юмором",prompt:"Funny road trip DJ. Light humor, amusing facts, playful observations."},
+  {id:"normal",icon:"📻",en:"Road Radio",ru:"Обычный",desc:"Classic",descRu:"Классика",prompt:"You are a warm, knowledgeable road companion on classic FM radio. Friendly and conversational, like a smart friend in the passenger seat. Mix history, nature, and local color. Medium pace, easy to listen to."},
+  {id:"night",icon:"🌌",en:"Night Drive",ru:"Ночная езда",desc:"Poetic",descRu:"Поэтично",prompt:"You are a late-night radio poet broadcasting to lonely drivers. Speak slowly, intimately, almost in a whisper. Stars, shadows, the hum of tires, nocturnal animals at the edge of the headlights. Dreamlike, hushed, lyrical. Short sentences. Lots of silence between thoughts."},
+  {id:"trucker",icon:"🚛",en:"Trucker",ru:"Дальнобойщик",desc:"CB Radio",descRu:"Дальнобойщик",prompt:"You are a grizzled veteran trucker talking over the CB radio. Blunt, practical, gravelly. Talk grades, mile markers, weigh stations, rest stops, weather, road surface, what's coming up. Use trucker slang lightly. No poetry — just real talk between drivers. Call the listener 'driver'."},
+  {id:"discovery",icon:"🔍",en:"Discovery",ru:"Открытия",desc:"Science",descRu:"Наука",prompt:"You are a National Geographic documentary narrator. Authoritative, precise, awe-inspiring. Geology, ecology, climate, the deep-time story of the land. Drop one genuinely surprising scientific fact each time. Educational with a wow factor. Measured, confident delivery."},
+  {id:"americana",icon:"🇺🇸",en:"Americana",ru:"Американа",desc:"History",descRu:"История",prompt:"You are a nostalgic American storyteller, like a Ken Burns narrator. Settlers, railroads, Route 66, oil booms, dust bowls, small-town America. Proud, warm, a little wistful. Paint pictures of the past layered over the present road. Rich, unhurried."},
+  {id:"zen",icon:"🌲",en:"Nature Zen",ru:"Природа",desc:"Peaceful",descRu:"Спокойно",prompt:"You are a calm meditation and nature guide. Soothing, grounding, present-tense. Trees, rivers, wind, light, seasons, breathing. Help the driver feel calm and connected to the landscape. Gentle, restorative, no rush, no drama. Soft language."},
+  {id:"mystery",icon:"👻",en:"Mysteries",ru:"Тайны",desc:"Legends",descRu:"Легенды",prompt:"You are a teller of strange tales on a midnight mystery show. Local legends, ghost towns, unexplained history, eerie folklore tied to this land. Build suspense. Slightly spooky, intriguing, theatrical — but never silly. Leave the listener with a chill and a question."},
+  {id:"funny",icon:"😄",en:"Road DJ",ru:"Весёлый DJ",desc:"Fun",descRu:"С юмором",prompt:"You are an upbeat, funny road-trip DJ with big energy. Quick wit, playful observations, amusing real facts, light jokes about road life. Keep it punchy and fun, like morning-show banter. Never mean, never crude. Make the driver smile."},
 ];
 const TOPICS=[{id:"geology",en:"Geology",ru:"Геология"},{id:"weather",en:"Weather",ru:"Погода"},{id:"wildlife",en:"Wildlife",ru:"Животные"},{id:"plants",en:"Plants",ru:"Растения"},{id:"history",en:"History",ru:"История"},{id:"towns",en:"Towns",ru:"Города"},{id:"road",en:"Roads",ru:"Дороги"},{id:"humor",en:"Humor",ru:"Юмор"}];
 const L={en:{lb:"EN",tts:"en-US",ai:"English"},ru:{lb:"RU",tts:"ru-RU",ai:"Russian"},uk:{lb:"UA",tts:"uk-UA",ai:"Ukrainian"},es:{lb:"ES",tts:"es-ES",ai:"Spanish"},pt:{lb:"PT",tts:"pt-BR",ai:"Portuguese"},de:{lb:"DE",tts:"de-DE",ai:"German"},fr:{lb:"FR",tts:"fr-FR",ai:"French"},ja:{lb:"JA",tts:"ja-JP",ai:"Japanese"},zh:{lb:"ZH",tts:"zh-CN",ai:"Chinese"},ko:{lb:"KO",tts:"ko-KR",ai:"Korean"},ar:{lb:"AR",tts:"ar-SA",ai:"Arabic"},hi:{lb:"HI",tts:"hi-IN",ai:"Hindi"},it:{lb:"IT",tts:"it-IT",ai:"Italian"},tr:{lb:"TR",tts:"tr-TR",ai:"Turkish"}};
 const LK=["en","ru","uk","es","pt","de","fr","ja","zh","ko","ar","hi","it","tr"];
+
+// Landscape grounding by US state — prevents AI from hallucinating terrain (e.g. farm fields in the Arizona desert)
+const TERRAIN={
+"Arizona":"arid desert and rock — saguaro cactus, mesas, canyons, dry washes, scrub. NO farm fields, NO forests except high country near Flagstaff.",
+"Nevada":"high desert and basin-and-range — sagebrush, dry lakebeds, bare mountains. NO crops, NO dense forest.",
+"New Mexico":"high desert and mesas — juniper, pinyon pine, red rock, sparse ranch land. Mostly arid.",
+"Utah":"red rock, desert plateaus, salt flats, canyons. Mountains and forest only in the north and east.",
+"Colorado":"high plains in the east, Rocky Mountains and pine forest in the west, alpine peaks.",
+"Wyoming":"high plains, sagebrush steppe, scattered mountain ranges, ranch land. Very open and empty.",
+"Montana":"northern plains and prairie in the east, Rocky Mountains and pine forest in the west.",
+"Idaho":"mountains, river canyons, high desert in the south, forest in the north, potato/farm valleys.",
+"California":"varies sharply — coastal hills, Central Valley farmland, Mojave/Sonoran desert in the southeast, Sierra Nevada forest. Match to the specific area.",
+"Texas":"varies — pine forest in the east, hill country in the center, dry plains and desert (Big Bend) in the west, coastal plain on the gulf.",
+"Oklahoma":"prairie, rolling plains, scrub oak, oil country, redbed mesas in the west.",
+"Kansas":"flat to rolling prairie, wheat and farm fields, grassland. Very open.",
+"Nebraska":"plains, farm fields (corn, soybeans), Sandhills grassland in the center-west.",
+"Iowa":"rolling farmland — corn and soybean fields, scattered woodland along rivers.",
+"Nebraska ":"plains and farmland.",
+"Florida":"flat — wetlands, palmetto, pine flatwoods, swamp, beaches, citrus groves. NO mountains.",
+"Louisiana":"low, wet — bayou, swamp, cypress, marsh, river delta. Flat.",
+"Arkansas":"Ozark and Ouachita mountains, pine and hardwood forest, river valleys, Delta farmland in the east.",
+"Tennessee":"Appalachian mountains in the east, rolling hills and forest in the middle, flat Delta land in the west.",
+"Kentucky":"rolling bluegrass hills, horse country, Appalachian foothills in the east, forest.",
+"West Virginia":"steep Appalachian mountains, deep forest, narrow river valleys, coal country.",
+"Virginia":"coastal plain in the east, rolling piedmont, Blue Ridge and Appalachian mountains in the west.",
+"North Carolina":"coastal plain and barrier islands in the east, piedmont in the center, Blue Ridge/Smoky Mountains in the west.",
+"South Carolina":"coastal plain, lowcountry marsh, piedmont, foothills in the northwest.",
+"Georgia":"coastal plain and swamp in the south, piedmont in the center, Appalachian foothills in the north.",
+"Oregon":"coastal range and ocean in the west, Cascade volcanoes and forest, high desert in the east.",
+"Washington":"rainforest and Cascade volcanoes in the west, dry scablands and wheat country in the east.",
+"Minnesota":"lakes, forest in the north, prairie and farmland in the south.",
+"Wisconsin":"forest and lakes in the north, dairy farmland and rolling hills in the south.",
+"Michigan":"Great Lakes shoreline, forest in the north, farmland and orchards in the south.",
+"Illinois":"flat prairie and corn/soybean farmland, river bluffs along the Mississippi.",
+"Indiana":"flat to rolling farmland, corn and soybean, some forest in the south.",
+"Ohio":"farmland and rolling hills, Appalachian foothills in the southeast, Lake Erie shore.",
+"Missouri":"Ozark hills and forest in the south, plains and farmland in the north, river bluffs.",
+"Pennsylvania":"Appalachian ridges and valleys, forest, farmland, rolling hills.",
+"New York":"Adirondack and Catskill mountains, Finger Lakes, forest, farmland upstate.",
+"Maine":"forest, rocky coast, lakes, low mountains.",
+"South Dakota":"prairie and farmland in the east, Badlands and Black Hills in the west.",
+"North Dakota":"flat plains, prairie, farmland, badlands in the west.",
+};
+const getTerrain=st=>{if(!st)return"";const k=Object.keys(TERRAIN).find(x=>x.trim().toLowerCase()===st.trim().toLowerCase());return k?TERRAIN[k]:"";};
 const toDir=h=>{if(h==null||isNaN(h))return"—";const d=["N","NE","E","SE","S","SW","W","NW"];return d[Math.round(((h%360)+360)%360/45)%8];};
-const toLeft=h=>h==null?"?":toDir((h+90)%360);
-const toRight=h=>h==null?"?":toDir((h-90+360)%360);
+const toLeft=h=>h==null?"?":toDir((h-90+360)%360);
+const toRight=h=>h==null?"?":toDir((h+90)%360);
 const toMph=ms=>ms&&ms>0?Math.round(ms*2.237):0;
 const WI={0:"☀️",1:"🌤",2:"⛅",3:"☁️",45:"🌫",51:"🌦",61:"🌧",71:"❄️",80:"🌧",95:"⛈"};
 const getWI=c=>{const k=Object.keys(WI).map(Number).sort((a,b)=>b-a).find(k=>c>=k);return WI[k]||"☀️";};
@@ -325,7 +369,10 @@ function App(){
   const lastNativeReport=useRef(0);
   const openerIdx=useRef(0);
   const speakingRef=useRef(false);
-  const isInterruptingRef=useRef(false);
+  const loopBusyRef=useRef(false);   // true while a loop iteration is mid-flight
+  const loopGenRef=useRef(0);        // increments on every (re)start; stale iterations self-abort
+  const greetedRef=useRef(false);    // first-run greeting played
+  const parkedRef=useRef(false);
 
   useEffect(()=>{const t=setTimeout(()=>setSplash(false),3200);return()=>clearTimeout(t);},[]);
   useEffect(()=>{langRef.current=lang;},[lang]);
@@ -336,6 +383,7 @@ function App(){
   useEffect(()=>{excludedRef.current=excluded;localStorage.setItem("rr_excl_v2",JSON.stringify(excluded));},[excluded]);
   useEffect(()=>{locDataRef.current=locData;},[locData]);
   useEffect(()=>{speakingRef.current=speaking;},[speaking]);
+  useEffect(()=>{parkedRef.current=parked;},[parked]);
 
   useEffect(()=>{
     const u=()=>{const n=new Date();setTimeStr(`${n.getHours().toString().padStart(2,'0')}:${n.getMinutes().toString().padStart(2,'0')}`);};
@@ -476,24 +524,35 @@ function App(){
 
   const startCd=s=>{setCd(s);if(cdRef.current)clearInterval(cdRef.current);cdRef.current=setInterval(()=>setCd(p=>{if(p<=1){clearInterval(cdRef.current);return 0;}return p-1;}),1000);};
 
+  const speakTokenRef=useRef(0);
+
+  const hardStop=()=>{
+    speakTokenRef.current++; // invalidate any in-flight utterance
+    try{
+      const s=window.speechSynthesis;
+      if(s){s.cancel();setTimeout(()=>{try{s.cancel();}catch{}},30);setTimeout(()=>{try{s.cancel();}catch{}},120);}
+    }catch{}
+    setSpeaking(false);speakingRef.current=false;
+  };
+
   const speak=text=>new Promise(res=>{
     try{
-      const s=window.speechSynthesis;if(!s){res();return;}s.cancel();
+      const s=window.speechSynthesis;if(!s||!text){res();return;}
+      s.cancel();
+      const myToken=++speakTokenRef.current;
       const tl=L[langRef.current]?.tts||"en-US";
       const u=new SpeechSynthesisUtterance(text);
       u.lang=tl;u.rate=0.84;u.pitch=1.0;
       try{const vs=s.getVoices();const v=selVoice?vs.find(x=>x.name===selVoice):vs.find(x=>x.lang===tl)||vs.find(x=>x.lang.startsWith(tl.split("-")[0]))||vs[0];if(v)u.voice=v;}catch{}
-      setSpeaking(true);
-      u.onend=u.onerror=()=>{setSpeaking(false);res();};
-      s.speak(u);
-    }catch{setSpeaking(false);res();}
+      setSpeaking(true);speakingRef.current=true;
+      const done=()=>{if(speakTokenRef.current===myToken){setSpeaking(false);speakingRef.current=false;}res();};
+      u.onend=done;u.onerror=done;
+      // small delay so cancel() fully settles before speaking (Android/iOS quirk)
+      setTimeout(()=>{if(speakTokenRef.current!==myToken){res();return;}s.speak(u);},60);
+    }catch{setSpeaking(false);speakingRef.current=false;res();}
   });
 
-  const hardStopSpeak=()=>{
-    try{const s=window.speechSynthesis;if(s){s.pause();s.cancel();setTimeout(()=>s.cancel(),50);setTimeout(()=>s.cancel(),150);}}catch{}
-    setSpeaking(false);speakingRef.current=false;isInterruptingRef.current=true;
-    setTimeout(()=>{isInterruptingRef.current=false;},2000);
-  };
+  const stopSpeak=()=>hardStop();
 
   const extract=txt=>{
     try{return JSON.parse(txt);}catch{}
@@ -510,35 +569,6 @@ function App(){
     const o=list[openerIdx.current%list.length];
     openerIdx.current++;
     return o;
-  };
-
-  const getLandscape=(state,county,lat,lng)=>{
-    const s=(state||"").toLowerCase();
-    const c=(county||"").toLowerCase();
-    if(s.includes("new mexico")){
-      if(lng<-107)return"high desert, dry scrub brush, mesas, volcanic formations, sparse settlements";
-      return"high desert plains, dry grasslands, scattered juniper";
-    }
-    if(s.includes("arizona"))return"Sonoran desert, saguaro cactus, dry washes, red rock formations";
-    if(s.includes("nevada"))return"Great Basin desert, sagebrush flats, dry mountains";
-    if(s.includes("utah"))return"red rock canyon country, desert, mesa formations";
-    if(s.includes("oklahoma")){
-      if(lng<-97)return"western plains, dry grasslands, red clay soil, oil country";
-      return"rolling wooded hills, rivers, mixed forest and farmland";
-    }
-    if(s.includes("texas")){
-      if(lng<-100)return"west Texas desert, scrub brush, flat ranch land";
-      return"rolling Texas plains, ranch land, mesquite";
-    }
-    if(s.includes("kansas")||s.includes("nebraska"))return"Great Plains, wheat fields, endless flat horizon";
-    if(s.includes("colorado")){
-      if(lat>39&&lng>-105)return"High Plains, dry grassland";
-      return"Rocky Mountain foothills, pine forests, dramatic terrain";
-    }
-    if(s.includes("california")&&lng<-116)return"Mojave desert, Joshua trees, dry washes";
-    if(s.includes("tennessee")||s.includes("arkansas"))return"rolling wooded hills, mixed hardwood forest, river valleys";
-    if(s.includes("mississippi")||s.includes("alabama"))return"humid subtropical forest, pine woods, wetlands";
-    return"";
   };
 
   const buildSys=(isQ,question,isTourist)=>{
@@ -561,6 +591,8 @@ function App(){
     const recentTopics=topicsUsedRef.current.slice(-8).join(", ");
     const nightCtx=isNight?`NIGHT: Never say "you can see" or "look at the landscape". Use "in the headlights", "against the night sky". Describe what's perceptible at night.`:isDusk?`DUSK: Describe fading light, silhouettes.`:`DAYTIME: Describe what's visible through the windshield.`;
     const opener=getOpener();
+    const terrain=getTerrain(ld.state);
+    const terrainCtx=terrain?`\nLANDSCAPE OF ${ld.state.toUpperCase()} (this is the ground truth — describe ONLY terrain consistent with this, never invent fields/forests/mountains that don't belong here): ${terrain}`:"";
     const now=Date.now();
     const showSpd=!isTourist&&spd>0&&(now-lastSpeedReport.current>1200000);
     const showHw=ld.highway&&(now-lastHighwayReport.current>1200000);
@@ -581,7 +613,7 @@ CURRENT LOCATION (structured):
 - Coordinates: ${c.lat.toFixed(5)}°N, ${c.lng.toFixed(5)}°W
 - Heading: ${toDir(hdg)} — LEFT=${toLeft(hdg)}, RIGHT=${toRight(hdg)}
 - Vehicle: ${tmCtx}
-- Time: ${timeCtx}${destCtx}${exCtx}
+- Time: ${timeCtx}${destCtx}${exCtx}${terrainCtx}
 
 ${nightCtx}
 
@@ -596,13 +628,14 @@ NARRATION ZONES (STRICT):
 ABSOLUTE RULES:
 1. FORBIDDEN openers — never start with: "Впереди", "Ahead", "In front", "Вы едете", "Вы мчитесь", "Вы несётесь", "Машина мчится", "ты мчишься"
 2. START with this opener and build from it: "${opener}"
-3. SPEED: ${showSpd?`Mention current speed (${spd} mph) naturally once.`:"DO NOT mention speed."}
+3. SPEED: ${showSpd?`You MAY mention current speed (${spd} mph) naturally, at most once.`:"NEVER mention speed, mph, km/h, how fast you're going, or any number describing velocity. Not even indirectly."}
 4. HIGHWAY: ${showHw?`Mention ${ld.highway} naturally once.`:"Do NOT mention highway name."}
 5. NATIVE HISTORY: ${showNative?`If relevant to this region, briefly mention Native American history once. Keep it short.`:"Do NOT mention Native American history this time."}
-6. CROPS/FIELDS: Never say specifically what grows in fields unless 100% certain. Say "typical farmland for this region" instead.
-7. Grammar: Perfect grammar, correct word forms, natural pauses with "..."
-8. 5 sentences. Vary length. End with a hook.
-9. EVERY WORD in ${al}.
+6. CROPS/FIELDS: Never say specifically what grows in fields unless 100% certain. Say "typical farmland for this region" instead. NEVER describe terrain that contradicts the LANDSCAPE note above.
+7. PLACES: Only name a town, city, river, or landmark if it appears in REAL NEARBY OBJECTS or the structured location above. NEVER invent place names. If unsure of a name, describe it generically ("a small town", "a creek") instead.
+8. Grammar: Perfect grammar, correct word forms, natural pauses with "..."
+9. 5 sentences. Vary length. End with a hook.
+10. EVERY WORD in ${al}.
 Reply ONLY valid JSON: {"story":"5 sentences with ... pauses","location":"exact place in English","topics":"2-3 words describing what you covered"}`;
   };
 
@@ -628,41 +661,45 @@ Reply ONLY valid JSON: {"story":"5 sentences with ... pauses","location":"exact 
     fetchingNext.current=false;
   };
 
+  // Single source of truth for scheduling the next story. Only ONE place calls this.
+  const scheduleNext=(gen)=>{
+    if(loopRef.current?.scheduled)clearTimeout(loopRef.current.scheduled);
+    loopRef.current.scheduled=setTimeout(()=>{
+      if(runRef.current&&!parkedRef.current&&loopGenRef.current===gen){
+        loopRef.current?.(!!nextRef.current,false);
+      }
+    },2000);
+  };
+
   const loop=async(useNext,tourist)=>{
     if(!runRef.current)return;
+    if(loopBusyRef.current)return;           // HARD lock — never two iterations at once
+    const gen=loopGenRef.current;            // snapshot this generation
     const c=coordsRef.current;if(!c)return;
-    // First story greeting
-    const isFirstStory=histRef.current.length===0&&!useNext&&!tourist;
-
-    let res=null;
-    if(useNext&&nextRef.current&&!tourist){res=nextRef.current;nextRef.current=null;setStatus("ready");}
-    else{
-      setStatus("loading");
-      const[geo,pois]=await Promise.all([reverseGeocode(c.lat,c.lng),fetchPOI(c.lat,c.lng)]);
-      const sys=buildSys(false,null,tourist||false);
-      const poiLine=pois.length>0?`\nREAL NEARBY OBJECTS (only mention these, no others): ${pois.join(", ")}`:"";
-      try{res=await callClaude(sys+poiLine,"Describe this exact location right now.",false);}
-      catch(e){setErr((e.message||"Error").slice(0,100));runRef.current=false;setStatus("idle");return;}
+    loopBusyRef.current=true;
+    try{
+      let res=null;
+      if(useNext&&nextRef.current&&!tourist){res=nextRef.current;nextRef.current=null;setStatus("ready");}
+      else{
+        setStatus("loading");
+        const[geo,pois]=await Promise.all([reverseGeocode(c.lat,c.lng),fetchPOI(c.lat,c.lng)]);
+        if(gen!==loopGenRef.current||!runRef.current)return;   // aborted while loading
+        const sys=buildSys(false,null,tourist||false);
+        const poiLine=pois.length>0?`\nREAL NEARBY OBJECTS (only mention these, no others): ${pois.join(", ")}`:"";
+        try{res=await callClaude(sys+poiLine,"Describe this exact location right now.",false);}
+        catch(e){setErr((e.message||"Error").slice(0,100));runRef.current=false;setStatus("idle");return;}
+      }
+      if(gen!==loopGenRef.current||!runRef.current)return;
+      setStory(res.story||"");
+      if(res.location)setLocData(p=>({...p,name:res.location}));
+      setStatus("ready");startCd(55);prefetch();
+      if(res.story)await speak(res.story);
+      if(gen!==loopGenRef.current||!runRef.current||parkedRef.current)return;
+    }finally{
+      loopBusyRef.current=false;
     }
-    if(!runRef.current)return;
-    setStory(res.story||"");
-    if(res.location)setLocData(p=>({...p,name:res.location}));
-    setStatus("ready");startCd(55);prefetch();
-    if(isFirstStory){
-      const isReturn=localStorage.getItem("rr_visited")||"";
-      const al=L[langRef.current]?.ai||"English";
-      const isRuLang=langRef.current==="ru";
-      const greeting=isReturn
-        ?(isRuLang?"С возвращением на Дорожное Радио. Продолжаем путешествие. Расслабьтесь и слушайте с удовольствием.":"Welcome back to Road Radio. Let's continue the journey. Sit back and enjoy.")
-        :(isRuLang?"Добро пожаловать на Дорожное Радио. Радио, которое знает, где вы едёте. Устройтесь поудобнее и наслаждайтесь путешествием.":"Welcome to Road Radio. The radio that knows where you drive. Sit back and enjoy the journey.");
-      localStorage.setItem("rr_visited","1");
-      await speak(greeting);
-      await new Promise(r=>setTimeout(r,800));
-    }
-    if(res.story&&!isInterruptingRef.current)await speak(res.story);
-    if(!runRef.current)return;
-    await new Promise(r=>setTimeout(r,2000));
-    if(runRef.current&&!parked)loopRef.current?.(!!nextRef.current,false);
+    // Only the live generation schedules the next round.
+    if(gen===loopGenRef.current&&runRef.current&&!parkedRef.current)scheduleNext(gen);
   };
   loopRef.current=loop;
 
@@ -672,17 +709,22 @@ Reply ONLY valid JSON: {"story":"5 sentences with ... pauses","location":"exact 
     const spd=toMph(coords.speed)||0;
     if(spd<4){
       if(!stoppedSince.current)stoppedSince.current=Date.now();
-      if(Date.now()-stoppedSince.current>20000&&!parked){
-        setParked(true);hardStopSpeak();
+      if(Date.now()-stoppedSince.current>20000&&!parkedRef.current){
+        setParked(true);parkedRef.current=true;
+        loopGenRef.current++;          // kill the live loop generation
+        hardStop();
         const isRu=langRef.current==="ru";
         const q=isRu?"Вы остановились. Продолжать рассказывать об этом месте... или подождать пока поедете?":"You've stopped. Continue listening about this place... or wait until you're back on the road?";
         speak(q);
       }
     }else{
       stoppedSince.current=null;
-      if(parked){setParked(false);if(runRef.current)setTimeout(()=>loopRef.current?.(false,false),1000);}
+      if(parkedRef.current){
+        setParked(false);parkedRef.current=false;
+        if(runRef.current){loopGenRef.current++;const g=loopGenRef.current;setTimeout(()=>{if(runRef.current&&loopGenRef.current===g)loopRef.current?.(false,false);},1000);}
+      }
     }
-  },[coords,parked]);
+  },[coords]);
 
   const getGeo=()=>{
     if(!navigator.geolocation){setErr("Geolocation not supported");return;}
@@ -718,21 +760,36 @@ Reply ONLY valid JSON: {"story":"5 sentences with ... pauses","location":"exact 
     coordsRef.current=c;setCoords(c);destRef.current=destination;
     runRef.current=true;histRef.current=[];nextRef.current=null;topicsUsedRef.current=[];
     openerIdx.current=0;stoppedSince.current=null;
+    loopBusyRef.current=false;loopGenRef.current++;        // fresh single generation
+    parkedRef.current=false;
     setErr("");setStory("");setParked(false);
     setScreen("main");startGeoWatch();
     await requestWake();fetchWeather(c.lat,c.lng);
-    setTimeout(()=>loopRef.current?.(false,false),300);
+    // Greeting: first ever launch vs. returning driver
+    const isRu=langRef.current==="ru";
+    const everStarted=localStorage.getItem("rr_started");
+    const greet=everStarted
+      ?(isRu?"С возвращением в эфир. Дорога ждёт... поехали.":"Welcome back on air. The road's waiting... let's roll.")
+      :(isRu?"Привет, я Road Radio. Я буду рассказывать о местах, мимо которых ты едешь. Устраивайся поудобнее... начинаем.":"Hi, I'm Road Radio. I'll tell you about the places you're driving through. Settle in... here we go.");
+    localStorage.setItem("rr_started","1");
+    const g=loopGenRef.current;
+    await speak(greet);
+    if(runRef.current&&loopGenRef.current===g)loopRef.current?.(false,false);
   };
 
   const stop=()=>{
-    runRef.current=false;hardStopSpeak();setSpeaking(false);setStatus("idle");
+    runRef.current=false;loopGenRef.current++;loopBusyRef.current=false;
+    if(loopRef.current?.scheduled)clearTimeout(loopRef.current.scheduled);
+    hardStop();setStatus("idle");
     try{wlRef.current?.release();}catch{}setWakeLock(false);
     if(cdRef.current)clearInterval(cdRef.current);
     setScreen("setup");
   };
 
   const startVoice=()=>{
-    hardStopSpeak();
+    hardStop();                              // kill narrator instantly (triple cancel)
+    loopGenRef.current++;                     // freeze the running loop generation
+    if(loopRef.current?.scheduled)clearTimeout(loopRef.current.scheduled);
     try{
       const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
       if(!SR){setQMode(true);return;}
@@ -749,8 +806,11 @@ Reply ONLY valid JSON: {"story":"5 sentences with ... pauses","location":"exact 
           callClaude(buildSys(true,q,false),q,false).then(res=>{
             setStory(res.story||res);setStatus("ready");startCd(55);
             setMicState("idle");nextRef.current=null;
-            speak(res.story||res).then(()=>{
-              setTimeout(()=>{if(runRef.current&&!parked)loopRef.current?.(false,false);},1500);
+            const isRu=langRef.current==="ru";
+            const back=isRu?" ... Возвращаемся к дороге.":" ... Back to the road.";
+            loopGenRef.current++;const g=loopGenRef.current;
+            speak((res.story||res)+back).then(()=>{
+              setTimeout(()=>{if(runRef.current&&!parkedRef.current&&loopGenRef.current===g)loopRef.current?.(false,false);},800);
             });
           }).catch(()=>setMicState("idle"));
         }
@@ -763,13 +823,18 @@ Reply ONLY valid JSON: {"story":"5 sentences with ... pauses","location":"exact 
 
   const sendQ=async()=>{
     if(!qText.trim())return;
-    hardStopSpeak();setQMode(false);setStatus("loading");
+    hardStop();loopGenRef.current++;
+    if(loopRef.current?.scheduled)clearTimeout(loopRef.current.scheduled);
+    setQMode(false);setStatus("loading");
     try{
       const res=await callClaude(buildSys(true,qText,false),qText,false);
       setStory(res.story||res);setQText("");setStatus("ready");startCd(55);nextRef.current=null;
-      await speak(res.story||res);
-      await new Promise(r=>setTimeout(r,1500));
-      if(runRef.current&&!parked)loopRef.current?.(false,false);else setStatus("idle");
+      const isRu=langRef.current==="ru";
+      const back=isRu?" ... Возвращаемся к дороге.":" ... Back to the road.";
+      loopGenRef.current++;const g=loopGenRef.current;
+      await speak((res.story||res)+back);
+      await new Promise(r=>setTimeout(r,800));
+      if(runRef.current&&!parkedRef.current&&loopGenRef.current===g)loopRef.current?.(false,false);else if(!runRef.current)setStatus("idle");
     }catch{setStatus("idle");}
   };
 
@@ -1017,8 +1082,8 @@ Reply ONLY valid JSON: {"story":"5 sentences with ... pauses","location":"exact 
               <div className="parked-title">{isRu?"Вы остановились":"You've stopped"}</div>
               <div className="parked-sub">{isRu?"Продолжать рассказ об этом месте?":"Continue listening about this place?"}</div>
               <div className="parked-btns">
-                <button className="parked-btn go" onClick={()=>{setParked(false);loopRef.current?.(false,true);}}>{isRu?"✓ Продолжить":"✓ Continue"}</button>
-                <button className="parked-btn wait" onClick={()=>{setParked(false);hardStopSpeak();}}>{isRu?"⏸ Подождать":"⏸ Wait"}</button>
+                <button className="parked-btn go" onClick={()=>{setParked(false);parkedRef.current=false;loopGenRef.current++;const g=loopGenRef.current;loopRef.current?.(false,true);}}>{isRu?"✓ Продолжить":"✓ Continue"}</button>
+                <button className="parked-btn wait" onClick={()=>{setParked(false);parkedRef.current=false;loopGenRef.current++;hardStop();}}>{isRu?"⏸ Подождать":"⏸ Wait"}</button>
               </div>
             </div>
           )}
