@@ -547,28 +547,40 @@ function App(){
     setSpeaking(false);speakingRef.current=false;
   };
 
-  const speak=text=>new Promise(res=>{
-    let settled=false,guard=null,keepAlive=null;
-    const cleanup=()=>{if(guard)clearTimeout(guard);if(keepAlive)clearInterval(keepAlive);};
-    const finish=()=>{if(settled)return;settled=true;cleanup();res();};
+  // Speak one short chunk. Resolves on end/error or a safety timeout.
+  const speakChunk=(s,chunk,myToken)=>new Promise(r=>{
+    let settled=false,guard=null;
+    const fin=()=>{if(settled)return;settled=true;if(guard)clearTimeout(guard);r();};
     try{
-      const s=window.speechSynthesis;if(!s||!text){finish();return;}
-      s.cancel();
-      const myToken=++speakTokenRef.current;
       const tl=L[langRef.current]?.tts||"en-US";
-      const u=new SpeechSynthesisUtterance(text);
+      const u=new SpeechSynthesisUtterance(chunk);
       u.lang=tl;u.rate=0.84;u.pitch=1.0;
       try{const vs=s.getVoices();const v=selVoice?vs.find(x=>x.name===selVoice):vs.find(x=>x.lang===tl)||vs.find(x=>x.lang.startsWith(tl.split("-")[0]))||vs[0];if(v)u.voice=v;}catch{}
+      u.onend=fin;u.onerror=fin;
+      const w=chunk.split(/\s+/).length;
+      guard=setTimeout(fin,Math.max(8000,w*1100));
+      if(speakTokenRef.current!==myToken){fin();return;}
+      s.speak(u);
+    }catch{fin();}
+  });
+
+  const speak=text=>new Promise(async res=>{
+    try{
+      const s=window.speechSynthesis;if(!s||!text){res();return;}
+      s.cancel();
+      const myToken=++speakTokenRef.current;
       setSpeaking(true);speakingRef.current=true;
-      const done=()=>{if(speakTokenRef.current===myToken){setSpeaking(false);speakingRef.current=false;}finish();};
-      u.onend=done;u.onerror=done;
-      // Safety net: resolve no matter what so the broadcast loop never hangs.
-      const words=text.split(/\s+/).length;
-      guard=setTimeout(done,Math.max(15000,words*900));
-      // Android pauses long utterances — keep nudging it awake.
-      keepAlive=setInterval(()=>{try{if(settled||speakTokenRef.current!==myToken){cleanup();return;}if(s.speaking){s.pause();s.resume();}}catch{cleanup();}},9000);
-      setTimeout(()=>{if(speakTokenRef.current!==myToken){finish();return;}s.speak(u);},60);
-    }catch{setSpeaking(false);speakingRef.current=false;finish();}
+      // Split into sentence-sized chunks (Android Chrome silently truncates long utterances).
+      const chunks=text.match(/[^.!?…]+[.!?…]+|\S[^.!?…]*$/g)||[text];
+      await new Promise(r=>setTimeout(r,60)); // let cancel() settle
+      for(const ch of chunks){
+        if(speakTokenRef.current!==myToken)break;   // interrupted (mic/stop/new gen)
+        const piece=ch.trim();if(!piece)continue;
+        await speakChunk(s,piece,myToken);
+      }
+      if(speakTokenRef.current===myToken){setSpeaking(false);speakingRef.current=false;}
+      res();
+    }catch{setSpeaking(false);speakingRef.current=false;res();}
   });
 
   const stopSpeak=()=>hardStop();
