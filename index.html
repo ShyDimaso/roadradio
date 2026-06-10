@@ -7,7 +7,8 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Road Radio">
-<link rel="manifest" href="manifest.json">
+<link rel="manifest" href='data:application/manifest+json,{"name":"Road Radio","short_name":"Road Radio","start_url":".","scope":".","display":"standalone","orientation":"portrait","background_color":"%2305070f","theme_color":"%2305070f","icons":[{"src":"data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%22512%22 height=%22512%22%3E%3Crect width=%22512%22 height=%22512%22 rx=%2296%22 fill=%22%2305070f%22/%3E%3Ctext x=%2250%25%22 y=%2256%25%22 font-size=%22260%22 text-anchor=%22middle%22 dominant-baseline=%22middle%22%3E%F0%9F%93%BB%3C/text%3E%3C/svg%3E","sizes":"512x512","type":"image/svg+xml","purpose":"any maskable"}]}'>
+<link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Crect width='180' height='180' rx='34' fill='%2305070f'/%3E%3Ctext x='50%25' y='56%25' font-size='96' text-anchor='middle' dominant-baseline='middle'%3E%F0%9F%93%BB%3C/text%3E%3C/svg%3E">
 <title>Road Radio</title>
 <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
 <style>
@@ -107,6 +108,8 @@ body{font-family:'Inter',sans-serif;color:#fff;}
 .topic-item.on{border-color:#cc3333;background:#1a0808;}
 .topic-check{width:22px;height:22px;border-radius:6px;background:#1a2535;border:2px solid #334455;display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0;color:#fff;}
 .topic-item.on .topic-check{background:#cc3333;border-color:#cc3333;}
+.topic-item.on2{border-color:#3fb950;background:#0d1a0d;}
+.topic-item.on2 .topic-check.on{background:#3fb950;border-color:#3fb950;}
 .topic-lbl{font-size:14px;color:#aabbcc;font-weight:600;}
 .topic-item.on .topic-lbl{color:#ff9090;}
 
@@ -215,6 +218,20 @@ body{font-family:'Inter',sans-serif;color:#fff;}
 .sbtn.act{border-color:#4a9eff;color:#4a9eff;background:#0a1a30;}
 .sbtn.wake.act{border-color:#f5c842;color:#f5c842;background:#120f04;}
 .roadwatch-btn{width:100%;padding:16px;background:linear-gradient(135deg,#2a0808,#600000);border:2px solid #cc2020;border-radius:12px;color:#ff9090;font-size:15px;font-weight:700;cursor:pointer;margin-top:10px;display:flex;align-items:center;justify-content:center;gap:10px;}
+.mbtn.pause{background:#0d1828;color:#7ac0ff;border-color:#2a4a80;}
+.mbtn.pause.on{background:#0d1a0d;border-color:#3fb950;color:#5fd97a;}
+.callbtn{width:100%;padding:18px;margin-top:10px;border-radius:14px;font-size:18px;font-weight:800;cursor:pointer;background:linear-gradient(135deg,#0d2a14,#155026);border:2px solid #3fb950;color:#7af0a0;display:flex;align-items:center;justify-content:center;gap:10px;}
+.callbtn:active{transform:scale(.97);}
+.sbtn.big{padding:18px 6px;font-size:16px;}
+.call-overlay{position:fixed;inset:0;background:rgba(2,4,10,.92);z-index:500;display:flex;align-items:center;justify-content:center;padding:24px;}
+.call-card{background:#0a1018;border:2px solid #2a4a80;border-radius:24px;padding:30px 24px;width:100%;max-width:380px;text-align:center;}
+.call-ava{font-size:64px;animation:pulse 1.4s infinite;}
+.call-title{font-family:'Orbitron',monospace;font-size:20px;font-weight:700;color:#4a9eff;margin-top:10px;letter-spacing:1px;}
+.call-phase{font-size:17px;color:#cfe0f0;margin-top:14px;line-height:1.4;}
+.call-transcript{margin-top:16px;background:#0d1525;border:1px solid #2a4a80;border-radius:12px;padding:14px;font-size:17px;color:#fff;min-height:48px;text-align:left;}
+.call-btns{display:flex;flex-direction:column;gap:10px;margin-top:20px;}
+.call-done{padding:16px;border-radius:12px;border:2px solid #3fb950;background:#0d1a0d;color:#5fd97a;font-size:16px;font-weight:700;cursor:pointer;}
+.call-hang{padding:14px;border-radius:12px;border:2px solid #5a2020;background:#1a0808;color:#ff9090;font-size:15px;font-weight:700;cursor:pointer;}
 .qa{padding:0 0 8px;}
 .qi{width:100%;background:#0d1525;border:2px solid #fff;border-radius:10px;padding:14px 16px;color:#fff;font-size:18px;outline:none;margin-bottom:8px;}
 .qi::placeholder{color:#8a9bb0;}
@@ -224,10 +241,26 @@ body{font-family:'Inter',sans-serif;color:#fff;}
 .qbtn.send{background:#0d1e3a;color:#88bbff;border:2px solid #1e3a70;}
 .qbtn.cancel{background:#0d1020;color:#889aaa;border:2px solid #1e2d45;}
 .wakeinfo{font-size:13px;color:#8a9bb0;text-align:center;padding:4px 0;}
+.review-banner{background:#0d1a2a;border:2px solid #2a4a80;border-radius:12px;padding:14px 16px;color:#9ac8ff;font-size:15px;cursor:pointer;margin-bottom:4px;line-height:1.4;}
+.review-banner:active{transform:scale(.98);}
 </style>
 </head>
 <body>
 <div id="app"></div>
+<script>
+/* Inline service worker (no separate file needed for GitHub Pages). Enables "Add to Home Screen" / standalone install. */
+(function(){
+  if(!("serviceWorker" in navigator))return;
+  try{
+    var swCode="self.addEventListener('install',function(e){self.skipWaiting();});"+
+               "self.addEventListener('activate',function(e){e.waitUntil(self.clients.claim());});"+
+               "self.addEventListener('fetch',function(e){});";
+    var blob=new Blob([swCode],{type:"text/javascript"});
+    var url=URL.createObjectURL(blob);
+    navigator.serviceWorker.register(url).catch(function(){});
+  }catch(e){}
+})();
+</script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
@@ -235,7 +268,7 @@ body{font-family:'Inter',sans-serif;color:#fff;}
 const {useState,useRef,useEffect}=React;
 const PROXY="https://corsproxy.io/?https://api.anthropic.com/v1/messages";
 const KEY_STORE="rr_key_v3";
-const VER="v18";
+const VER="v19";
 
 const OPENERS_RU=["На этой земле...","Да, кстати...","Мало кто знает, но...","Справа от вас...","История этого края...","Сто лет назад здесь...","Тишина здесь обманчива...","Когда-то давно здесь...","Через пару миль...","Вот что примечательно..."];
 const OPENERS_EN=["On this land...","Here's something few know...","Just to your right...","The history here...","A hundred years ago...","Locals know that...","In a few miles...","What's remarkable is...","This stretch of highway...","Worth knowing..."];
@@ -328,8 +361,19 @@ function App(){
   const [qMode,setQMode]=useState(false);
   const [qText,setQText]=useState("");
   const [micTranscript,setMicTranscript]=useState("");
-  const [showTxt,setShowTxt]=useState(true);
-  const [djMode,setDjMode]=useState(false);
+  const [showTxt,setShowTxt]=useState(false);          // text hidden by default — DJ avatar shown instead
+  const [djMode,setDjMode]=useState(true);
+  const [paused,setPaused]=useState(false);
+  const [callMode,setCallMode]=useState(false);        // "call the DJ" overlay
+  const [callPhase,setCallPhase]=useState("idle");     // idle|ringing|greeting|listening|closing
+  const [fuelAlerts,setFuelAlerts]=useState(localStorage.getItem("rr_fuel")!=="0");
+  const [fuelMiles,setFuelMiles]=useState(parseInt(localStorage.getItem("rr_fuelmi")||"30"));
+  const [topicWildlife,setTopicWildlife]=useState(localStorage.getItem("rr_t_wild")!=="0");
+  const [topicFilms,setTopicFilms]=useState(localStorage.getItem("rr_t_film")!=="0");
+  const [topicPhoto,setTopicPhoto]=useState(localStorage.getItem("rr_t_photo")!=="0");
+  const [topicHistory,setTopicHistory]=useState(localStorage.getItem("rr_t_hist")!=="0");
+  const [topicFamous,setTopicFamous]=useState(localStorage.getItem("rr_t_fam")!=="0");
+  const [needsReview,setNeedsReview]=useState(false);
   const [cd,setCd]=useState(0);
   const [speaking,setSpeaking]=useState(false);
   const [wakeLock,setWakeLock]=useState(false);
@@ -374,9 +418,20 @@ function App(){
   const greetedRef=useRef(false);    // first-run greeting played
   const parkedRef=useRef(false);
   const weatherRef=useRef(null);
+  const sunRef=useRef(null);          // {rise, set} ISO strings for accurate time-of-day
+  const pausedRef=useRef(false);      // manual pause
+  const fuelWarnedRef=useRef(0);      // timestamp of last fuel warning
+  const bufferRef=useRef([]);         // pre-generated segments for dead-zone playback
   const listenerPrefsRef=useRef(localStorage.getItem("rr_listener_prefs")||"");
+  const saidFactsRef=useRef([]);      // longer memory of what was actually said (anti-repeat)
+  const callPhaseRef=useRef("idle");
+  const callRecRef=useRef(null);
+  const cdTotalRef=useRef(55);
 
   useEffect(()=>{const t=setTimeout(()=>setSplash(false),3200);return()=>clearTimeout(t);},[]);
+  useEffect(()=>{
+    try{const last=parseInt(localStorage.getItem("rr_review")||"0");if(localStorage.getItem("rr_started")&&Date.now()-last>3*86400000)setNeedsReview(true);}catch{}
+  },[]);
   useEffect(()=>{langRef.current=lang;},[lang]);
   useEffect(()=>{bcastRef.current=bcastMode;localStorage.setItem("rr_bcast_v1",bcastMode);},[bcastMode]);
   useEffect(()=>{travelRef.current=travelMode;localStorage.setItem("rr_mode_v1",travelMode);},[travelMode]);
@@ -387,6 +442,18 @@ function App(){
   useEffect(()=>{speakingRef.current=speaking;},[speaking]);
   useEffect(()=>{parkedRef.current=parked;},[parked]);
   useEffect(()=>{weatherRef.current=weather;},[weather]);
+  useEffect(()=>{pausedRef.current=paused;},[paused]);
+  const topicsCfgRef=useRef({});
+  useEffect(()=>{
+    topicsCfgRef.current={wildlife:topicWildlife,films:topicFilms,photo:topicPhoto,history:topicHistory,famous:topicFamous,fuel:fuelAlerts,fuelMiles};
+    localStorage.setItem("rr_fuel",fuelAlerts?"1":"0");
+    localStorage.setItem("rr_fuelmi",String(fuelMiles));
+    localStorage.setItem("rr_t_wild",topicWildlife?"1":"0");
+    localStorage.setItem("rr_t_film",topicFilms?"1":"0");
+    localStorage.setItem("rr_t_photo",topicPhoto?"1":"0");
+    localStorage.setItem("rr_t_hist",topicHistory?"1":"0");
+    localStorage.setItem("rr_t_fam",topicFamous?"1":"0");
+  },[topicWildlife,topicFilms,topicPhoto,topicHistory,topicFamous,fuelAlerts,fuelMiles]);
 
   // Persist a lasting listener preference about how the host should speak
   const addListenerPref=p=>{
@@ -502,9 +569,11 @@ function App(){
 
   const fetchWeather=async(lat,lng)=>{
     try{
-      const r=await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat.toFixed(4)}&longitude=${lng.toFixed(4)}&current_weather=true&temperature_unit=fahrenheit&windspeed_unit=mph&timezone=auto`);
+      const r=await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat.toFixed(4)}&longitude=${lng.toFixed(4)}&current_weather=true&daily=sunrise,sunset&temperature_unit=fahrenheit&windspeed_unit=mph&timezone=auto&forecast_days=1`);
       const d=await r.json();const cw=d.current_weather;
-      if(cw)setWeather({temp:Math.round(cw.temperature),wind:Math.round(cw.windspeed),code:cw.weathercode,is_day:cw.is_day??1});
+      let sun=null;
+      try{if(d.daily&&d.daily.sunrise&&d.daily.sunset){sun={rise:d.daily.sunrise[0],set:d.daily.sunset[0]};sunRef.current=sun;}}catch{}
+      if(cw)setWeather({temp:Math.round(cw.temperature),wind:Math.round(cw.windspeed),code:cw.weathercode,is_day:cw.is_day??1,sun});
     }catch{}
   };
 
@@ -531,10 +600,25 @@ function App(){
     }catch{return[];}
   };
 
+  // Look ahead along the heading for fuel stations; return miles to nearest one ahead, or null.
+  const fetchFuelAhead=async(lat,lng,hdg)=>{
+    try{
+      const q=`[out:json][timeout:12];node["amenity"="fuel"](around:80000,${lat},${lng});out body 60;`;
+      const r=await fetch(`https://overpass-api.de/api/interpreter?data=${encodeURIComponent(q)}`);
+      const d=await r.json();const els=d.elements||[];if(!els.length)return null;
+      const R=3958.8,rad=x=>x*Math.PI/180;
+      const dist=(la,lo)=>{const dLa=rad(la-lat),dLo=rad(lo-lng);const a=Math.sin(dLa/2)**2+Math.cos(rad(lat))*Math.cos(rad(la))*Math.sin(dLo/2)**2;return 2*R*Math.asin(Math.sqrt(a));};
+      const bear=(la,lo)=>{const y=Math.sin(rad(lo-lng))*Math.cos(rad(la));const x=Math.cos(rad(lat))*Math.sin(rad(la))-Math.sin(rad(lat))*Math.cos(rad(la))*Math.cos(rad(lo-lng));return (Math.atan2(y,x)*180/Math.PI+360)%360;};
+      let near=null;
+      for(const e of els){if(e.lat==null||e.lon==null)continue;const dd=dist(e.lat,e.lon);if(dd<0.3)continue;let diff=Math.abs(bear(e.lat,e.lon)-hdg);if(diff>180)diff=360-diff;if(diff<70&&(near==null||dd<near))near=dd;}
+      return near;
+    }catch{return null;}
+  };
+
   const requestWake=async()=>{try{if("wakeLock" in navigator){wlRef.current=await navigator.wakeLock.request("screen");setWakeLock(true);wlRef.current.addEventListener("release",()=>setWakeLock(false));}}catch{}};
   useEffect(()=>{const h=()=>{if(document.visibilityState==="visible"&&runRef.current)requestWake();};document.addEventListener("visibilitychange",h);return()=>document.removeEventListener("visibilitychange",h);},[]);
 
-  const startCd=s=>{setCd(s);if(cdRef.current)clearInterval(cdRef.current);cdRef.current=setInterval(()=>setCd(p=>{if(p<=1){clearInterval(cdRef.current);return 0;}return p-1;}),1000);};
+  const startCd=s=>{cdTotalRef.current=s;setCd(s);if(cdRef.current)clearInterval(cdRef.current);cdRef.current=setInterval(()=>setCd(p=>{if(p<=1){clearInterval(cdRef.current);return 0;}return p-1;}),1000);};
 
   const speakTokenRef=useRef(0);
 
@@ -612,15 +696,30 @@ function App(){
     const ld=locDataRef.current;
     const spd=toMph(c.speed)||parseInt(speedVal)||0;
     const hdg=c.heading||90;
-    const hr=new Date().getHours(),mn=new Date().getMinutes();
-    const mo=new Date().toLocaleString('en',{month:'long'});
-    const isNight=hr>=22||hr<5,isDusk=hr>=19&&hr<22;
-    const timeCtx=isNight?`NIGHT ${hr}:${mn.toString().padStart(2,'0')} — dark outside`:isDusk?`DUSK ${hr}:${mn.toString().padStart(2,'0')} — fading light`:`DAYTIME ${hr}:${mn.toString().padStart(2,'0')} ${mo}`;
+    const now0=new Date();
+    const hr=now0.getHours(),mn=now0.getMinutes();
+    const mo=now0.toLocaleString('en',{month:'long'});
+    // Accurate time-of-day from real sunrise/sunset when available.
+    let isNight,isDusk,isDawn=false,phase;
+    const sun=sunRef.current;
+    if(sun&&sun.rise&&sun.set){
+      const toMin=iso=>{const t=iso.split('T')[1]||"";const[h,m]=t.split(':');return (parseInt(h)||0)*60+(parseInt(m)||0);};
+      const cur=hr*60+mn,rise=toMin(sun.rise),set=toMin(sun.set);
+      isDawn=cur>=rise-30&&cur<rise+45;
+      isDusk=cur>=set-45&&cur<set+30;
+      isNight=cur>=set+30||cur<rise-30;
+      phase=isNight?"NIGHT":isDawn?"SUNRISE":isDusk?"SUNSET":"DAYTIME";
+    }else{
+      isNight=hr>=21||hr<5;isDusk=hr>=19&&hr<21;isDawn=hr>=5&&hr<7;
+      phase=isNight?"NIGHT":isDawn?"SUNRISE":isDusk?"SUNSET":"DAYTIME";
+    }
+    const tStr=`${hr}:${mn.toString().padStart(2,'0')}`;
+    const timeCtx=`${phase}, local time ${tStr}, ${mo}${sun?` (sunrise ${(sun.rise.split('T')[1]||'').slice(0,5)}, sunset ${(sun.set.split('T')[1]||'').slice(0,5)})`:''}`;
     const tmCtx=isTourist?`Stopped/parked — tourist mode. Describe this location in detail as if person is exploring on foot.`:tm==="car"?`car at ${spd} mph`:tm==="bus"?`bus/train at ${spd} mph`:tm==="bike"?`bicycle`:tm==="walk"?"walking":"vehicle";
     const destCtx=dest?`\nHeading toward: ${dest} — for direction context ONLY. NEVER describe places not within 3 miles of current position.`:"";
     const exCtx=exl.length?`\nNEVER mention: ${exl.join(', ')}.`:"";
     const recentTopics=topicsUsedRef.current.slice(-8).join(", ");
-    const nightCtx=isNight?`NIGHT: Never say "you can see" or "look at the landscape". Use "in the headlights", "against the night sky". Describe what's perceptible at night.`:isDusk?`DUSK: Describe fading light, silhouettes.`:`DAYTIME: Describe what's visible through the windshield.`;
+    const nightCtx=isNight?`It is NIGHT and dark. Never say "you can see the landscape". Speak of what's in the headlights, the dark shapes, the night sky.`:isDawn?`It is around SUNRISE — the sun is coming up, light is growing. Do NOT say it's setting or that it's dark.`:isDusk?`It is around SUNSET — light is fading, long shadows. Do NOT say the sun is rising.`:`It is DAYTIME, full light. Do NOT mention sunset, sunrise, dusk, or darkness.`;
     const opener=getOpener();
     const terrain=getTerrain(ld.state);
     const terrainCtx=terrain?`\nLANDSCAPE OF ${ld.state.toUpperCase()} (this is the ground truth — describe ONLY terrain consistent with this, never invent fields/forests/mountains that don't belong here): ${terrain}`:"";
@@ -640,43 +739,51 @@ This may be a QUESTION about the area, OR feedback about how you host (e.g. "sto
 Then return to the broadcast naturally. Answer in ${al}. Reply ONLY valid JSON: {"story":"your spoken answer","location":"current place in English","prefs":"if the listener stated a lasting preference about your hosting style, summarize it in a short imperative phrase in English, e.g. 'no purple prose, more hard facts'; otherwise empty string"}`;
 
     const prefs=listenerPrefsRef.current;
-    const prefsCtx=prefs?`\nLISTENER'S STANDING REQUESTS (obey these every time, they override defaults): ${prefs}`:"";
+    const prefsCtx=prefs?`\nLISTENER'S STANDING REQUESTS (obey these every time — they override everything below): ${prefs}`:"";
+    const cfg=topicsCfgRef.current||{};
+    const recentFacts=saidFactsRef.current.slice(-12).join(" | ");
+    const topicMenu=[
+      cfg.history!==false?"local history (who founded the town and when, what happened here, old routes, the railroad and what it connects)":null,
+      cfg.wildlife!==false?"wildlife (animals that live here now — and what lived here long ago: prehistoric creatures, what went extinct, ice-age animals — told briefly and vividly)":null,
+      cfg.films!==false?"movies/TV filmed in this area and the year, if genuinely documented for this region":null,
+      cfg.famous!==false?"famous people born or connected to this place":null,
+      "geology and the shape of the land, mining and industry, what grows or is farmed here",
+      cfg.photo!==false?"a heads-up about a good photo spot or scenic viewpoint coming up, if there's a real one":null,
+    ].filter(Boolean).join("; ");
 
-    return`You are the host of "Road Radio" — a science-and-discovery radio broadcast that rides along with a driver and tells them everything interesting about the exact place they are passing through, in the spirit of a calm, warm, knowledgeable nature-documentary narrator (think a gentle, kindly expert with deep knowledge who makes you feel at ease). Soft, unhurried, friendly. You are NOT a poet. You are a host who KNOWS things.
+    return`You are the host of "Road Radio" — but think of yourself as a charismatic personal TOUR GUIDE riding in the seat next to the driver, the kind on a sightseeing bus who knows wonderful true stories about every place and makes the trip fly by. Warm, easy, a little charming. NOT a dry science lecture. NOT a poet who gushes about beauty. A great storyteller who happens to know the real history of any place in America.
 
-YOUR JOB: make the driver learn real things about THIS land and feel a little proud they now know them — the kind of facts they'll remember next time they drive here. Heights of mountains, what was mined here, who founded the town and when, what railroad runs alongside and what it connects, what lives here, the climate, the history. Concrete, verifiable, encyclopedic — but spoken simply and warmly.
+THE SLOGAN: "the radio that SEES you." You know exactly where the driver is right now and what's around them, and you talk about THIS place — not vague filler.
 
-CURRENT POSITION (ground truth):
-- Highway/road: ${ld.highway||"a road"} ${tm==="car"?"(this is a real highway/interstate, NOT a 'rural country lane' unless the road class truly is local)":""}
-- City/Town: ${ld.city||"open country"}
-- County: ${ld.county||""}
-- State: ${ld.state||""}
-- Coordinates: ${c.lat.toFixed(5)}°N, ${Math.abs(c.lng).toFixed(5)}°W
-- Heading: ${toDir(hdg)} — to the LEFT is ${toLeft(hdg)}, to the RIGHT is ${toRight(hdg)}
-- Time & light: ${timeCtx}
-- Temperature right now: ${weatherRef.current?weatherRef.current.temp+"°F":"unknown"}${destCtx}${exCtx}${terrainCtx}${prefsCtx}
+HOW TO BE GOOD (most important rules):
+1. ONE LISTENER, ONE CONTINUOUS SHOW. The same person has been listening to you this whole drive. NEVER restart, never re-introduce the desert/region, never repeat a fact or phrasing you've used. Each segment continues the same conversation and moves to something NEW.
+2. NEVER begin with "Впереди вас" / "Впереди у вас" / "Ahead of you". You've overused that. Open differently every time — a question, a story hook, "А вот интересная вещь...", "Знаете, что здесь когда-то было?...", "Слева от нас...". Vary it.
+3. TELL STORIES, not encyclopedia entries. Pick ONE interesting true thing about this area and tell it like a story with a little color. Rotate the subject each segment among: ${topicMenu}.
+4. DON'T INVENT. This is critical — the driver catches lies instantly and stops trusting you. Only state facts that are real and documented for this exact area/state. If you're not certain a town, a junction, an animal, a film, or a name truly belongs HERE, do NOT mention it. Better to talk generally about the region than to invent a specific thing that isn't there. NEVER promise "a junction in a mile" or "a town ahead" unless it's in the REAL NEARBY OBJECTS list.
+5. BE PRECISE, not vague. Avoid "somewhere near", "not far". If you genuinely know something is at a specific place (from REAL NEARBY OBJECTS), say it concretely. If you don't know exactly, don't pretend.
+6. LENGTH FOLLOWS INTEREST. Rich spot with a real story → a fuller segment (up to ~8 sentences). Empty stretch → a short 2-3 sentence note, then hand back. Don't pad.
+7. Minimal filler words. Confident, friendly, flowing.
+
+CURRENT POSITION (your ground truth — the driver is HERE, right now):
+- Road: ${ld.highway||"this road"}
+- Town/area: ${ld.city||"open country"}${ld.county?`, ${ld.county}`:""}${ld.state?`, ${ld.state}`:""}
+- Coordinates: ${c.lat.toFixed(5)}, ${Math.abs(c.lng).toFixed(5)}W
+- Travelling ${toDir(hdg)}. The LEFT window faces ${toLeft(hdg)}, the RIGHT window faces ${toRight(hdg)}.
+- ${timeCtx}
+- Temperature now: ${weatherRef.current?weatherRef.current.temp+"°F":"unknown"}${destCtx}${exCtx}${terrainCtx}${prefsCtx}
 
 ${nightCtx}
 
-ALREADY SAID (NEVER repeat these — find something NEW each time): ${recentTopics||"nothing yet"}
-
-HOW TO HOST (the protocol):
-1. Integrate what the driver actually sees: straight ahead, to the left (${toLeft(hdg)} side), to the right (${toRight(hdg)} side). Tie facts to what's out the window right now.
-2. Be SPECIFIC and FACTUAL. Prefer: town founding dates, population, mining/industry history, railroad lines and what they connect, mountain elevations, named landmarks, geology, native wildlife, climate facts, notable people or events. Only state facts that are real and publicly documented for this latitude/region. If you are not sure of a specific name or number, speak generally instead of inventing — never mislead the driver.
-3. LENGTH IS NOT FIXED. If this stretch is genuinely rich (a landmark, a historic town, a mountain, a river crossing), give a fuller segment — up to ~8-10 sentences. If little is happening, give a SHORT 2-3 sentence note ("we're about to cross over a rail line that runs from X to Y...") and move on. Let the place decide the length.
-4. DO NOT gush about beauty. The driver sees the beauty with their own eyes. At most a light touch ("the light's nice this hour") then straight to substance. No repeated "красота", "волшебство", "любуйтесь", "раскинулись". Facts over feelings.
-5. NEVER repeat yourself between segments. New angle, new fact, new subject every time. If you mentioned terrain last time, do history this time; then wildlife; then industry; then the railroad; etc. Rotate.
-6. Use smooth, warm radio transitions to open and to hand back: e.g. "А вот, кстати...", "Обратите внимание налево...", "Теперь немного истории...", "Ну а мы возвращаемся к дороге...". Vary them. NEVER open with "Впереди", "Вы мчитесь", "Машина мчится".
+THINGS YOU HAVE ALREADY TALKED ABOUT THIS DRIVE (do NOT repeat any of these, not even reworded): ${recentFacts||"nothing yet — this is your first segment"}
 
 HARD RULES:
-- ${showSpd?`You may note the current speed once if natural.`:"NEVER mention speed, mph, or km/h. Not even indirectly."}
-- ${showHw?`You may name the highway (${ld.highway}) once.`:"Don't name the highway this time."}
-- Never invent place names, towns, rivers, or landmarks. Use only the names given above or in REAL NEARBY OBJECTS. If unsure, describe generically.
-- Never describe terrain, plants, or animals that don't belong at this location/latitude. When unsure, stay silent on it rather than guess.
-- Keep the light/time of day consistent with "${timeCtx}". Do not say the sun has set if it's dusk, and vice versa.
-- Perfect ${al} grammar. Natural pauses with "...". EVERY word in ${al}.
+- ${showSpd?`You may mention speed once if natural.`:"NEVER mention speed, mph, or km/h."}
+- ${showHw?`You may name the road (${ld.highway}) once.`:"Don't repeat the road name this time."}
+- Keep time-of-day exactly consistent with "${phase}". Do not contradict it.
+- Never describe plants/animals/terrain that don't belong at this latitude. When unsure, skip it.
+- Perfect ${al}. Natural "..." pauses. EVERY word in ${al}.
 
-Reply ONLY valid JSON: {"story":"the spoken segment, length matched to how interesting the place is","location":"exact place name in English","topics":"3-5 words naming what you just covered, so you don't repeat it"}`;
+Reply ONLY valid JSON: {"story":"your spoken segment","location":"exact place in English","topics":"a short specific phrase naming the ONE thing you just talked about, so you never repeat it (e.g. 'founding of Flagstaff 1882', 'pronghorn antelope', 'Route 66 history')"}`;
   };
 
   const callClaude=async(sys,msg,forNext)=>{
@@ -689,15 +796,23 @@ Reply ONLY valid JSON: {"story":"the spoken segment, length matched to how inter
     const res=extract(txt);
     if(!forNext){
       histRef.current=[...msgs,{role:"assistant",content:txt}];
-      if(res.topics)topicsUsedRef.current=[...topicsUsedRef.current,res.topics].slice(-12);
+      if(res.topics){topicsUsedRef.current=[...topicsUsedRef.current,res.topics].slice(-12);saidFactsRef.current=[...saidFactsRef.current,res.topics].slice(-20);}
     }
     return res;
   };
 
   const prefetch=async()=>{
-    if(fetchingNext.current||nextRef.current)return;
+    if(fetchingNext.current)return;
     fetchingNext.current=true;
-    try{nextRef.current=await callClaude(buildSys(false,null,false),"What's 1-2 miles ahead?",true);}catch{}
+    try{
+      // Keep the immediate "next" ready...
+      if(!nextRef.current){nextRef.current=await callClaude(buildSys(false,null,false),"What's 1-2 miles ahead?",true);}
+      // ...and quietly build up a small backup buffer so the show survives a dead zone (no signal).
+      if(bufferRef.current.length<2){
+        const extra=await callClaude(buildSys(false,null,false),"Tell another interesting thing about this general area (a fallback if we lose signal).",true);
+        if(extra&&extra.story)bufferRef.current.push(extra);
+      }
+    }catch{}
     fetchingNext.current=false;
   };
 
@@ -705,7 +820,7 @@ Reply ONLY valid JSON: {"story":"the spoken segment, length matched to how inter
   const scheduleNext=(gen,gapMs)=>{
     if(loopRef.current?.scheduled)clearTimeout(loopRef.current.scheduled);
     loopRef.current.scheduled=setTimeout(()=>{
-      if(runRef.current&&!parkedRef.current&&loopGenRef.current===gen){
+      if(runRef.current&&!parkedRef.current&&!pausedRef.current&&loopGenRef.current===gen){
         loopRef.current?.(!!nextRef.current,false);
       }
     },gapMs||2000);
@@ -720,7 +835,28 @@ Reply ONLY valid JSON: {"story":"the spoken segment, length matched to how inter
     let storyText="";                         // visible after finally for pacing
     try{
       let res=null;
-      if(useNext&&nextRef.current&&!tourist){res=nextRef.current;nextRef.current=null;setStatus("ready");}
+      // Fuel warning: occasionally check ahead; if the next station is far, the DJ warns instead of a normal segment.
+      const cfgF=topicsCfgRef.current||{};
+      const canFuel=cfgF.fuel!==false&&travelRef.current==="car"&&!tourist&&!useNext;
+      const fuelDue=Date.now()-fuelWarnedRef.current>420000; // at most ~ every 7 min
+      if(canFuel&&fuelDue){
+        try{
+          const mi=await fetchFuelAhead(c.lat,c.lng,c.heading||90);
+          if(gen!==loopGenRef.current||!runRef.current)return;
+          const thresh=cfgF.fuelMiles||30;
+          if(mi!=null&&mi>=thresh){
+            fuelWarnedRef.current=Date.now();
+            const isRu=langRef.current==="ru";
+            const miR=Math.round(mi);
+            const warn=isRu
+              ?`Небольшое предупреждение по дороге... ближайшая заправка впереди примерно через ${miR} миль, а дальше — ещё дальше. Если у вас меньше половины бака, имеет смысл заправиться при первой возможности. ... А теперь продолжаем.`
+              :`A quick heads-up for the road... the nearest gas station ahead is about ${miR} miles out, and the next ones are farther still. If you're under half a tank, it's worth filling up at the first chance. ... Now, back to it.`;
+            res={story:warn,location:locDataRef.current.name||"",topics:"fuel warning"};
+          }
+        }catch{}
+      }
+      if(res){/* fuel warning ready, skip normal generation */}
+      else if(useNext&&nextRef.current&&!tourist){res=nextRef.current;nextRef.current=null;setStatus("ready");}
       else{
         setStatus("loading");
         const[geo,pois]=await Promise.all([reverseGeocode(c.lat,c.lng),fetchPOI(c.lat,c.lng)]);
@@ -728,7 +864,11 @@ Reply ONLY valid JSON: {"story":"the spoken segment, length matched to how inter
         const sys=buildSys(false,null,tourist||false);
         const poiLine=pois.length>0?`\nREAL NEARBY OBJECTS (only mention these, no others): ${pois.join(", ")}`:"";
         try{res=await callClaude(sys+poiLine,"Describe this exact location right now.",false);}
-        catch(e){setErr((e.message||"Error").slice(0,100));runRef.current=false;setStatus("idle");return;}
+        catch(e){
+          // Likely a dead zone / no signal. Use a buffered segment if we have one, instead of stopping.
+          if(bufferRef.current.length>0){res=bufferRef.current.shift();}
+          else{setErr((e.message||"Error").slice(0,100));runRef.current=false;setStatus("idle");return;}
+        }
       }
       if(gen!==loopGenRef.current||!runRef.current)return;
       storyText=res.story||"";
@@ -807,10 +947,10 @@ Reply ONLY valid JSON: {"story":"the spoken segment, length matched to how inter
     let c=coordsRef.current||parseCoords();
     if(!c){setErr(lang==="ru"?"Нажмите автоопределение или введите координаты":"Tap auto-detect or enter coordinates");return;}
     coordsRef.current=c;setCoords(c);destRef.current=destination;
-    runRef.current=true;histRef.current=[];nextRef.current=null;topicsUsedRef.current=[];
-    openerIdx.current=0;stoppedSince.current=null;
+    runRef.current=true;histRef.current=[];nextRef.current=null;topicsUsedRef.current=[];saidFactsRef.current=[];bufferRef.current=[];
+    openerIdx.current=0;stoppedSince.current=null;fuelWarnedRef.current=0;
     loopBusyRef.current=false;loopGenRef.current++;        // fresh single generation
-    parkedRef.current=false;
+    parkedRef.current=false;pausedRef.current=false;setPaused(false);
     setErr("");setStory("");setParked(false);
     setScreen("main");startGeoWatch();
     await requestWake();fetchWeather(c.lat,c.lng);
@@ -818,21 +958,99 @@ Reply ONLY valid JSON: {"story":"the spoken segment, length matched to how inter
     const isRu=langRef.current==="ru";
     const everStarted=localStorage.getItem("rr_started");
     const greet=everStarted
-      ?(isRu?"С возвращением в эфир. Дорога ждёт... поехали.":"Welcome back on air. The road's waiting... let's roll.")
-      :(isRu?"Привет, я Road Radio. Я буду рассказывать о местах, мимо которых ты едешь. Устраивайся поудобнее... начинаем.":"Hi, I'm Road Radio. I'll tell you about the places you're driving through. Settle in... here we go.");
-    localStorage.setItem("rr_started","1");
+      ?(isRu?"И снова здравствуйте, вы на Дорожном Радио. Дорога зовёт... поехали.":"Welcome back to Road Radio. The road's calling... let's roll.")
+      :(isRu?"Здравствуйте, вы на Дорожном Радио. Я ваш личный гид на этой дороге — буду рассказывать самое интересное о местах, мимо которых мы едем. Устраивайтесь поудобнее... поехали.":"Hello, you're on Road Radio. I'm your personal guide on this road — I'll tell you the most interesting things about the places we pass. Settle in... let's go.");
+    localStorage.setItem("rr_started","1");localStorage.setItem("rr_review",String(Date.now()));setNeedsReview(false);
     const g=loopGenRef.current;
     await speak(greet);
     if(runRef.current&&loopGenRef.current===g)loopRef.current?.(false,false);
   };
 
   const stop=()=>{
-    runRef.current=false;loopGenRef.current++;loopBusyRef.current=false;
+    runRef.current=false;loopGenRef.current++;loopBusyRef.current=false;bufferRef.current=[];
     if(loopRef.current?.scheduled)clearTimeout(loopRef.current.scheduled);
     hardStop();setStatus("idle");
     try{wlRef.current?.release();}catch{}setWakeLock(false);
     if(cdRef.current)clearInterval(cdRef.current);
     setScreen("setup");
+  };
+
+  const togglePause=()=>{
+    if(pausedRef.current){
+      // resume
+      pausedRef.current=false;setPaused(false);
+      if(runRef.current){loopGenRef.current++;const g=loopGenRef.current;setTimeout(()=>{if(runRef.current&&!pausedRef.current&&loopGenRef.current===g)loopRef.current?.(false,false);},400);}
+    }else{
+      // pause: stop talking, stop scheduling, keep all state/position
+      pausedRef.current=true;setPaused(true);
+      loopGenRef.current++;
+      if(loopRef.current?.scheduled)clearTimeout(loopRef.current.scheduled);
+      hardStop();setStatus("ready");
+    }
+  };
+
+  const openCall=async()=>{
+    hardStop();loopGenRef.current++;
+    if(loopRef.current?.scheduled)clearTimeout(loopRef.current.scheduled);
+    pausedRef.current=true;setPaused(true);   // hold the broadcast during the call
+    setCallMode(true);setCallPhase("greeting");callPhaseRef.current="greeting";
+    const isRu=langRef.current==="ru";
+    const greet=isRu
+      ?"Вы дозвонились на Дорожное Радио! Слушаю вас — что бы вы хотели услышать в эфире? О чём рассказывать больше, о чём меньше? Говорите после сигнала."
+      :"You've reached Road Radio! I'm listening — what would you like to hear on the air? More of what, less of what? Speak after the tone.";
+    await speak(greet);
+    if(callPhaseRef.current!=="greeting")return;   // user cancelled
+    setCallPhase("listening");callPhaseRef.current="listening";
+    callListen();
+  };
+
+  const callListen=()=>{
+    try{
+      const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+      if(!SR){setCallPhase("type");callPhaseRef.current="type";return;}   // fall back to typing
+      const rec=new SR();
+      rec.lang=L[langRef.current]?.tts||"en-US";
+      rec.continuous=true;rec.interimResults=true;
+      let finalText="";
+      rec.onresult=e=>{
+        let interim="";
+        for(let i=e.resultIndex;i<e.results.length;i++){
+          if(e.results[i].isFinal)finalText+=e.results[i][0].transcript+" ";
+          else interim+=e.results[i][0].transcript;
+        }
+        setMicTranscript(finalText+interim);
+      };
+      rec.onerror=()=>{};
+      rec.onend=()=>{ if(callPhaseRef.current==="listening")closeCall(finalText.trim()); };
+      callRecRef.current=rec;
+      rec.start();
+    }catch{setCallPhase("type");callPhaseRef.current="type";}
+  };
+
+  const closeCall=async(spoken)=>{
+    try{callRecRef.current&&callRecRef.current.stop();}catch{}
+    setCallPhase("closing");callPhaseRef.current="closing";setMicTranscript("");
+    const isRu=langRef.current==="ru";
+    if(spoken&&spoken.trim()){
+      try{
+        const res=await callClaude(buildSys(true,spoken,false),spoken,false);
+        if(res.prefs)addListenerPref(res.prefs); else addListenerPref(spoken.trim());
+      }catch{addListenerPref(spoken.trim());}
+    }
+    const bye=isRu
+      ?"Понял вас, всё записал. Учту в эфире. Хорошей дороги... продолжаем!"
+      :"Got it, all noted. I'll keep it in mind. Drive safe... back to the show!";
+    await speak(bye);
+    setCallMode(false);setCallPhase("idle");callPhaseRef.current="idle";
+    pausedRef.current=false;setPaused(false);
+    if(runRef.current){loopGenRef.current++;const g=loopGenRef.current;setTimeout(()=>{if(runRef.current&&loopGenRef.current===g)loopRef.current?.(false,false);},500);}
+  };
+
+  const cancelCall=()=>{
+    try{callRecRef.current&&callRecRef.current.stop();}catch{}
+    hardStop();setCallMode(false);setCallPhase("idle");callPhaseRef.current="idle";setMicTranscript("");
+    pausedRef.current=false;setPaused(false);
+    if(runRef.current){loopGenRef.current++;const g=loopGenRef.current;setTimeout(()=>{if(runRef.current&&loopGenRef.current===g)loopRef.current?.(false,false);},500);}
   };
 
   const startVoice=()=>{
@@ -900,6 +1118,11 @@ Reply ONLY valid JSON: {"story":"the spoken segment, length matched to how inter
 
   const installApp=async()=>{
     if(deferredPrompt){await deferredPrompt.prompt();deferredPrompt.userChoice.then(()=>{setDeferredPrompt(null);});}
+    else{
+      const ua=navigator.userAgent;
+      if(/iphone|ipad|ipod/i.test(ua))alert(isRu?"Чтобы вынести значок на экран: нажмите кнопку «Поделиться» внизу Safari → «На экран Домой».":"In Safari: tap Share → Add to Home Screen.");
+      else alert(isRu?"Чтобы вынести значок:\nменю браузера (⋮ справа вверху) → «Установить приложение» или «Добавить на главный экран».":"Open browser menu (⋮) → Install app / Add to Home screen.");
+    }
     localStorage.setItem("rr_install_ok","1");setShowInstall(false);
   };
 
@@ -915,7 +1138,7 @@ Reply ONLY valid JSON: {"story":"the spoken segment, length matched to how inter
   const stTxt=!isMain?(isRu?"ГОТОВ":"READY"):status==="loading"?(isRu?"ЗАГРУЗКА":"LOADING"):(isRu?"В ЭФИРЕ":"ON AIR");
   const wBadge=weather?`${getWI(weather.code)} ${weather.temp}°F`:null;
   const bmObj=BCASTS.find(b=>b.id===bcastMode)||BCASTS[0];
-  const slogan=isRu?"Радио, которое знает, где ты едешь.":"Every mile has a story.";
+  const slogan=isRu?"Радио, которое тебя видит.":"The radio that sees you.";
   const hwDisplay=locData.highway&&locData.highway!=="unknown"?`${locData.highway}${locData.state?" · "+locData.state:""}`:locData.state||"";
   const curVoices=voices.filter(v=>v.lang.startsWith((L[lang]?.tts||"en-US").split("-")[0]));
 
@@ -993,6 +1216,22 @@ Reply ONLY valid JSON: {"story":"the spoken segment, length matched to how inter
                 </div>
               ))}
             </div>
+            <div className="set-sect">{isRu?"О чём рассказывать":"What to talk about"}</div>
+            <div className="topic-grid">
+              <div className={`topic-item${topicHistory?" on2":""}`} onClick={()=>setTopicHistory(v=>!v)}><div className="topic-check on">{topicHistory?"✓":""}</div><div className="topic-lbl">{isRu?"История места":"Local history"}</div></div>
+              <div className={`topic-item${topicWildlife?" on2":""}`} onClick={()=>setTopicWildlife(v=>!v)}><div className="topic-check on">{topicWildlife?"✓":""}</div><div className="topic-lbl">{isRu?"Животные (и древние)":"Wildlife (& ancient)"}</div></div>
+              <div className={`topic-item${topicFilms?" on2":""}`} onClick={()=>setTopicFilms(v=>!v)}><div className="topic-check on">{topicFilms?"✓":""}</div><div className="topic-lbl">{isRu?"Где снимали фильмы":"Movie locations"}</div></div>
+              <div className={`topic-item${topicFamous?" on2":""}`} onClick={()=>setTopicFamous(v=>!v)}><div className="topic-check on">{topicFamous?"✓":""}</div><div className="topic-lbl">{isRu?"Знаменитости":"Famous people"}</div></div>
+              <div className={`topic-item${topicPhoto?" on2":""}`} onClick={()=>setTopicPhoto(v=>!v)}><div className="topic-check on">{topicPhoto?"✓":""}</div><div className="topic-lbl">{isRu?"Фотозоны по пути":"Photo spots ahead"}</div></div>
+            </div>
+            <div className="set-sect">{isRu?"Заправки":"Fuel stops"}</div>
+            <div className={`topic-item${fuelAlerts?" on2":""}`} style={{marginBottom:"8px"}} onClick={()=>setFuelAlerts(v=>!v)}><div className="topic-check on">{fuelAlerts?"✓":""}</div><div className="topic-lbl">{isRu?"Предупреждать о заправках":"Warn about fuel stops"}</div></div>
+            {fuelAlerts&&(
+              <div style={{padding:"4px 2px 8px"}}>
+                <div style={{fontSize:"13px",color:"#9aabbf",marginBottom:"6px"}}>{isRu?`Предупреждать, если до заправки больше: ${fuelMiles} миль`:`Warn if next fuel is over: ${fuelMiles} mi`}</div>
+                <input type="range" min="10" max="80" step="5" value={fuelMiles} onChange={e=>setFuelMiles(parseInt(e.target.value))} style={{width:"100%"}}/>
+              </div>
+            )}
             <div className="set-sect">{isRu?"Замечания диктору":"Host feedback"}</div>
             <button className="tts-btn" onClick={()=>{listenerPrefsRef.current="";try{localStorage.removeItem("rr_listener_prefs");}catch{}alert(isRu?"✓ Замечания сброшены":"✓ Feedback cleared");}}>🧹 {isRu?"Сбросить мои замечания":"Clear my saved feedback"}</button>
             <div className="set-sect">{isRu?"Установка":"Install"}</div>
@@ -1064,6 +1303,11 @@ Reply ONLY valid JSON: {"story":"the spoken segment, length matched to how inter
       {screen==="setup"&&(
         <div className="setup">
           <div className="s-hero"><div className="s-icon">{bmObj.icon}</div><div className="s-title">Road Radio</div><div className="s-sub">{slogan}</div></div>
+          {needsReview&&(
+            <div className="review-banner" onClick={()=>{setSettingsOpen(true);localStorage.setItem("rr_review",String(Date.now()));setNeedsReview(false);}}>
+              ⚙️ {isRu?"Давно не заглядывали в настройки. Проверить, всё ли по вкусу? →":"Haven't checked your settings in a while. Tap to review →"}
+            </div>
+          )}
           <button className={`geobtn${geoOk?" ok":""}`} onClick={getGeo}>{geoOk?(isRu?"✓ Местоположение найдено!":"✓ Location Detected!"):(isRu?"📍 Определить местоположение":"📍 Auto-Detect My Location")}</button>
           <div className="sep">{isRu?"или введите вручную":"or enter manually"}</div>
           <div><label className="flabel">📍 {isRu?"Координаты":"Coordinates (lat, lng)"}</label><input className="finput" value={coordInput} onChange={e=>setCoordInput(e.target.value)} placeholder="35.4615, -97.6882"/></div>
@@ -1124,7 +1368,7 @@ Reply ONLY valid JSON: {"story":"the spoken segment, length matched to how inter
             {story&&status==="ready"&&(
               <div className="pgrow">
                 <span className="pglbl">⟳ {isRu?"след.":"next"}</span>
-                <div className="pgbar"><div className="pgfill" style={{width:`${Math.max(0,(1-cd/55)*100)}%`}}/></div>
+                <div className="pgbar"><div className="pgfill" style={{width:`${Math.max(0,(1-cd/(cdTotalRef.current||55))*100)}%`}}/></div>
                 <span className="pglbl">{cd}s</span>
               </div>
             )}
@@ -1155,20 +1399,47 @@ Reply ONLY valid JSON: {"story":"the spoken segment, length matched to how inter
             </div>
           )}
 
+          {callMode&&(
+            <div className="call-overlay">
+              <div className="call-card">
+                <div className="call-ava">📻</div>
+                <div className="call-title">{isRu?"Дорожное Радио":"Road Radio"}</div>
+                <div className="call-phase">
+                  {callPhase==="greeting"&&(isRu?"📞 Соединение...":"📞 Connecting...")}
+                  {callPhase==="listening"&&(isRu?"🔴 Говорите — диджей слушает":"🔴 Speak — the DJ is listening")}
+                  {callPhase==="closing"&&(isRu?"✓ Принято":"✓ Got it")}
+                  {callPhase==="type"&&(isRu?"Микрофон недоступен — напишите:":"Mic unavailable — type instead:")}
+                </div>
+                {micTranscript&&<div className="call-transcript">{micTranscript}</div>}
+                {callPhase==="type"&&(
+                  <div className="qa" style={{marginTop:"10px"}}>
+                    <input className="qi" value={qText} onChange={e=>setQText(e.target.value)} placeholder={isRu?"Ваши пожелания диджею...":"Your message to the DJ..."} autoFocus/>
+                    <button className="qbtn send" onClick={()=>{const t=qText;setQText("");closeCall(t);}}>{isRu?"Отправить":"Send"}</button>
+                  </div>
+                )}
+                <div className="call-btns">
+                  {callPhase==="listening"&&<button className="call-done" onClick={()=>closeCall(micTranscript)}>{isRu?"✓ Я сказал всё":"✓ I'm done"}</button>}
+                  <button className="call-hang" onClick={cancelCall}>{isRu?"✖ Положить трубку":"✖ Hang up"}</button>
+                </div>
+              </div>
+            </div>
+          )}
+
           <div className="bottom-ctrl">
             <div className="main-btns">
               <button className="mbtn stop" onClick={stop}>{isRu?"■ Стоп":"■ Stop"}</button>
-              <button className={`mbtn mic${micState==="listening"?" listening":micState==="processing"?" processing":""}`} onClick={startVoice}>
-                {micState==="listening"?"🔴":micState==="processing"?"⏳":"🎤"}
-              </button>
-              <button className={`mbtn djtog${djMode?" on":""}`} onClick={()=>setDjMode(d=>!d)}>🎙</button>
+              <button className={`mbtn pause${paused?" on":""}`} onClick={togglePause}>{paused?(isRu?"▶ Дальше":"▶ Resume"):(isRu?"⏸ Пауза":"⏸ Pause")}</button>
+            </div>
+            <button className="callbtn" onClick={openCall}>📞 {isRu?"Позвонить диджею":"Call the DJ"}</button>
+            <div className="sec-btns">
+              <button className={`sbtn big${showTxt?" act":""}`} onClick={()=>setShowTxt(t=>!t)}>{showTxt?(isRu?"📄 Текст ✓":"📄 Text ✓"):(isRu?"📄 Текст":"📄 Text")}</button>
+              <button className={`sbtn big${djMode?" act":""}`} onClick={()=>setDjMode(d=>!d)}>{djMode?(isRu?"🎙 Диктор ✓":"🎙 DJ ✓"):(isRu?"🛣 Дорога":"🛣 Road")}</button>
             </div>
             <div className="sec-btns">
-              <button className={`sbtn${showTxt?" act":""}`} onClick={()=>setShowTxt(t=>!t)}>{showTxt?"📄 ✓":"📄"}</button>
               <button className={`sbtn${speaking?" act":""}`} onClick={()=>story&&speak(story)}>{speaking?"🔊 ●":"🔊"}</button>
               <button className={`sbtn wake${wakeLock?" act":""}`} onClick={()=>wakeLock?wlRef.current?.release():requestWake()}>{wakeLock?"🔆 ✓":"🔆"}</button>
+              <button className="sbtn" onClick={()=>setSettingsOpen(true)}>⚙️</button>
             </div>
-            <button className="sbtn" style={{width:"100%",marginTop:"10px",fontSize:"14px"}} onClick={()=>setQMode(t=>!t)}>✏️ {isRu?"Спросить / Замечание":"Ask / Feedback"}</button>
             <button className="roadwatch-btn" onClick={()=>{if(coordsRef.current){const{lat,lng}=coordsRef.current;const ts=new Date().toISOString();const data=JSON.parse(localStorage.getItem("rr_roadwatch")||"[]");data.push({lat,lng,ts,type:"roadkill"});localStorage.setItem("rr_roadwatch",JSON.stringify(data.slice(-100)));alert(isRu?"✓ Отметка сохранена":"✓ Marked");}}}>
               ⚠️ ROADWATCH
             </button>
