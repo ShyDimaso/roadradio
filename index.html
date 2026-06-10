@@ -325,6 +325,7 @@ function App(){
   const lastNativeReport=useRef(0);
   const openerIdx=useRef(0);
   const speakingRef=useRef(false);
+  const isInterruptingRef=useRef(false);
 
   useEffect(()=>{const t=setTimeout(()=>setSplash(false),3200);return()=>clearTimeout(t);},[]);
   useEffect(()=>{langRef.current=lang;},[lang]);
@@ -488,7 +489,11 @@ function App(){
     }catch{setSpeaking(false);res();}
   });
 
-  const stopSpeak=()=>{try{window.speechSynthesis?.cancel();}catch{}setSpeaking(false);};
+  const hardStopSpeak=()=>{
+    try{const s=window.speechSynthesis;if(s){s.pause();s.cancel();setTimeout(()=>s.cancel(),50);setTimeout(()=>s.cancel(),150);}}catch{}
+    setSpeaking(false);speakingRef.current=false;isInterruptingRef.current=true;
+    setTimeout(()=>{isInterruptingRef.current=false;},2000);
+  };
 
   const extract=txt=>{
     try{return JSON.parse(txt);}catch{}
@@ -505,6 +510,35 @@ function App(){
     const o=list[openerIdx.current%list.length];
     openerIdx.current++;
     return o;
+  };
+
+  const getLandscape=(state,county,lat,lng)=>{
+    const s=(state||"").toLowerCase();
+    const c=(county||"").toLowerCase();
+    if(s.includes("new mexico")){
+      if(lng<-107)return"high desert, dry scrub brush, mesas, volcanic formations, sparse settlements";
+      return"high desert plains, dry grasslands, scattered juniper";
+    }
+    if(s.includes("arizona"))return"Sonoran desert, saguaro cactus, dry washes, red rock formations";
+    if(s.includes("nevada"))return"Great Basin desert, sagebrush flats, dry mountains";
+    if(s.includes("utah"))return"red rock canyon country, desert, mesa formations";
+    if(s.includes("oklahoma")){
+      if(lng<-97)return"western plains, dry grasslands, red clay soil, oil country";
+      return"rolling wooded hills, rivers, mixed forest and farmland";
+    }
+    if(s.includes("texas")){
+      if(lng<-100)return"west Texas desert, scrub brush, flat ranch land";
+      return"rolling Texas plains, ranch land, mesquite";
+    }
+    if(s.includes("kansas")||s.includes("nebraska"))return"Great Plains, wheat fields, endless flat horizon";
+    if(s.includes("colorado")){
+      if(lat>39&&lng>-105)return"High Plains, dry grassland";
+      return"Rocky Mountain foothills, pine forests, dramatic terrain";
+    }
+    if(s.includes("california")&&lng<-116)return"Mojave desert, Joshua trees, dry washes";
+    if(s.includes("tennessee")||s.includes("arkansas"))return"rolling wooded hills, mixed hardwood forest, river valleys";
+    if(s.includes("mississippi")||s.includes("alabama"))return"humid subtropical forest, pine woods, wetlands";
+    return"";
   };
 
   const buildSys=(isQ,question,isTourist)=>{
@@ -597,6 +631,9 @@ Reply ONLY valid JSON: {"story":"5 sentences with ... pauses","location":"exact 
   const loop=async(useNext,tourist)=>{
     if(!runRef.current)return;
     const c=coordsRef.current;if(!c)return;
+    // First story greeting
+    const isFirstStory=histRef.current.length===0&&!useNext&&!tourist;
+
     let res=null;
     if(useNext&&nextRef.current&&!tourist){res=nextRef.current;nextRef.current=null;setStatus("ready");}
     else{
@@ -611,7 +648,18 @@ Reply ONLY valid JSON: {"story":"5 sentences with ... pauses","location":"exact 
     setStory(res.story||"");
     if(res.location)setLocData(p=>({...p,name:res.location}));
     setStatus("ready");startCd(55);prefetch();
-    if(res.story)await speak(res.story);
+    if(isFirstStory){
+      const isReturn=localStorage.getItem("rr_visited")||"";
+      const al=L[langRef.current]?.ai||"English";
+      const isRuLang=langRef.current==="ru";
+      const greeting=isReturn
+        ?(isRuLang?"С возвращением на Дорожное Радио. Продолжаем путешествие. Расслабьтесь и слушайте с удовольствием.":"Welcome back to Road Radio. Let's continue the journey. Sit back and enjoy.")
+        :(isRuLang?"Добро пожаловать на Дорожное Радио. Радио, которое знает, где вы едёте. Устройтесь поудобнее и наслаждайтесь путешествием.":"Welcome to Road Radio. The radio that knows where you drive. Sit back and enjoy the journey.");
+      localStorage.setItem("rr_visited","1");
+      await speak(greeting);
+      await new Promise(r=>setTimeout(r,800));
+    }
+    if(res.story&&!isInterruptingRef.current)await speak(res.story);
     if(!runRef.current)return;
     await new Promise(r=>setTimeout(r,2000));
     if(runRef.current&&!parked)loopRef.current?.(!!nextRef.current,false);
@@ -625,7 +673,7 @@ Reply ONLY valid JSON: {"story":"5 sentences with ... pauses","location":"exact 
     if(spd<4){
       if(!stoppedSince.current)stoppedSince.current=Date.now();
       if(Date.now()-stoppedSince.current>20000&&!parked){
-        setParked(true);stopSpeak();
+        setParked(true);hardStopSpeak();
         const isRu=langRef.current==="ru";
         const q=isRu?"Вы остановились. Продолжать рассказывать об этом месте... или подождать пока поедете?":"You've stopped. Continue listening about this place... or wait until you're back on the road?";
         speak(q);
@@ -677,14 +725,14 @@ Reply ONLY valid JSON: {"story":"5 sentences with ... pauses","location":"exact 
   };
 
   const stop=()=>{
-    runRef.current=false;stopSpeak();setSpeaking(false);setStatus("idle");
+    runRef.current=false;hardStopSpeak();setSpeaking(false);setStatus("idle");
     try{wlRef.current?.release();}catch{}setWakeLock(false);
     if(cdRef.current)clearInterval(cdRef.current);
     setScreen("setup");
   };
 
   const startVoice=()=>{
-    stopSpeak();
+    hardStopSpeak();
     try{
       const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
       if(!SR){setQMode(true);return;}
@@ -715,7 +763,7 @@ Reply ONLY valid JSON: {"story":"5 sentences with ... pauses","location":"exact 
 
   const sendQ=async()=>{
     if(!qText.trim())return;
-    stopSpeak();setQMode(false);setStatus("loading");
+    hardStopSpeak();setQMode(false);setStatus("loading");
     try{
       const res=await callClaude(buildSys(true,qText,false),qText,false);
       setStory(res.story||res);setQText("");setStatus("ready");startCd(55);nextRef.current=null;
@@ -970,7 +1018,7 @@ Reply ONLY valid JSON: {"story":"5 sentences with ... pauses","location":"exact 
               <div className="parked-sub">{isRu?"Продолжать рассказ об этом месте?":"Continue listening about this place?"}</div>
               <div className="parked-btns">
                 <button className="parked-btn go" onClick={()=>{setParked(false);loopRef.current?.(false,true);}}>{isRu?"✓ Продолжить":"✓ Continue"}</button>
-                <button className="parked-btn wait" onClick={()=>{setParked(false);stopSpeak();}}>{isRu?"⏸ Подождать":"⏸ Wait"}</button>
+                <button className="parked-btn wait" onClick={()=>{setParked(false);hardStopSpeak();}}>{isRu?"⏸ Подождать":"⏸ Wait"}</button>
               </div>
             </div>
           )}
