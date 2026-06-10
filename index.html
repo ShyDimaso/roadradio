@@ -548,8 +548,11 @@ function App(){
   };
 
   const speak=text=>new Promise(res=>{
+    let settled=false,guard=null,keepAlive=null;
+    const cleanup=()=>{if(guard)clearTimeout(guard);if(keepAlive)clearInterval(keepAlive);};
+    const finish=()=>{if(settled)return;settled=true;cleanup();res();};
     try{
-      const s=window.speechSynthesis;if(!s||!text){res();return;}
+      const s=window.speechSynthesis;if(!s||!text){finish();return;}
       s.cancel();
       const myToken=++speakTokenRef.current;
       const tl=L[langRef.current]?.tts||"en-US";
@@ -557,11 +560,15 @@ function App(){
       u.lang=tl;u.rate=0.84;u.pitch=1.0;
       try{const vs=s.getVoices();const v=selVoice?vs.find(x=>x.name===selVoice):vs.find(x=>x.lang===tl)||vs.find(x=>x.lang.startsWith(tl.split("-")[0]))||vs[0];if(v)u.voice=v;}catch{}
       setSpeaking(true);speakingRef.current=true;
-      const done=()=>{if(speakTokenRef.current===myToken){setSpeaking(false);speakingRef.current=false;}res();};
+      const done=()=>{if(speakTokenRef.current===myToken){setSpeaking(false);speakingRef.current=false;}finish();};
       u.onend=done;u.onerror=done;
-      // small delay so cancel() fully settles before speaking (Android/iOS quirk)
-      setTimeout(()=>{if(speakTokenRef.current!==myToken){res();return;}s.speak(u);},60);
-    }catch{setSpeaking(false);speakingRef.current=false;res();}
+      // Safety net: resolve no matter what so the broadcast loop never hangs.
+      const words=text.split(/\s+/).length;
+      guard=setTimeout(done,Math.max(15000,words*900));
+      // Android pauses long utterances — keep nudging it awake.
+      keepAlive=setInterval(()=>{try{if(settled||speakTokenRef.current!==myToken){cleanup();return;}if(s.speaking){s.pause();s.resume();}}catch{cleanup();}},9000);
+      setTimeout(()=>{if(speakTokenRef.current!==myToken){finish();return;}s.speak(u);},60);
+    }catch{setSpeaking(false);speakingRef.current=false;finish();}
   });
 
   const stopSpeak=()=>hardStop();
@@ -698,6 +705,7 @@ Reply ONLY valid JSON: {"story":"the spoken segment, length matched to how inter
     const gen=loopGenRef.current;            // snapshot this generation
     const c=coordsRef.current;if(!c)return;
     loopBusyRef.current=true;
+    let storyText="";                         // visible after finally for pacing
     try{
       let res=null;
       if(useNext&&nextRef.current&&!tourist){res=nextRef.current;nextRef.current=null;setStatus("ready");}
@@ -711,21 +719,21 @@ Reply ONLY valid JSON: {"story":"the spoken segment, length matched to how inter
         catch(e){setErr((e.message||"Error").slice(0,100));runRef.current=false;setStatus("idle");return;}
       }
       if(gen!==loopGenRef.current||!runRef.current)return;
-      const txt=res.story||"";
-      setStory(txt);
+      storyText=res.story||"";
+      setStory(storyText);
       if(res.location)setLocData(p=>({...p,name:res.location}));
       // Pacing follows content: a short note = short gap before the next item; a rich segment = a longer breath.
-      const wordCount=txt.split(/\s+/).length;
-      const gapSec=wordCount<40?8:wordCount<90?14:22;   // breathing room after the spoken segment finishes
+      const wordCount=storyText.split(/\s+/).length;
+      const gapSec=wordCount<40?8:wordCount<90?14:22;
       setStatus("ready");startCd(gapSec);prefetch();
-      if(txt)await speak(txt);
+      if(storyText)await speak(storyText);
       if(gen!==loopGenRef.current||!runRef.current||parkedRef.current)return;
     }finally{
       loopBusyRef.current=false;
     }
     // Only the live generation schedules the next round, with a gap matched to the segment.
     if(gen===loopGenRef.current&&runRef.current&&!parkedRef.current){
-      const wc=(res?.story||"").split(/\s+/).length;
+      const wc=storyText.split(/\s+/).length;
       const gap=wc<40?8000:wc<90?14000:22000;
       scheduleNext(gen,gap);
     }
