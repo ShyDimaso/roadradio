@@ -403,6 +403,7 @@ function App(){
   const locDataRef=useRef(locData);
   const parkedTimer=useRef(null);
   const stoppedSince=useRef(null);
+  const tourAckRef=useRef(false);   // user chose to keep listening while stationary
   const lastSpeedReport=useRef(0);
   const lastHighwayReport=useRef(0);
   const lastNativeReport=useRef(0);
@@ -898,7 +899,8 @@ Reply ONLY valid JSON: {"story":"your spoken segment in ${al}","location":"exact
     const spd=toMph(coords.speed)||0;
     if(spd<4){
       if(!stoppedSince.current)stoppedSince.current=Date.now();
-      if(Date.now()-stoppedSince.current>20000&&!parkedRef.current){
+      // Only ask if the user hasn't already chosen to keep listening while stopped.
+      if(Date.now()-stoppedSince.current>20000&&!parkedRef.current&&!tourAckRef.current){
         setParked(true);parkedRef.current=true;
         loopGenRef.current++;          // kill the live loop generation
         hardStop();
@@ -908,6 +910,7 @@ Reply ONLY valid JSON: {"story":"your spoken segment in ${al}","location":"exact
       }
     }else{
       stoppedSince.current=null;
+      tourAckRef.current=false;   // moving again — re-enable the stop prompt for next time
       if(parkedRef.current){
         setParked(false);parkedRef.current=false;
         if(runRef.current){loopGenRef.current++;const g=loopGenRef.current;setTimeout(()=>{if(runRef.current&&loopGenRef.current===g)loopRef.current?.(false,false);},1000);}
@@ -948,7 +951,7 @@ Reply ONLY valid JSON: {"story":"your spoken segment in ${al}","location":"exact
     if(!c){setErr(lang==="ru"?"Нажмите автоопределение или введите координаты":"Tap auto-detect or enter coordinates");return;}
     coordsRef.current=c;setCoords(c);destRef.current=destination;
     runRef.current=true;histRef.current=[];nextRef.current=null;topicsUsedRef.current=[];saidFactsRef.current=[];bufferRef.current=[];
-    openerIdx.current=0;stoppedSince.current=null;fuelWarnedRef.current=0;
+    openerIdx.current=0;stoppedSince.current=null;fuelWarnedRef.current=0;tourAckRef.current=false;
     loopBusyRef.current=false;loopGenRef.current++;        // fresh single generation
     parkedRef.current=false;pausedRef.current=false;setPaused(false);
     setErr("");setStory("");setParked(false);
@@ -1391,8 +1394,8 @@ Reply ONLY valid JSON: {"story":"your spoken segment in ${al}","location":"exact
               <div className="parked-title">{isRu?"Вы остановились":"You've stopped"}</div>
               <div className="parked-sub">{isRu?"Продолжать рассказ об этом месте?":"Continue listening about this place?"}</div>
               <div className="parked-btns">
-                <button className="parked-btn go" onClick={()=>{setParked(false);parkedRef.current=false;pausedRef.current=false;setPaused(false);loopBusyRef.current=false;hardStop();loopGenRef.current++;const g=loopGenRef.current;setStatus("loading");setTimeout(()=>{if(runRef.current&&loopGenRef.current===g)loopRef.current?.(false,true);},200);}}>{isRu?"✓ Продолжить":"✓ Continue"}</button>
-                <button className="parked-btn wait" onClick={()=>{setParked(false);parkedRef.current=false;loopGenRef.current++;hardStop();}}>{isRu?"⏸ Подождать":"⏸ Wait"}</button>
+                <button className="parked-btn go" onClick={()=>{setParked(false);parkedRef.current=false;tourAckRef.current=true;pausedRef.current=false;setPaused(false);loopBusyRef.current=false;hardStop();loopGenRef.current++;const g=loopGenRef.current;setStatus("loading");setTimeout(()=>{if(runRef.current&&loopGenRef.current===g)loopRef.current?.(false,true);},250);}}>{isRu?"✓ Продолжить":"✓ Continue"}</button>
+                <button className="parked-btn wait" onClick={()=>{setParked(false);parkedRef.current=false;tourAckRef.current=true;stoppedSince.current=Date.now();loopGenRef.current++;hardStop();setStatus("ready");}}>{isRu?"⏸ Подождать":"⏸ Wait"}</button>
               </div>
             </div>
           )}
