@@ -253,6 +253,7 @@ body{font-family:'Inter',sans-serif;color:#fff;}
 .wakeinfo{font-size:13px;color:#8a9bb0;text-align:center;padding:4px 0;}
 .review-banner{background:#0d1a2a;border:2px solid #2a4a80;border-radius:12px;padding:14px 16px;color:#9ac8ff;font-size:15px;cursor:pointer;margin-bottom:4px;line-height:1.4;}
 .review-banner:active{transform:scale(.98);}
+.changekey{text-align:center;color:#5a6b80;font-size:13px;margin-top:18px;padding:8px;cursor:pointer;text-decoration:underline;}
 </style>
 </head>
 <body>
@@ -273,7 +274,7 @@ body{font-family:'Inter',sans-serif;color:#fff;}
 const {useState,useRef,useEffect}=React;
 const PROXY="https://corsproxy.io/?https://api.anthropic.com/v1/messages";
 const KEY_STORE="rr_key_v3";
-const VER="v23";
+const VER="v25";
 
 const OPENERS_RU=["На этой земле...","Да, кстати...","Мало кто знает, но...","Справа от вас...","История этого края...","Сто лет назад здесь...","Тишина здесь обманчива...","Когда-то давно здесь...","Через пару миль...","Вот что примечательно..."];
 const OPENERS_EN=["On this land...","Here's something few know...","Just to your right...","The history here...","A hundred years ago...","Locals know that...","In a few miles...","What's remarkable is...","This stretch of highway...","Worth knowing..."];
@@ -434,6 +435,7 @@ function App(){
   const bufferRef=useRef([]);         // pre-generated segments for dead-zone playback
   const listenerPrefsRef=useRef(localStorage.getItem("rr_listener_prefs")||"");
   const saidFactsRef=useRef([]);      // longer memory of what was actually said (anti-repeat)
+  const recentStoriesRef=useRef([]);  // last few full segments, to catch repeated wording
   const callPhaseRef=useRef("idle");
   const callRecRef=useRef(null);
   const cdTotalRef=useRef(55);
@@ -778,29 +780,51 @@ Reply ONLY valid JSON: {"story":"your spoken answer in ${al}","location":"curren
     const lastSaid=saidFactsRef.current.slice(-1)[0]||"";
     const recentFacts=saidFactsRef.current.slice(-14).join(" | ");
     const samePlace=ld.city&&ld.city===prevPlaceRef.current;
-    const topicMenu=[
-      cfg.history!==false?"local history (who founded the town and when, what happened here, the railroad and what it links)":null,
-      cfg.wildlife!==false?"wildlife — animals here now, or creatures that lived here long ago (prehistoric, ice-age, extinct), brief and vivid":null,
-      cfg.films!==false?"a movie or show filmed here and the year — ONLY if truly documented for this exact place":null,
-      cfg.famous!==false?"a famous person born in or tied to this place — only if real":null,
-      cfg.geology!==false?"geology and the shape of the land, mining, industry, what's farmed here":null,
-      cfg.culture!==false?"local culture, food, traditions, how people live here":null,
-      cfg.photo!==false?"a heads-up about a real scenic viewpoint or photo spot coming up":null,
-    ].filter(Boolean).join(" • ");
-    const enabledNote=topicMenu?`The listener has chosen these topics — stay within them: ${topicMenu}.`:`The listener turned most topics off; keep to whatever remains and the listener's order.`;
 
-    return`You are the host of "Road Radio" — a charismatic personal TOUR GUIDE riding beside the driver, the kind of sightseeing-bus guide who turns a drive into one flowing, fascinating story. Warm, human, a little charming. Not a dry lecturer. Not a poet gushing about scenery. A real storyteller who knows the true story of any place in America.${orderCtx}
+    // Detect words/phrases the host has been overusing, and ban them this segment.
+    const overused=(()=>{
+      const text=recentStoriesRef.current.join(" ").toLowerCase();
+      if(!text)return"";
+      const words=text.match(/[a-zа-яё]{5,}/gi)||[];
+      const stop=new Set(["который","которая","которое","которые","потому","здесь","место","места","сейчас","можно","очень","также","просто","между","около","вокруг","through","around","place","where","which","there","these","those","right","really"]);
+      const freq={};
+      words.forEach(w=>{if(!stop.has(w))freq[w]=(freq[w]||0)+1;});
+      const rep=Object.keys(freq).filter(w=>freq[w]>=3).slice(0,12);
+      return rep.join(", ");
+    })();
+
+    const topicList=[
+      cfg.history!==false?"history":null,
+      cfg.wildlife!==false?"wildlife & ancient creatures":null,
+      cfg.films!==false?"film/TV locations":null,
+      cfg.famous!==false?"famous people":null,
+      cfg.geology!==false?"geology & landscape":null,
+      cfg.culture!==false?"culture, food, daily life":null,
+      cfg.photo!==false?"scenic/photo spots":null,
+      "rivers & bridges","roads & old routes","industry & farming","legends & odd local stories","architecture","weather & seasons here"
+    ].filter(Boolean);
+    // Rotate: pick a topic family different from the last couple, to force variety.
+    const recentLow=recentFacts.toLowerCase();
+    const freshTopics=topicList.filter(t=>!recentLow.includes(t.split(" ")[0].toLowerCase()));
+    const suggestTopic=(freshTopics.length?freshTopics:topicList)[Math.floor(Math.random()*(freshTopics.length?freshTopics.length:topicList.length))];
+    const topicMenu=topicList.join(" • ");
+    const enabledNote=`Allowed topics: ${topicMenu}. For THIS segment, lean toward a DIFFERENT family than last time — try: ${suggestTopic}.`;
+
+    // Broadcast style
+    const styleCtx=`\nDELIVERY STYLE — adopt it strongly, it should be clearly audible: ${bm.prompt}`;
+
+    return`You are the host of "Road Radio" — a charismatic personal TOUR GUIDE riding beside the driver, the kind of sightseeing-bus guide who turns a drive into one flowing, fascinating story. Warm, human, a little charming. Not a dry lecturer. Not a poet gushing about scenery. A real storyteller who knows the true story of any place in America.${styleCtx}${orderCtx}
 
 HOW A GREAT GUIDE TALKS (this is the heart of the job):
-1. ONE CONTINUOUS STORY, not separate blocks. The same person has listened the whole drive. This segment must feel like the NATURAL CONTINUATION of the last one — use a bridge to connect them, the way a real guide does: "Кстати, раз уж речь зашла о...", "А вон то, что мы только что проехали, связано с...", "И это подводит нас к...". The last thing you talked about was: "${lastSaid||"(nothing yet — open the show warmly)"}". Flow ONWARD from it; do NOT jump to a random unrelated fact.
-2. DON'T HOP AROUND. A real guide doesn't say one minute about history, then jerk to geology, then to animals. Follow a thread. Let one thought lead to the next.
-3. KEEP EACH SEGMENT SHORT — about 3 to 5 sentences. This is radio, not a lecture. Say one good thing well, then hand the thread to the next segment. Never drone on.
+1. ONE CONTINUOUS STORY, not separate blocks. The same person has listened the whole drive. Continue naturally from the last thought with a light bridge. The last thing you talked about was: "${lastSaid||"(nothing yet — open the show warmly)"}". Move ONWARD to something new.
+2. CHANGE THE SUBJECT each segment — do NOT stay glued to the landscape/terrain/farming. ${enabledNote}
+3. KEEP EACH SEGMENT SHORT — 3 to 5 sentences. Radio, not a lecture.
 4. ${samePlace?`You ALREADY named "${ld.city}". Say "здесь", "в этом месте", "в этих краях" — do NOT re-introduce the place.`:`This looks like a new area — you may set the scene briefly.`}
-5. DON'T INVENT. The driver catches lies instantly and stops trusting you. State only what's real for THIS exact area/state. Never promise "a turn in a mile" or name a town, animal, film, or person unless it's in the data below or you are certain it belongs here. Unsure → speak generally, don't fabricate.
-6. ${enabledNote}
-7. NEVER repeat a fact OR a phrasing you've used. You must remember the whole drive (see the list below) and keep finding something new.
+5. DON'T INVENT, AND DON'T FAKE WHAT'S OUT THE WINDOW. Only say "посмотрите налево/направо, и вы увидите X" if X is in the REAL NEARBY OBJECTS data. If you're not certain what's beside the road right now, speak generally instead: "в этих краях встречается...", "эта местность известна...". Never claim a specific thing is to the side when you don't actually know. Either precise, or general — never a confident guess.
+6. ${prefs?`Obey the listener's standing order above.`:`Follow the allowed topics.`}
+7. ANTI-REPEAT — this is critical, you have been repeating yourself badly. ${overused?`You have OVERUSED these words/ideas — do NOT use them again this segment: ${overused}.`:``} Do not say "плоская земля / flat land", "дельта / delta", "равнина", "аграрный / agricultural" again if you've said them before. Find a genuinely new subject and new words.
 
-OPENINGS: never start two segments the same way, and never with a stock phrase ("Впереди вас", "Знаете что", "А вот интересно"). Open by continuing the thread, or with a question, a person, a small story, a "посмотрите налево...". Vary it genuinely.
+OPENINGS: never start two segments the same way; never use "Впереди вас", "Знаете что", "А вот интересно". Vary genuinely.
 
 CURRENT POSITION (ground truth — the driver is HERE now):
 - Road: ${ld.highway||"this road"}
@@ -812,14 +836,14 @@ CURRENT POSITION (ground truth — the driver is HERE now):
 
 ${nightCtx}
 
-EVERYTHING YOU'VE ALREADY SAID THIS DRIVE (never repeat any of it, not even reworded — this is your memory of the last ~15 minutes): ${recentFacts||"nothing yet — this is your first segment"}
+EVERYTHING YOU'VE ALREADY SAID THIS DRIVE (never repeat any of it, not even reworded): ${recentFacts||"nothing yet — this is your first segment"}
 
 - ${showSpd?`You may mention speed once.`:"Never mention speed, mph, or km/h."}
 - ${showHw?`You may name the road once.`:"Don't repeat the road name."}
 - Keep time-of-day consistent with "${phase}".
-- LANGUAGE LOCK: the ENTIRE segment in ${al}. No foreign words, no slipping languages.
+- LANGUAGE LOCK: the ENTIRE segment in ${al}. No foreign words.
 
-Reply ONLY valid JSON: {"story":"your spoken segment in ${al}, 3-5 sentences, continuing the thread","location":"exact place in English","topics":"a short specific phrase naming the ONE thing you just covered (e.g. 'founding of Flagstaff 1882','pronghorn antelope')"}`;
+Reply ONLY valid JSON: {"story":"your spoken segment in ${al}, 3-5 sentences","location":"exact place in English","topics":"a short specific phrase naming the ONE thing you just covered"}`;
   };
 
   const callClaude=async(sys,msg,forNext)=>{
@@ -833,6 +857,7 @@ Reply ONLY valid JSON: {"story":"your spoken segment in ${al}, 3-5 sentences, co
     if(!forNext){
       histRef.current=[...msgs,{role:"assistant",content:txt}];
       if(res.topics){topicsUsedRef.current=[...topicsUsedRef.current,res.topics].slice(-20);saidFactsRef.current=[...saidFactsRef.current,res.topics].slice(-30);}
+      if(storyText)recentStoriesRef.current=[...recentStoriesRef.current,storyText].slice(-8);
     }
     return res;
   };
@@ -841,8 +866,12 @@ Reply ONLY valid JSON: {"story":"your spoken segment in ${al}, 3-5 sentences, co
     if(fetchingNext.current)return;
     fetchingNext.current=true;
     try{
-      // Keep the immediate "next" ready...
-      if(!nextRef.current){nextRef.current=await callClaude(buildSys(false,null,false),"What's 1-2 miles ahead?",true);}
+      // Keep the immediate "next" ready, stamped with WHERE it was made (to detect staleness later)...
+      if(!nextRef.current){
+        const pc=coordsRef.current;
+        const seg=await callClaude(buildSys(false,null,false),"What's 1-2 miles ahead?",true);
+        if(seg){seg._lat=pc?pc.lat:null;seg._lng=pc?pc.lng:null;nextRef.current=seg;}
+      }
       // ...and quietly build up a small backup buffer so the show survives a dead zone (no signal).
       if(bufferRef.current.length<2){
         const extra=await callClaude(buildSys(false,null,false),"Tell another interesting thing about this general area (a fallback if we lose signal).",true);
@@ -850,6 +879,15 @@ Reply ONLY valid JSON: {"story":"your spoken segment in ${al}, 3-5 sentences, co
       }
     }catch{}
     fetchingNext.current=false;
+  };
+
+  // Miles between two lat/lng points.
+  const milesBetween=(a,b,c,d)=>{
+    if(a==null||c==null)return 0;
+    const R=3958.8,rad=x=>x*Math.PI/180;
+    const dLa=rad(c-a),dLo=rad(d-b);
+    const h=Math.sin(dLa/2)**2+Math.cos(rad(a))*Math.cos(rad(c))*Math.sin(dLo/2)**2;
+    return 2*R*Math.asin(Math.sqrt(h));
   };
 
   // Single source of truth for scheduling the next story. Only ONE place calls this.
@@ -892,8 +930,14 @@ Reply ONLY valid JSON: {"story":"your spoken segment in ${al}, 3-5 sentences, co
         }catch{}
       }
       if(res){/* fuel warning ready, skip normal generation */}
-      else if(useNext&&nextRef.current&&!tourist){res=nextRef.current;nextRef.current=null;setStatus("ready");}
-      else{
+      else if(useNext&&nextRef.current&&!tourist){
+        // Use the prefetched segment ONLY if the driver hasn't moved far from where it was made.
+        const nx=nextRef.current;
+        const moved=milesBetween(nx._lat,nx._lng,c.lat,c.lng);
+        if(moved<=3){res=nx;nextRef.current=null;setStatus("ready");}
+        else nextRef.current=null;   // stale — drop it, generate fresh below
+      }
+      if(!res){
         setStatus("loading");
         const[geo,pois]=await Promise.all([reverseGeocode(c.lat,c.lng),fetchPOI(c.lat,c.lng)]);
         if(gen!==loopGenRef.current||!runRef.current)return;   // aborted while loading
@@ -992,14 +1036,16 @@ Reply ONLY valid JSON: {"story":"your spoken segment in ${al}, 3-5 sentences, co
       const c={lat:pos.coords.latitude,lng:pos.coords.longitude,speed:pos.coords.speed||0,heading:pos.coords.heading};
       coordsRef.current=c;setCoords(c);
       if(++wt%60===0)fetchWeather(c.lat,c.lng);
-    },()=>{},{enableHighAccuracy:true,maximumAge:5000});
+      // Keep the on-screen place label tracking your real position (every ~12 ticks).
+      if(wt%12===0)reverseGeocode(c.lat,c.lng);
+    },()=>{},{enableHighAccuracy:true,maximumAge:3000});
   };
 
   const startTour=async()=>{
     let c=coordsRef.current||parseCoords();
     if(!c){setErr(lang==="ru"?"Нажмите автоопределение или введите координаты":"Tap auto-detect or enter coordinates");return;}
     coordsRef.current=c;setCoords(c);destRef.current=destination;
-    runRef.current=true;histRef.current=[];nextRef.current=null;topicsUsedRef.current=[];saidFactsRef.current=[];bufferRef.current=[];
+    runRef.current=true;histRef.current=[];nextRef.current=null;topicsUsedRef.current=[];saidFactsRef.current=[];bufferRef.current=[];recentStoriesRef.current=[];
     openerIdx.current=0;stoppedSince.current=null;fuelWarnedRef.current=0;tourAckRef.current=false;
     loopBusyRef.current=false;loopGenRef.current++;        // fresh single generation
     parkedRef.current=false;pausedRef.current=false;setPaused(false);
@@ -1044,6 +1090,7 @@ Reply ONLY valid JSON: {"story":"your spoken segment in ${al}, 3-5 sentences, co
   const openCall=async()=>{
     hardStop();loopGenRef.current++;
     if(loopRef.current?.scheduled)clearTimeout(loopRef.current.scheduled);
+    nextRef.current=null;bufferRef.current=[];   // drop any queued road segment so it can't play over the answer
     pausedRef.current=true;setPaused(true);   // hold the broadcast during the call
     callTextRef.current="";userDoneRef.current=false;setMicTranscript("");
     setCallMode(true);setCallPhase("greeting");callPhaseRef.current="greeting";
@@ -1430,6 +1477,8 @@ Reply ONLY valid JSON: {"story":"your spoken segment in ${al}, 3-5 sentences, co
             </div>
           )}
           <button className={`geobtn${geoOk?" ok":""}`} onClick={getGeo}>{geoOk?(isRu?"✓ Местоположение найдено!":"✓ Location Detected!"):(isRu?"📍 Определить местоположение":"📍 Auto-Detect My Location")}</button>
+          {err&&<div className="errbox">⚠ {err}</div>}
+          <button className="bigbtn green" style={{marginTop:"8px"}} onClick={startTour}>▶ {isRu?"Начать тур":"Start Tour"}</button>
           <div className="sep">{isRu?"или введите вручную":"or enter manually"}</div>
           <div><label className="flabel">📍 {isRu?"Координаты":"Coordinates (lat, lng)"}</label><input className="finput" value={coordInput} onChange={e=>setCoordInput(e.target.value)} placeholder="35.4615, -97.6882"/></div>
           <div><label className="flabel">🏁 {isRu?"Куда едете?":"Destination?"}</label><input className="finput" value={destination} onChange={e=>setDestination(e.target.value)} placeholder={isRu?"Лос-Анджелес, CA":"Los Angeles, CA"}/></div>
@@ -1437,9 +1486,7 @@ Reply ONLY valid JSON: {"story":"your spoken segment in ${al}, 3-5 sentences, co
             <div><label className="flabel">🚀 MPH</label><input className="finput" type="number" value={speedVal} onChange={e=>setSpeedVal(e.target.value)}/></div>
             <div><label className="flabel">🧭 {isRu?"Направление °":"Heading °"}</label><input className="finput" type="number" value={headVal} onChange={e=>setHeadVal(e.target.value)}/><div className="dirhint">N=0 · E=90 · S=180 · W=270</div></div>
           </div>
-          {err&&<div className="errbox">⚠ {err}</div>}
-          <button className="bigbtn blue" onClick={()=>{localStorage.removeItem(KEY_STORE);setApiInput("");setScreen("apikey");}}>🔑 {isRu?"Сменить ключ":"Change API Key"}</button>
-          <button className="bigbtn green" onClick={startTour}>▶ {isRu?"Начать тур":"Start Tour"}</button>
+          <div className="changekey" onClick={()=>{if(confirm(isRu?"Сменить API-ключ? Текущий будет удалён.":"Change API key? The current one will be removed.")){localStorage.removeItem(KEY_STORE);setApiInput("");setScreen("apikey");}}}>{isRu?"Сменить API-ключ":"Change API key"}</div>
         </div>
       )}
 
