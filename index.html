@@ -7,8 +7,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Road Radio">
-<link rel="manifest" href="manifest.json">
-<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="manifest" href='data:application/manifest+json,{"name":"Road Radio","short_name":"Road Radio","start_url":".","scope":".","display":"standalone","orientation":"portrait","background_color":"%2305070f","theme_color":"%2305070f","icons":[{"src":"data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%22512%22 height=%22512%22%3E%3Crect width=%22512%22 height=%22512%22 fill=%22%2305070f%22/%3E%3Ctext x=%2250%25%22 y=%2258%25%22 font-size=%22300%22 text-anchor=%22middle%22 dominant-baseline=%22middle%22%3E%F0%9F%93%BB%3C/text%3E%3C/svg%3E","sizes":"512x512","type":"image/svg+xml","purpose":"any maskable"}]}'>
 <title>Road Radio</title>
 <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
 <style>
@@ -103,6 +102,13 @@ body{font-family:'Inter',sans-serif;color:#fff;}
 .mode-btn.sel .mode-lbl{color:#ff6b35;}
 .voice-sel{width:100%;background:#0d1525;border:2px solid #4a9eff;border-radius:10px;padding:12px 14px;color:#4a9eff;font-size:14px;outline:none;margin-top:4px;}
 .tts-btn{width:100%;padding:14px;background:#0d1828;border:2px solid #4a9eff;border-radius:10px;color:#4a9eff;font-size:14px;font-weight:700;cursor:pointer;margin-top:8px;display:flex;align-items:center;justify-content:center;gap:8px;}
+.voice-list{display:flex;flex-direction:column;gap:6px;margin-bottom:6px;max-height:260px;overflow-y:auto;}
+.voice-row{display:flex;align-items:center;gap:8px;background:#0d1525;border:2px solid #1e2d45;border-radius:10px;padding:2px 4px 2px 0;}
+.voice-row.sel{border-color:#3fb950;background:#0d1a0d;}
+.voice-pick{flex:1;padding:13px 12px;color:#cfe0f0;font-size:15px;cursor:pointer;}
+.voice-row.sel .voice-pick{color:#7af0a0;font-weight:700;}
+.voice-play{width:48px;height:42px;flex-shrink:0;border:none;border-radius:8px;background:#13233f;color:#7ac0ff;font-size:16px;cursor:pointer;}
+.voice-play:active{background:#1e3a60;}
 .topic-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
 .topic-item{display:flex;align-items:center;gap:10px;padding:12px 14px;background:#0d1525;border:2px solid #1e2d45;border-radius:10px;cursor:pointer;}
 .topic-item.on{border-color:#cc3333;background:#1a0808;}
@@ -252,7 +258,7 @@ body{font-family:'Inter',sans-serif;color:#fff;}
 (function(){
   if(!("serviceWorker" in navigator))return;
   window.addEventListener("load",function(){
-    navigator.serviceWorker.register("sw.js").catch(function(){});
+    try{var sw="self.addEventListener('install',function(e){self.skipWaiting();});self.addEventListener('activate',function(e){e.waitUntil(self.clients.claim());});";var u=URL.createObjectURL(new Blob([sw],{type:"text/javascript"}));navigator.serviceWorker.register(u).catch(function(){});}catch(e){}
   });
 })();
 </script>
@@ -263,7 +269,7 @@ body{font-family:'Inter',sans-serif;color:#fff;}
 const {useState,useRef,useEffect}=React;
 const PROXY="https://corsproxy.io/?https://api.anthropic.com/v1/messages";
 const KEY_STORE="rr_key_v3";
-const VER="v20";
+const VER="v22";
 
 const OPENERS_RU=["На этой земле...","Да, кстати...","Мало кто знает, но...","Справа от вас...","История этого края...","Сто лет назад здесь...","Тишина здесь обманчива...","Когда-то давно здесь...","Через пару миль...","Вот что примечательно..."];
 const OPENERS_EN=["On this land...","Here's something few know...","Just to your right...","The history here...","A hundred years ago...","Locals know that...","In a few miles...","What's remarkable is...","This stretch of highway...","Worth knowing..."];
@@ -369,6 +375,7 @@ function App(){
   const [topicHistory,setTopicHistory]=useState(localStorage.getItem("rr_t_hist")!=="0");
   const [topicFamous,setTopicFamous]=useState(localStorage.getItem("rr_t_fam")!=="0");
   const [needsReview,setNeedsReview]=useState(false);
+  const [neverPark,setNeverPark]=useState(localStorage.getItem("rr_neverpark")==="1");
   const [cd,setCd]=useState(0);
   const [speaking,setSpeaking]=useState(false);
   const [wakeLock,setWakeLock]=useState(false);
@@ -379,7 +386,7 @@ function App(){
   const [travelMode,setTravelMode]=useState(localStorage.getItem("rr_mode_v1")||"car");
   const [bcastMode,setBcastMode]=useState(localStorage.getItem("rr_bcast_v1")||"normal");
   const [voices,setVoices]=useState([]);
-  const [selVoice,setSelVoice]=useState("");
+  const [selVoice,setSelVoice]=useState(localStorage.getItem("rr_voice")||"");
   const [timeStr,setTimeStr]=useState("");
   const [parked,setParked]=useState(false);
   const [showInstall,setShowInstall]=useState(false);
@@ -404,6 +411,7 @@ function App(){
   const parkedTimer=useRef(null);
   const stoppedSince=useRef(null);
   const tourAckRef=useRef(false);   // user chose to keep listening while stationary
+  const neverParkRef=useRef(localStorage.getItem("rr_neverpark")==="1");  // never ask at stops
   const lastSpeedReport=useRef(0);
   const lastHighwayReport=useRef(0);
   const lastNativeReport=useRef(0);
@@ -442,6 +450,8 @@ function App(){
   useEffect(()=>{parkedRef.current=parked;},[parked]);
   useEffect(()=>{weatherRef.current=weather;},[weather]);
   useEffect(()=>{pausedRef.current=paused;},[paused]);
+  useEffect(()=>{neverParkRef.current=neverPark;try{localStorage.setItem("rr_neverpark",neverPark?"1":"0");}catch{}},[neverPark]);
+  useEffect(()=>{try{localStorage.setItem("rr_voice",selVoice);}catch{}},[selVoice]);
   const topicsCfgRef=useRef({});
   useEffect(()=>{
     topicsCfgRef.current={wildlife:topicWildlife,films:topicFilms,photo:topicPhoto,history:topicHistory,famous:topicFamous,fuel:fuelAlerts,fuelMiles};
@@ -469,8 +479,11 @@ function App(){
   },[]);
 
   useEffect(()=>{
-    const load=()=>setVoices(window.speechSynthesis?.getVoices()||[]);
+    const load=()=>{const v=window.speechSynthesis?.getVoices()||[];if(v.length)setVoices(v);};
     load();if(window.speechSynthesis)window.speechSynthesis.onvoiceschanged=load;
+    // Android often returns an empty list on first call; poll a few times.
+    let n=0;const iv=setInterval(()=>{load();if(++n>6)clearInterval(iv);},700);
+    return()=>clearInterval(iv);
   },[]);
 
   // PWA install prompt
@@ -900,7 +913,7 @@ Reply ONLY valid JSON: {"story":"your spoken segment in ${al}","location":"exact
     if(spd<4){
       if(!stoppedSince.current)stoppedSince.current=Date.now();
       // Only ask if the user hasn't already chosen to keep listening while stopped.
-      if(Date.now()-stoppedSince.current>20000&&!parkedRef.current&&!tourAckRef.current){
+      if(Date.now()-stoppedSince.current>20000&&!parkedRef.current&&!tourAckRef.current&&!neverParkRef.current){
         setParked(true);parkedRef.current=true;
         loopGenRef.current++;          // kill the live loop generation
         hardStop();
@@ -1015,18 +1028,24 @@ Reply ONLY valid JSON: {"story":"your spoken segment in ${al}","location":"exact
       const rec=new SR();
       rec.lang=L[langRef.current]?.tts||"en-US";
       rec.continuous=true;rec.interimResults=true;
+      // This recognizer's OWN final text (each restart is a fresh session, so build it from scratch
+      // every onresult and never append blindly — that was causing the duplicated "стою стою стою...").
+      let sessionFinal="";
       rec.onresult=e=>{
-        let interim="";
-        for(let i=e.resultIndex;i<e.results.length;i++){
-          if(e.results[i].isFinal)callTextRef.current+=e.results[i][0].transcript+" ";
+        sessionFinal="";let interim="";
+        for(let i=0;i<e.results.length;i++){
+          if(e.results[i].isFinal)sessionFinal+=e.results[i][0].transcript+" ";
           else interim+=e.results[i][0].transcript;
         }
-        setMicTranscript(callTextRef.current+interim);
+        // show everything committed so far + this session's words
+        setMicTranscript((callTextRef.current+sessionFinal+interim).trim());
       };
       rec.onerror=()=>{};
-      // Chrome on Android stops continuous recognition on its own. Restart it and keep listening
-      // until the user actually presses "I'm done" (or hangs up).
+      // Chrome on Android ends continuous recognition by itself. Commit this session's final words
+      // to the master buffer ONCE, then restart to keep listening until the user is done.
       rec.onend=()=>{
+        if(sessionFinal)callTextRef.current=(callTextRef.current+sessionFinal).replace(/\s+/g," ");
+        setMicTranscript(callTextRef.current.trim());
         if(callPhaseRef.current==="listening"&&!userDoneRef.current){
           setTimeout(()=>{ if(callPhaseRef.current==="listening"&&!userDoneRef.current)callListen(); },300);
         }
@@ -1046,6 +1065,11 @@ Reply ONLY valid JSON: {"story":"your spoken segment in ${al}","location":"exact
     setCallPhase("closing");callPhaseRef.current="closing";setMicTranscript("");
     const isRu=langRef.current==="ru";
     if(spoken&&spoken.trim()){
+      // Detect a "keep talking even when I'm stopped" instruction and make it stick.
+      const low=spoken.toLowerCase();
+      if(/(стою|стоянк|останов|не двига|на месте|stopped|standing|parked|not moving)/.test(low) && /(рассказ|говори|продолж|talk|keep|continue|don't ask|не спрашив)/.test(low)){
+        neverParkRef.current=true;tourAckRef.current=true;try{localStorage.setItem("rr_neverpark","1");}catch{}
+      }
       try{
         const res=await callClaude(buildSys(true,spoken,false),spoken,false);
         if(res.prefs)addListenerPref(res.prefs); else addListenerPref(spoken.trim());
@@ -1143,8 +1167,16 @@ Reply ONLY valid JSON: {"story":"your spoken segment in ${al}","location":"exact
 
   const openTTSSettings=()=>{
     const ua=navigator.userAgent;
-    if(/android/i.test(ua)){window.open("intent:#Intent;action=com.android.settings.TTS_SETTINGS;end","_blank");}
-    else{alert(lang==="ru"?"iOS: Настройки → Универсальный доступ → Аудиоматериалы → Синтез речи → Голоса":"iOS: Settings → Accessibility → Spoken Content → Voices");}
+    if(/android/i.test(ua)){
+      // Try to jump straight to the Text-to-Speech settings page.
+      try{window.location.href="intent:#Intent;action=com.android.settings.TTS_SETTINGS;end";}catch{}
+      setTimeout(()=>{
+        alert(isRu
+          ?"Если настройки не открылись сами:\nНастройки телефона → Общие настройки → Преобразование текста в речь (или «Язык и ввод» → «Синтез речи»). Там можно докачать мужские/женские голоса."
+          :"If settings didn't open:\nPhone Settings → General management → Text-to-speech output (or Language & input → Text-to-speech). There you can download male/female voices.");
+      },1200);
+    }
+    else{alert(isRu?"iOS: Настройки → Универсальный доступ → Аудиоматериалы → Синтез речи → Голоса":"iOS: Settings → Accessibility → Spoken Content → Voices");}
   };
 
   const isMain=screen==="main";
@@ -1156,6 +1188,31 @@ Reply ONLY valid JSON: {"story":"your spoken segment in ${al}","location":"exact
   const slogan=isRu?"Радио, которое тебя видит.":"The radio that sees you.";
   const hwDisplay=locData.highway&&locData.highway!=="unknown"?`${locData.highway}${locData.state?" · "+locData.state:""}`:locData.state||"";
   const curVoices=voices.filter(v=>v.lang.startsWith((L[lang]?.tts||"en-US").split("-")[0]));
+  // Voices for THIS language first, then everything else, so the user always sees something to pick.
+  const voiceChoices=(()=>{
+    const langPart=(L[lang]?.tts||"en-US").split("-")[0];
+    const mine=voices.filter(v=>v.lang.startsWith(langPart));
+    const rest=voices.filter(v=>!v.lang.startsWith(langPart));
+    return [...mine,...rest];
+  })();
+  const voiceLabel=v=>{
+    const n=(v.name||"").toLowerCase();
+    let g="";
+    if(/female|женск|woman|girl|samantha|victoria|karen|tessa|moira|fiona|milena|alena|katya|alyona|zira|google.*(female)?/.test(n)&&!/male/.test(n))g=isRu?" ♀ жен.":" ♀ F";
+    if(/\bmale\b|мужск|man|david|alex|daniel|fred|yuri|pavel|dmitri/.test(n))g=isRu?" ♂ муж.":" ♂ M";
+    const short=v.name.replace(/google /i,"").replace(/microsoft /i,"");
+    return `${short}${g} · ${v.lang}`;
+  };
+  const previewVoice=name=>{
+    try{
+      const s=window.speechSynthesis;if(!s)return;
+      s.cancel();
+      const u=new SpeechSynthesisUtterance(isRu?"Здравствуйте, вы на Дорожном Радио. Вот как звучит этот голос.":"Hello, you're on Road Radio. This is how this voice sounds.");
+      const v=voices.find(x=>x.name===name);if(v){u.voice=v;u.lang=v.lang;}
+      u.rate=0.92;
+      s.speak(u);
+    }catch{}
+  };
 
   // ONBOARDING STEPS
   const obSteps=[
@@ -1214,14 +1271,22 @@ Reply ONLY valid JSON: {"story":"your spoken segment in ${al}","location":"exact
                 </div>
               ))}
             </div>
-            <div className="set-sect">{isRu?"Голос":"Voice"}</div>
-            {curVoices.length>1&&(
-              <select className="voice-sel" value={selVoice} onChange={e=>setSelVoice(e.target.value)}>
-                <option value="">{isRu?"— По умолчанию —":"— Default —"}</option>
-                {curVoices.map(v=><option key={v.name} value={v.name}>{v.name}</option>)}
-              </select>
-            )}
-            <button className="tts-btn" onClick={openTTSSettings}>🔊 {isRu?"Настроить голос телефона →":"Configure phone voice →"}</button>
+            <div className="set-sect">{isRu?"Голос диктора":"Host voice"}</div>
+            {voiceChoices.length===0&&<div style={{fontSize:"14px",color:"#9aabbf",padding:"4px 2px 8px"}}>{isRu?"Голоса телефона ещё загружаются... откройте меню заново через секунду, либо докачайте голоса кнопкой ниже.":"Phone voices still loading... reopen this menu in a second, or add voices with the button below."}</div>}
+            <div className="voice-list">
+              <div className={`voice-row${selVoice===""?" sel":""}`}>
+                <div className="voice-pick" onClick={()=>setSelVoice("")}>{selVoice===""?"●":"○"} {isRu?"По умолчанию":"Default"}</div>
+              </div>
+              {voiceChoices.map(v=>(
+                <div key={v.name} className={`voice-row${selVoice===v.name?" sel":""}`}>
+                  <div className="voice-pick" onClick={()=>setSelVoice(v.name)}>
+                    {selVoice===v.name?"●":"○"} {voiceLabel(v)}
+                  </div>
+                  <button className="voice-play" onClick={()=>previewVoice(v.name)}>▶</button>
+                </div>
+              ))}
+            </div>
+            <button className="tts-btn" onClick={openTTSSettings}>⚙️ {isRu?"Докачать голоса в настройках телефона →":"Add more voices in phone settings →"}</button>
             <div className="set-sect">{isRu?"Что НЕ рассказывать":"What NOT to narrate"}</div>
             <div className="topic-grid">
               {TOPICS.map(t=>(
@@ -1247,6 +1312,8 @@ Reply ONLY valid JSON: {"story":"your spoken segment in ${al}","location":"exact
                 <input type="range" min="10" max="80" step="5" value={fuelMiles} onChange={e=>setFuelMiles(parseInt(e.target.value))} style={{width:"100%"}}/>
               </div>
             )}
+            <div className="set-sect">{isRu?"На остановках":"At stops"}</div>
+            <div className={`topic-item${neverPark?" on2":""}`} style={{marginBottom:"8px"}} onClick={()=>setNeverPark(v=>!v)}><div className="topic-check on">{neverPark?"✓":""}</div><div className="topic-lbl">{isRu?"Не спрашивать — рассказывать даже стоя":"Don't ask — keep talking when stopped"}</div></div>
             <div className="set-sect">{isRu?"Замечания диктору":"Host feedback"}</div>
             <button className="tts-btn" onClick={()=>{listenerPrefsRef.current="";try{localStorage.removeItem("rr_listener_prefs");}catch{}alert(isRu?"✓ Замечания сброшены":"✓ Feedback cleared");}}>🧹 {isRu?"Сбросить мои замечания":"Clear my saved feedback"}</button>
             <div className="set-sect">{isRu?"Установка":"Install"}</div>
@@ -1276,9 +1343,10 @@ Reply ONLY valid JSON: {"story":"your spoken segment in ${al}","location":"exact
           <div className="key-title">One-Time Setup</div>
           <div className="key-sub">Get free API key at<br/><a href="https://console.anthropic.com" target="_blank">console.anthropic.com</a><br/>Free $5 — ~200 hours of stories</div>
           <div style={{width:"100%"}}><label className="flabel">Paste Anthropic API key</label><input className="kinput" value={apiInput} onChange={e=>setApiInput(e.target.value)} placeholder="sk-ant-api03-..."/></div>
+          <button className="bigbtn blue" onClick={async()=>{try{const t=await navigator.clipboard.readText();if(t&&t.trim())setApiInput(t.trim());else setErr(isRu?"Буфер пуст — скопируйте ключ сначала":"Clipboard empty — copy the key first");}catch{setErr(isRu?"Не удалось прочитать буфер. Вставьте вручную.":"Couldn't read clipboard. Paste manually.");}}}>📋 {isRu?"Вставить из буфера":"Paste from clipboard"}</button>
           {err&&<div className="errbox">⚠ {err}</div>}
           <button className="bigbtn green" onClick={saveKey}>✓ Save & Start →</button>
-          <div style={{fontSize:"14px",color:"#556677",textAlign:"center"}}>Stored only on your device</div>
+          <div style={{fontSize:"14px",color:"#9aabbf",textAlign:"center"}}>{isRu?"Хранится только на вашем телефоне. Не чистите данные сайта, чтобы ключ не слетел.":"Stored only on your device. Don't clear site data or the key is lost."}</div>
         </div>
       )}
 
