@@ -150,10 +150,10 @@ body{font-family:'Inter',sans-serif;color:#fff;}
 .geobtn.ok{border-color:#00e87a;color:#00e87a;background:#071410;}
 
 /* DJ AVATAR */
-.dj-zone{position:relative;height:200px;overflow:hidden;flex-shrink:0;background:#04060e;display:flex;align-items:center;justify-content:center;}
-.dj-canvas{position:absolute;inset:0;width:100%;height:100%;}
-.dj-over{position:absolute;inset:0;background:linear-gradient(to top,rgba(5,7,15,1) 0%,rgba(5,7,15,.3) 70%,transparent 100%);}
-.dj-info{position:absolute;bottom:0;left:0;right:0;padding:12px 18px;}
+.dj-zone{position:relative;height:300px;overflow:hidden;flex-shrink:0;background:radial-gradient(circle at 50% 38%,#2a1a4e,#140d28 60%,#0a0618);display:flex;align-items:center;justify-content:center;border-bottom:2px solid #3a2a5e;}
+.dj-canvas{position:absolute;left:0;top:0;width:100%;height:230px;}
+.dj-over{display:none;}
+.dj-info{position:absolute;bottom:0;left:0;right:0;padding:10px 18px;background:rgba(8,6,18,0.92);border-top:1px solid #2a1f45;}
 .dj-hw{font-family:'Orbitron',monospace;font-size:13px;font-weight:900;color:#00e87a;letter-spacing:2px;margin-bottom:3px;}
 .dj-loc{font-family:'Orbitron',monospace;font-size:11px;color:#ff6b35;text-transform:uppercase;letter-spacing:2px;margin-bottom:2px;}
 .dj-crd{font-family:'Orbitron',monospace;font-size:10px;color:#aabbcc;letter-spacing:1px;}
@@ -274,7 +274,7 @@ body{font-family:'Inter',sans-serif;color:#fff;}
 const {useState,useRef,useEffect}=React;
 const PROXY="https://corsproxy.io/?https://api.anthropic.com/v1/messages";
 const KEY_STORE="rr_key_v3";
-const VER="v25";
+const VER="v26";
 
 const OPENERS_RU=["На этой земле...","Да, кстати...","Мало кто знает, но...","Справа от вас...","История этого края...","Сто лет назад здесь...","Тишина здесь обманчива...","Когда-то давно здесь...","Через пару миль...","Вот что примечательно..."];
 const OPENERS_EN=["On this land...","Here's something few know...","Just to your right...","The history here...","A hundred years ago...","Locals know that...","In a few miles...","What's remarkable is...","This stretch of highway...","Worth knowing..."];
@@ -436,6 +436,7 @@ function App(){
   const listenerPrefsRef=useRef(localStorage.getItem("rr_listener_prefs")||"");
   const saidFactsRef=useRef([]);      // longer memory of what was actually said (anti-repeat)
   const recentStoriesRef=useRef([]);  // last few full segments, to catch repeated wording
+  const roadReminderRef=useRef(0);     // last time we reminded which highway we're on
   const callPhaseRef=useRef("idle");
   const callRecRef=useRef(null);
   const cdTotalRef=useRef(55);
@@ -449,7 +450,7 @@ function App(){
     try{const last=parseInt(localStorage.getItem("rr_review")||"0");if(localStorage.getItem("rr_started")&&Date.now()-last>3*86400000)setNeedsReview(true);}catch{}
   },[]);
   useEffect(()=>{langRef.current=lang;},[lang]);
-  useEffect(()=>{bcastRef.current=bcastMode;localStorage.setItem("rr_bcast_v1",bcastMode);},[bcastMode]);
+  useEffect(()=>{bcastRef.current=bcastMode;localStorage.setItem("rr_bcast_v1",bcastMode);nextRef.current=null;bufferRef.current=[];},[bcastMode]);
   useEffect(()=>{travelRef.current=travelMode;localStorage.setItem("rr_mode_v1",travelMode);},[travelMode]);
   useEffect(()=>{destRef.current=destination;},[destination]);
   useEffect(()=>{if(coords)coordsRef.current=coords;},[coords]);
@@ -473,6 +474,8 @@ function App(){
     localStorage.setItem("rr_t_fam",topicFamous?"1":"0");
     localStorage.setItem("rr_t_geo",topicGeology?"1":"0");
     localStorage.setItem("rr_t_cult",topicCulture?"1":"0");
+    // Settings changed — drop any pre-generated segment so the NEXT one uses the new topics immediately.
+    nextRef.current=null;bufferRef.current=[];
   },[topicWildlife,topicFilms,topicPhoto,topicHistory,topicFamous,topicGeology,topicCulture,fuelAlerts,fuelMiles]);
 
   // Persist a lasting listener preference about how the host should speak
@@ -537,17 +540,17 @@ function App(){
     if(screen!=="main"||!djMode)return;       // only when DJ avatar is visible
     if(!djCanvasRef.current)return;
     const cv=djCanvasRef.current;const ctx=cv.getContext('2d');
-    cv.width=500;cv.height=220;
+    cv.width=500;cv.height=230;
     let f=0,raf;
     const draw=()=>{
       f++;
       const spk=speakingRef.current;
-      const t=f*0.05;
+      const t=f*0.025;   // slower, calmer timebase
       // Purple studio background with soft vignette
-      const bg=ctx.createLinearGradient(0,0,0,220);
-      bg.addColorStop(0,"#1a0f2e");bg.addColorStop(0.6,"#120a22");bg.addColorStop(1,"#0a0616");
-      ctx.fillStyle=bg;ctx.fillRect(0,0,500,220);
-      const glow=ctx.createRadialGradient(250,90,10,250,110,220);
+      const bg=ctx.createLinearGradient(0,0,0,230);
+      bg.addColorStop(0,"#1a0f2e");bg.addColorStop(0.6,"#120a22");bg.addColorStop(1,"#0a0618");
+      ctx.fillStyle=bg;ctx.fillRect(0,0,500,230);
+      const glow=ctx.createRadialGradient(250,90,10,250,110,230);
       glow.addColorStop(0,spk?"rgba(150,90,255,0.22)":"rgba(120,70,220,0.12)");glow.addColorStop(1,"transparent");
       ctx.fillStyle=glow;ctx.fillRect(0,0,500,220);
       // Concentric sound rings when speaking
@@ -559,7 +562,7 @@ function App(){
         }
       }
       // Gentle sway + breathing
-      const sway=Math.sin(t)* (spk?7:3);
+      const sway=Math.sin(t)* (spk?4:2);
       const breath=Math.sin(t*1.6)*(spk?3:1.5);
       ctx.save();ctx.translate(250+sway,0);
       // Silhouette figure (shoulders + head) — dark with a violet rim light
@@ -585,7 +588,7 @@ function App(){
       ctx.fillStyle="#3a1f5a";
       ctx.beginPath();ctx.ellipse(0,112+breath,12,mOpen,0,0,Math.PI*2);ctx.fill();
       // gesturing hand near the mic when speaking
-      const ga=spk?Math.sin(t*2.2)*0.5:0.1;
+      const ga=spk?Math.sin(t*1.1)*0.28:0.08;
       ctx.save();ctx.translate(54,170+breath);ctx.rotate(-0.5+ga);
       ctx.strokeStyle="rgba(170,120,255,0.6)";ctx.lineWidth=8;ctx.lineCap="round";
       ctx.beginPath();ctx.moveTo(0,0);ctx.lineTo(34,-10);ctx.stroke();   // forearm
@@ -775,13 +778,27 @@ Answer their question directly and concretely in 2-5 sentences, about THIS exact
 Reply ONLY valid JSON: {"story":"your spoken answer in ${al}","location":"current place in English"}`;
 
     const prefs=listenerPrefsRef.current;
-    const orderCtx=prefs?`\n\n========================\n‼ ПРИКАЗ СЛУШАТЕЛЯ (THE LISTENER'S STANDING ORDER) ‼\nThe listener personally told you: "${prefs}".\nThis overrides defaults. BUT interpret it correctly:\n- If they said "ONLY about X" / "только про X" → talk strictly about X, nothing else.\n- If they said "MORE about X" / "побольше про X" → bring X up MORE OFTEN than other things, but STILL cover other topics too. "More" does NOT mean "only". Do not get stuck on one subject forever.\nApply this sensibly on every segment.\n========================`:"";
     const cfg=topicsCfgRef.current||{};
     const lastSaid=saidFactsRef.current.slice(-1)[0]||"";
     const recentFacts=saidFactsRef.current.slice(-14).join(" | ");
     const samePlace=ld.city&&ld.city===prevPlaceRef.current;
 
-    // Detect words/phrases the host has been overusing, and ban them this segment.
+    // Map each toggle to a human topic label.
+    const TOPIC_DEFS=[
+      {key:"history",label:"local history (founding, events, old routes, railroads)"},
+      {key:"wildlife",label:"wildlife — animals here now, and extinct/prehistoric creatures of this region"},
+      {key:"geology",label:"geology, the shape of the land, mountains, rivers, caves"},
+      {key:"culture",label:"culture, food, music, traditions, how people live here"},
+      {key:"films",label:"movies/TV filmed here (only if truly documented)"},
+      {key:"famous",label:"famous people born in or tied to this place"},
+      {key:"photo",label:"scenic viewpoints and good photo spots ahead"},
+    ];
+    const allowed=TOPIC_DEFS.filter(t=>cfg[t.key]!==false);
+    const forbidden=TOPIC_DEFS.filter(t=>cfg[t.key]===false);
+    const allowedStr=allowed.length?allowed.map(t=>t.label).join("; "):"general points of interest about this exact place";
+    const forbiddenStr=forbidden.length?forbidden.map(t=>t.key).join(", "):"";
+
+    // Detect words the host has been overusing, ban them this segment.
     const overused=(()=>{
       const text=recentStoriesRef.current.join(" ").toLowerCase();
       if(!text)return"";
@@ -789,71 +806,73 @@ Reply ONLY valid JSON: {"story":"your spoken answer in ${al}","location":"curren
       const stop=new Set(["который","которая","которое","которые","потому","здесь","место","места","сейчас","можно","очень","также","просто","между","около","вокруг","through","around","place","where","which","there","these","those","right","really"]);
       const freq={};
       words.forEach(w=>{if(!stop.has(w))freq[w]=(freq[w]||0)+1;});
-      const rep=Object.keys(freq).filter(w=>freq[w]>=3).slice(0,12);
-      return rep.join(", ");
+      return Object.keys(freq).filter(w=>freq[w]>=3).slice(0,12).join(", ");
     })();
 
-    const topicList=[
-      cfg.history!==false?"history":null,
-      cfg.wildlife!==false?"wildlife & ancient creatures":null,
-      cfg.films!==false?"film/TV locations":null,
-      cfg.famous!==false?"famous people":null,
-      cfg.geology!==false?"geology & landscape":null,
-      cfg.culture!==false?"culture, food, daily life":null,
-      cfg.photo!==false?"scenic/photo spots":null,
-      "rivers & bridges","roads & old routes","industry & farming","legends & odd local stories","architecture","weather & seasons here"
-    ].filter(Boolean);
-    // Rotate: pick a topic family different from the last couple, to force variety.
-    const recentLow=recentFacts.toLowerCase();
-    const freshTopics=topicList.filter(t=>!recentLow.includes(t.split(" ")[0].toLowerCase()));
-    const suggestTopic=(freshTopics.length?freshTopics:topicList)[Math.floor(Math.random()*(freshTopics.length?freshTopics.length:topicList.length))];
-    const topicMenu=topicList.join(" • ");
-    const enabledNote=`Allowed topics: ${topicMenu}. For THIS segment, lean toward a DIFFERENT family than last time — try: ${suggestTopic}.`;
+    const orderCtx=prefs?`\nLISTENER'S STANDING ORDER (overrides topic settings): "${prefs}". If they said "only X" talk strictly about X; if "more X" favor X but still vary.`:"";
+    // Every ~12 minutes, remind which highway and direction we're travelling.
+    let roadReminder="";
+    if(ld.highway&&Date.now()-roadReminderRef.current>720000){
+      roadReminder=`\nROAD CHECK-IN: It's been a while — naturally work into THIS segment a brief reminder that we're driving on ${ld.highway} heading ${toDir(hdg)}.`;
+      roadReminderRef.current=Date.now();
+    }
+    const styleBlock=`========================\n‼ DELIVERY STYLE — THIS IS A HARD REQUIREMENT, NOT A SUGGESTION ‼\nYou MUST speak in this exact persona for EVERY sentence. It must be obvious within the first few words which persona you are:\n${bm.prompt}\nIf this persona is "trucker", talk like a CB-radio trucker (blunt, gravelly, "driver", road talk). If "funny", be genuinely witty and light. If "discovery/science", be an authoritative documentary narrator. If "night", be a hushed late-night poet. Do NOT fall back into a generic neutral guide voice.\n========================`;
 
-    // Broadcast style
-    const styleCtx=`\nDELIVERY STYLE — adopt it strongly, it should be clearly audible: ${bm.prompt}`;
+    return`${styleBlock}
 
-    return`You are the host of "Road Radio" — a charismatic personal TOUR GUIDE riding beside the driver, the kind of sightseeing-bus guide who turns a drive into one flowing, fascinating story. Warm, human, a little charming. Not a dry lecturer. Not a poet gushing about scenery. A real storyteller who knows the true story of any place in America.${styleCtx}${orderCtx}
+You are the host of "Road Radio", a personal tour guide riding beside ONE driver, telling a continuous story about the exact place they pass.${orderCtx}
 
-HOW A GREAT GUIDE TALKS (this is the heart of the job):
-1. ONE CONTINUOUS STORY, not separate blocks. The same person has listened the whole drive. Continue naturally from the last thought with a light bridge. The last thing you talked about was: "${lastSaid||"(nothing yet — open the show warmly)"}". Move ONWARD to something new.
-2. CHANGE THE SUBJECT each segment — do NOT stay glued to the landscape/terrain/farming. ${enabledNote}
-3. KEEP EACH SEGMENT SHORT — 3 to 5 sentences. Radio, not a lecture.
-4. ${samePlace?`You ALREADY named "${ld.city}". Say "здесь", "в этом месте", "в этих краях" — do NOT re-introduce the place.`:`This looks like a new area — you may set the scene briefly.`}
-5. DON'T INVENT, AND DON'T FAKE WHAT'S OUT THE WINDOW. Only say "посмотрите налево/направо, и вы увидите X" if X is in the REAL NEARBY OBJECTS data. If you're not certain what's beside the road right now, speak generally instead: "в этих краях встречается...", "эта местность известна...". Never claim a specific thing is to the side when you don't actually know. Either precise, or general — never a confident guess.
-6. ${prefs?`Obey the listener's standing order above.`:`Follow the allowed topics.`}
-7. ANTI-REPEAT — this is critical, you have been repeating yourself badly. ${overused?`You have OVERUSED these words/ideas — do NOT use them again this segment: ${overused}.`:``} Do not say "плоская земля / flat land", "дельта / delta", "равнина", "аграрный / agricultural" again if you've said them before. Find a genuinely new subject and new words.
+‼ TOPIC RULES — HARD CONSTRAINTS ‼
+ALLOWED topics (you may ONLY talk about these): ${allowedStr}.
+${forbiddenStr?`FORBIDDEN topics — you are BANNED from mentioning these at all this drive: ${forbiddenStr}. Do not bring them up even in passing.`:``}
+Pick something from the ALLOWED list that you have NOT covered yet. Rotate — do not stay glued to one subject (especially not landscape/farming).
 
-OPENINGS: never start two segments the same way; never use "Впереди вас", "Знаете что", "А вот интересно". Vary genuinely.
+CORE RULES:
+1. Continue the show naturally from your last thought ("${lastSaid||"opening — greet warmly"}"). One flowing story, not separate blocks.
+2. Each segment is SHORT — 3 to 5 sentences. Radio, not a lecture.
+3. ${samePlace?`You ALREADY named "${ld.city}". Say "здесь", "в этом месте" — do not re-introduce it.`:`New area — you may set the scene briefly.`}
+4. DON'T FAKE WHAT'S OUT THE WINDOW. Only say "посмотрите налево/направо, вы увидите X" if X is in REAL NEARBY OBJECTS below. Otherwise speak generally: "в этих краях...", "эта местность известна тем, что...". If you mention buildings/architecture but aren't sure they're visible, say "возможно, за деревьями скрываются..." — never claim to see what you can't confirm. Either precise (from data) or general — never a confident guess.
+5. ANTI-REPEAT: never repeat a fact or wording from this drive.${overused?` You OVERUSED these words — BANNED this segment: ${overused}.`:``}
+6. OPENINGS: never start two segments alike; never use "Впереди", "Дальше", "Знаете что", "Слушайте", "А вот интересно", "посмотрите вокруг".
 
-CURRENT POSITION (ground truth — the driver is HERE now):
+CURRENT POSITION (ground truth):
 - Road: ${ld.highway||"this road"}
 - Town/area: ${ld.city||"open country"}${ld.county?`, ${ld.county}`:""}${ld.state?`, ${ld.state}`:""}
 - Coordinates: ${c.lat.toFixed(5)}, ${Math.abs(c.lng).toFixed(5)}W
-- Travelling ${toDir(hdg)}. Left window faces ${toLeft(hdg)}, right window faces ${toRight(hdg)}.
+- Travelling ${toDir(hdg)}. Left window faces ${toLeft(hdg)}, right faces ${toRight(hdg)}.
 - ${timeCtx}
 - Temperature now: ${weatherRef.current?weatherRef.current.temp+"°F":"unknown"}${destCtx}${exCtx}${terrainCtx}
 
-${nightCtx}
+${nightCtx}${roadReminder}
 
-EVERYTHING YOU'VE ALREADY SAID THIS DRIVE (never repeat any of it, not even reworded): ${recentFacts||"nothing yet — this is your first segment"}
+ALREADY SAID THIS DRIVE (never repeat): ${recentFacts||"nothing yet — first segment"}
 
-- ${showSpd?`You may mention speed once.`:"Never mention speed, mph, or km/h."}
+- ${showSpd?`You may mention speed once.`:"Never mention speed or mph."}
 - ${showHw?`You may name the road once.`:"Don't repeat the road name."}
 - Keep time-of-day consistent with "${phase}".
-- LANGUAGE LOCK: the ENTIRE segment in ${al}. No foreign words.
+- ‼ LANGUAGE LOCK ‼: write EVERY single word in ${al}. Never switch to English or any other language mid-segment. If you catch yourself starting an English word, stop and use ${al}.
 
-Reply ONLY valid JSON: {"story":"your spoken segment in ${al}, 3-5 sentences","location":"exact place in English","topics":"a short specific phrase naming the ONE thing you just covered"}`;
+Reply ONLY valid JSON: {"story":"your segment in ${al}, 3-5 sentences, in the ${bm.id} persona","location":"exact place in English","topics":"short phrase naming the ONE thing you covered"}`;
   };
 
   const callClaude=async(sys,msg,forNext)=>{
     const key=localStorage.getItem(KEY_STORE);
     const msgs=forNext?[{role:"user",content:msg}]:[...histRef.current.slice(-4),{role:"user",content:msg}];
-    const r=await fetch(PROXY,{method:"POST",headers:{"Content-Type":"application/json","x-api-key":key,"anthropic-version":"2023-06-01","anthropic-dangerous-direct-browser-access":"true"},body:JSON.stringify({model:"claude-haiku-4-5-20251001",max_tokens:700,system:sys,messages:msgs})});
-    if(!r.ok)throw new Error(await r.text());
-    const d=await r.json();
-    const txt=(d.content?.[0]?.text||"{}").replace(/```json|```/g,"").trim();
-    const res=extract(txt);
+    const doCall=async(extra)=>{
+      const r=await fetch(PROXY,{method:"POST",headers:{"Content-Type":"application/json","x-api-key":key,"anthropic-version":"2023-06-01","anthropic-dangerous-direct-browser-access":"true"},body:JSON.stringify({model:"claude-haiku-4-5-20251001",max_tokens:700,system:extra?sys+extra:sys,messages:msgs})});
+      if(!r.ok)throw new Error(await r.text());
+      const d=await r.json();
+      const txt=(d.content?.[0]?.text||"{}").replace(/```json|```/g,"").trim();
+      return {res:extract(txt),txt};
+    };
+    let {res,txt}=await doCall("");
+    // Language guard: if the UI language is Russian/Ukrainian but the answer came back mostly Latin, regenerate once.
+    const wantCyr=["ru","uk"].includes(langRef.current);
+    if(wantCyr&&res.story){
+      const cyr=(res.story.match(/[а-яёіїєґ]/gi)||[]).length;
+      const lat=(res.story.match(/[a-z]/gi)||[]).length;
+      if(lat>cyr){ try{const retry=await doCall("\n\nIMPORTANT: Your previous answer slipped into English. Rewrite ENTIRELY in "+(L[langRef.current]?.ai||"Russian")+". Every word."); if(retry.res.story){res=retry.res;txt=retry.txt;}}catch{} }
+    }
     if(!forNext){
       histRef.current=[...msgs,{role:"assistant",content:txt}];
       if(res.topics){topicsUsedRef.current=[...topicsUsedRef.current,res.topics].slice(-20);saidFactsRef.current=[...saidFactsRef.current,res.topics].slice(-30);}
@@ -1055,9 +1074,12 @@ Reply ONLY valid JSON: {"story":"your spoken segment in ${al}, 3-5 sentences","l
     // Greeting: first ever launch vs. returning driver
     const isRu=langRef.current==="ru";
     const everStarted=localStorage.getItem("rr_started");
+    const hw=locDataRef.current.highway;const dir=toDir(coordsRef.current?.heading||90);
+    const roadPart=hw?(isRu?` Сейчас мы движемся по ${hw} в направлении ${dir}.`:` We're on ${hw} heading ${dir}.`):"";
     const greet=everStarted
-      ?(isRu?"И снова здравствуйте, вы на Дорожном Радио. Дорога зовёт... поехали.":"Welcome back to Road Radio. The road's calling... let's roll.")
-      :(isRu?"Здравствуйте, вы на Дорожном Радио. Я ваш личный гид на этой дороге — буду рассказывать самое интересное о местах, мимо которых мы едем. Устраивайтесь поудобнее... поехали.":"Hello, you're on Road Radio. I'm your personal guide on this road — I'll tell you the most interesting things about the places we pass. Settle in... let's go.");
+      ?(isRu?`И снова здравствуйте, вы на Дорожном Радио.${roadPart} Поехали.`:`Welcome back to Road Radio.${roadPart} Let's roll.`)
+      :(isRu?`Здравствуйте, вы на Дорожном Радио. Я ваш личный гид на этой дороге.${roadPart} Устраивайтесь поудобнее... поехали.`:`Hello, you're on Road Radio. I'm your personal guide on this road.${roadPart} Settle in... let's go.`);
+    roadReminderRef.current=Date.now();
     localStorage.setItem("rr_started","1");localStorage.setItem("rr_review",String(Date.now()));setNeedsReview(false);
     const g=loopGenRef.current;
     await speak(greet);
