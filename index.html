@@ -857,7 +857,7 @@ Reply ONLY valid JSON: {"story":"your spoken segment in ${al}, 3-5 sentences","l
     if(!forNext){
       histRef.current=[...msgs,{role:"assistant",content:txt}];
       if(res.topics){topicsUsedRef.current=[...topicsUsedRef.current,res.topics].slice(-20);saidFactsRef.current=[...saidFactsRef.current,res.topics].slice(-30);}
-      if(storyText)recentStoriesRef.current=[...recentStoriesRef.current,storyText].slice(-8);
+      if(res.story)recentStoriesRef.current=[...recentStoriesRef.current,res.story].slice(-8);
     }
     return res;
   };
@@ -1096,8 +1096,8 @@ Reply ONLY valid JSON: {"story":"your spoken segment in ${al}, 3-5 sentences","l
     setCallMode(true);setCallPhase("greeting");callPhaseRef.current="greeting";
     const isRu=langRef.current==="ru";
     const greet=isRu
-      ?"Вы дозвонились на Дорожное Радио! Спрашивайте — что вы хотите узнать об этом месте, где сейчас едете? Говорите, я слушаю."
-      :"You've reached Road Radio! Go ahead — what would you like to know about this place you're driving through? I'm listening.";
+      ?"Слушаю вас. Задавайте вопрос, и нажмите «Я сказал всё», когда закончите."
+      :"I'm listening. Ask your question, then tap I'm done.";
     await speak(greet);
     if(callPhaseRef.current!=="greeting")return;   // user cancelled
     setCallPhase("listening");callPhaseRef.current="listening";
