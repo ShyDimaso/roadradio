@@ -194,9 +194,13 @@ body{font-family:'Inter',sans-serif;color:#fff;}
 .pglbl{font-family:'Orbitron',monospace;font-size:10px;color:#889aaa;white-space:nowrap;}
 .pgbar{flex:1;height:3px;background:#1a2535;border-radius:2px;overflow:hidden;}
 .pgfill{height:100%;background:linear-gradient(to right,#ff6b35,#f5c842);border-radius:2px;transition:width 1s linear;}
+.eq{display:flex;align-items:flex-end;justify-content:center;gap:5px;height:70px;padding:14px 0 4px;}
+.eq span{width:6px;height:10px;border-radius:3px;background:linear-gradient(to top,#ff6b35,#4a9eff);opacity:.45;}
+.eq.live span{animation:eqp .7s ease-in-out infinite;opacity:1;}
+@keyframes eqp{0%,100%{height:10px;}50%{height:54px;}}
 
 /* MIC TRANSCRIPT */
-.mic-transcript{background:#0d1828;border:1px solid #2a4a80;border-radius:10px;padding:12px 14px;margin:8px 14px;font-size:16px;color:#aabbcc;min-height:44px;font-style:italic;}
+.mic-transcript{background:#0d1828;border:1px solid #2a4a80;border-radius:10px;padding:12px 14px;margin:8px 14px;font-size:16px;color:#aabbcc;min-height:44px;max-height:120px;overflow-y:auto;font-style:italic;}
 
 /* PARKED MODAL */
 .parked-modal{position:fixed;bottom:0;left:0;right:0;max-width:500px;margin:0 auto;background:#080c18;border-top:2px solid #4a9eff;padding:22px 18px 30px;z-index:150;animation:slideUp .3s ease;}
@@ -234,7 +238,7 @@ body{font-family:'Inter',sans-serif;color:#fff;}
 .call-ava{font-size:64px;animation:pulse 1.4s infinite;}
 .call-title{font-family:'Orbitron',monospace;font-size:20px;font-weight:700;color:#4a9eff;margin-top:10px;letter-spacing:1px;}
 .call-phase{font-size:17px;color:#cfe0f0;margin-top:14px;line-height:1.4;}
-.call-transcript{margin-top:16px;background:#0d1525;border:1px solid #2a4a80;border-radius:12px;padding:14px;font-size:17px;color:#fff;min-height:48px;text-align:left;}
+.call-transcript{margin-top:16px;background:#0d1525;border:1px solid #2a4a80;border-radius:12px;padding:14px;font-size:17px;color:#fff;min-height:48px;max-height:140px;overflow-y:auto;text-align:left;}
 .call-btns{display:flex;flex-direction:column;gap:10px;margin-top:20px;}
 .call-done{padding:16px;border-radius:12px;border:2px solid #3fb950;background:#0d1a0d;color:#5fd97a;font-size:16px;font-weight:700;cursor:pointer;}
 .call-hang{padding:14px;border-radius:12px;border:2px solid #5a2020;background:#1a0808;color:#ff9090;font-size:15px;font-weight:700;cursor:pointer;}
@@ -258,7 +262,7 @@ body{font-family:'Inter',sans-serif;color:#fff;}
 (function(){
   if(!("serviceWorker" in navigator))return;
   window.addEventListener("load",function(){
-    try{var sw="self.addEventListener('install',function(e){self.skipWaiting();});self.addEventListener('activate',function(e){e.waitUntil(self.clients.claim());});";var u=URL.createObjectURL(new Blob([sw],{type:"text/javascript"}));navigator.serviceWorker.register(u).catch(function(){});}catch(e){}
+    try{var sw="self.addEventListener(\u0027install\u0027,function(e){self.skipWaiting();});";var u=URL.createObjectURL(new Blob([sw],{type:"text/javascript"}));navigator.serviceWorker.register(u).catch(function(){});}catch(e){}
   });
 })();
 </script>
@@ -269,7 +273,7 @@ body{font-family:'Inter',sans-serif;color:#fff;}
 const {useState,useRef,useEffect}=React;
 const PROXY="https://corsproxy.io/?https://api.anthropic.com/v1/messages";
 const KEY_STORE="rr_key_v3";
-const VER="v22";
+const VER="v23";
 
 const OPENERS_RU=["На этой земле...","Да, кстати...","Мало кто знает, но...","Справа от вас...","История этого края...","Сто лет назад здесь...","Тишина здесь обманчива...","Когда-то давно здесь...","Через пару миль...","Вот что примечательно..."];
 const OPENERS_EN=["On this land...","Here's something few know...","Just to your right...","The history here...","A hundred years ago...","Locals know that...","In a few miles...","What's remarkable is...","This stretch of highway...","Worth knowing..."];
@@ -374,6 +378,8 @@ function App(){
   const [topicPhoto,setTopicPhoto]=useState(localStorage.getItem("rr_t_photo")!=="0");
   const [topicHistory,setTopicHistory]=useState(localStorage.getItem("rr_t_hist")!=="0");
   const [topicFamous,setTopicFamous]=useState(localStorage.getItem("rr_t_fam")!=="0");
+  const [topicGeology,setTopicGeology]=useState(localStorage.getItem("rr_t_geo")!=="0");
+  const [topicCulture,setTopicCulture]=useState(localStorage.getItem("rr_t_cult")!=="0");
   const [needsReview,setNeedsReview]=useState(false);
   const [neverPark,setNeverPark]=useState(localStorage.getItem("rr_neverpark")==="1");
   const [cd,setCd]=useState(0);
@@ -434,6 +440,7 @@ function App(){
   const prevPlaceRef=useRef("");
   const callTextRef=useRef("");
   const userDoneRef=useRef(false);
+  const lastSpokeRef=useRef(Date.now());
 
   useEffect(()=>{const t=setTimeout(()=>setSplash(false),3200);return()=>clearTimeout(t);},[]);
   useEffect(()=>{
@@ -454,7 +461,7 @@ function App(){
   useEffect(()=>{try{localStorage.setItem("rr_voice",selVoice);}catch{}},[selVoice]);
   const topicsCfgRef=useRef({});
   useEffect(()=>{
-    topicsCfgRef.current={wildlife:topicWildlife,films:topicFilms,photo:topicPhoto,history:topicHistory,famous:topicFamous,fuel:fuelAlerts,fuelMiles};
+    topicsCfgRef.current={wildlife:topicWildlife,films:topicFilms,photo:topicPhoto,history:topicHistory,famous:topicFamous,geology:topicGeology,culture:topicCulture,fuel:fuelAlerts,fuelMiles};
     localStorage.setItem("rr_fuel",fuelAlerts?"1":"0");
     localStorage.setItem("rr_fuelmi",String(fuelMiles));
     localStorage.setItem("rr_t_wild",topicWildlife?"1":"0");
@@ -462,7 +469,9 @@ function App(){
     localStorage.setItem("rr_t_photo",topicPhoto?"1":"0");
     localStorage.setItem("rr_t_hist",topicHistory?"1":"0");
     localStorage.setItem("rr_t_fam",topicFamous?"1":"0");
-  },[topicWildlife,topicFilms,topicPhoto,topicHistory,topicFamous,fuelAlerts,fuelMiles]);
+    localStorage.setItem("rr_t_geo",topicGeology?"1":"0");
+    localStorage.setItem("rr_t_cult",topicCulture?"1":"0");
+  },[topicWildlife,topicFilms,topicPhoto,topicHistory,topicFamous,topicGeology,topicCulture,fuelAlerts,fuelMiles]);
 
   // Persist a lasting listener preference about how the host should speak
   const addListenerPref=p=>{
@@ -526,56 +535,68 @@ function App(){
     if(screen!=="main"||!djMode)return;       // only when DJ avatar is visible
     if(!djCanvasRef.current)return;
     const cv=djCanvasRef.current;const ctx=cv.getContext('2d');
-    cv.width=500;cv.height=200;
+    cv.width=500;cv.height=220;
     let f=0,raf;
     const draw=()=>{
       f++;
       const spk=speakingRef.current;
-      ctx.fillStyle="#04060e";ctx.fillRect(0,0,500,200);
-      // Studio glow
-      const sg=ctx.createRadialGradient(250,100,10,250,100,180);
-      sg.addColorStop(0,"rgba(255,107,53,0.08)");sg.addColorStop(1,"transparent");
-      ctx.fillStyle=sg;ctx.fillRect(0,0,500,200);
-      // Sound waves when speaking
+      const t=f*0.05;
+      // Purple studio background with soft vignette
+      const bg=ctx.createLinearGradient(0,0,0,220);
+      bg.addColorStop(0,"#1a0f2e");bg.addColorStop(0.6,"#120a22");bg.addColorStop(1,"#0a0616");
+      ctx.fillStyle=bg;ctx.fillRect(0,0,500,220);
+      const glow=ctx.createRadialGradient(250,90,10,250,110,220);
+      glow.addColorStop(0,spk?"rgba(150,90,255,0.22)":"rgba(120,70,220,0.12)");glow.addColorStop(1,"transparent");
+      ctx.fillStyle=glow;ctx.fillRect(0,0,500,220);
+      // Concentric sound rings when speaking
       if(spk){
         for(let i=0;i<5;i++){
-          const r=50+i*18+Math.sin(f*.15+i)*4;
-          ctx.strokeStyle=`rgba(255,107,53,${.3-i*.05})`;
-          ctx.lineWidth=2;ctx.beginPath();ctx.arc(250,95,r,0,Math.PI*2);ctx.stroke();
+          const r=70+i*22+Math.sin(f*.16+i)*5;
+          ctx.strokeStyle=`rgba(170,110,255,${.28-i*.05})`;
+          ctx.lineWidth=2;ctx.beginPath();ctx.arc(250,120,r,0,Math.PI*2);ctx.stroke();
         }
       }
-      // Body
-      ctx.fillStyle="#0d1525";
-      ctx.beginPath();ctx.ellipse(250,230,55,70,0,0,Math.PI*2);ctx.fill();
-      // Head
-      ctx.fillStyle="#0d1525";
-      ctx.beginPath();ctx.arc(250,110,48,0,Math.PI*2);ctx.fill();
-      // Headphones band
-      ctx.strokeStyle="#ff6b35";ctx.lineWidth=5;
-      ctx.beginPath();ctx.arc(250,100,54,Math.PI*1.1,Math.PI*1.9,false);ctx.stroke();
-      // Headphone cups
-      ctx.fillStyle="#ff6b35";
-      ctx.beginPath();ctx.ellipse(197,110,10,14,0,0,Math.PI*2);ctx.fill();
-      ctx.beginPath();ctx.ellipse(303,110,10,14,0,0,Math.PI*2);ctx.fill();
-      // Eyes
-      ctx.fillStyle="#4a9eff";
-      ctx.beginPath();ctx.arc(238,102,5,0,Math.PI*2);ctx.fill();
-      ctx.beginPath();ctx.arc(262,102,5,0,Math.PI*2);ctx.fill();
-      // Mouth - animated when speaking
-      const mOpen=spk?6+Math.abs(Math.sin(f*.25))*8:2;
-      ctx.fillStyle="#1a2535";
-      ctx.beginPath();ctx.ellipse(250,122,14,mOpen,0,0,Math.PI*2);ctx.fill();
-      ctx.strokeStyle="#334455";ctx.lineWidth=1.5;
-      ctx.beginPath();ctx.ellipse(250,122,14,mOpen,0,0,Math.PI*2);ctx.stroke();
-      // Microphone stand
-      ctx.strokeStyle="#334455";ctx.lineWidth=3;
-      ctx.beginPath();ctx.moveTo(250,160);ctx.lineTo(250,200);ctx.stroke();
-      ctx.beginPath();ctx.moveTo(235,200);ctx.lineTo(265,200);ctx.stroke();
-      // Mic head
-      ctx.fillStyle="#2a3550";
-      ctx.beginPath();ctx.ellipse(250,150,10,16,0,0,Math.PI*2);ctx.fill();
-      ctx.strokeStyle="#ff6b35";ctx.lineWidth=2;
-      for(let i=0;i<3;i++){ctx.beginPath();ctx.moveTo(240,142+i*5);ctx.lineTo(260,142+i*5);ctx.stroke();}
+      // Gentle sway + breathing
+      const sway=Math.sin(t)* (spk?7:3);
+      const breath=Math.sin(t*1.6)*(spk?3:1.5);
+      ctx.save();ctx.translate(250+sway,0);
+      // Silhouette figure (shoulders + head) — dark with a violet rim light
+      ctx.fillStyle="#070410";
+      ctx.strokeStyle="rgba(170,120,255,0.55)";ctx.lineWidth=2.5;
+      // shoulders/torso
+      ctx.beginPath();ctx.moveTo(-78,220);ctx.quadraticCurveTo(-70,150+breath,-40,140+breath);
+      ctx.lineTo(40,140+breath);ctx.quadraticCurveTo(70,150+breath,78,220);ctx.closePath();ctx.fill();ctx.stroke();
+      // head
+      ctx.beginPath();ctx.arc(0,96+breath,40,0,Math.PI*2);ctx.fill();ctx.stroke();
+      // headphone band + cups
+      ctx.strokeStyle="#a06bff";ctx.lineWidth=6;
+      ctx.beginPath();ctx.arc(0,88+breath,46,Math.PI*1.12,Math.PI*1.88,false);ctx.stroke();
+      ctx.fillStyle="#a06bff";
+      ctx.beginPath();ctx.ellipse(-44,98+breath,9,15,0,0,Math.PI*2);ctx.fill();
+      ctx.beginPath();ctx.ellipse(44,98+breath,9,15,0,0,Math.PI*2);ctx.fill();
+      // eyes
+      ctx.fillStyle="#cdb4ff";
+      ctx.beginPath();ctx.arc(-13,92+breath,4,0,Math.PI*2);ctx.fill();
+      ctx.beginPath();ctx.arc(13,92+breath,4,0,Math.PI*2);ctx.fill();
+      // mouth — animated when speaking
+      const mOpen=spk?5+Math.abs(Math.sin(f*.28))*9:2.5;
+      ctx.fillStyle="#3a1f5a";
+      ctx.beginPath();ctx.ellipse(0,112+breath,12,mOpen,0,0,Math.PI*2);ctx.fill();
+      // gesturing hand near the mic when speaking
+      const ga=spk?Math.sin(t*2.2)*0.5:0.1;
+      ctx.save();ctx.translate(54,170+breath);ctx.rotate(-0.5+ga);
+      ctx.strokeStyle="rgba(170,120,255,0.6)";ctx.lineWidth=8;ctx.lineCap="round";
+      ctx.beginPath();ctx.moveTo(0,0);ctx.lineTo(34,-10);ctx.stroke();   // forearm
+      ctx.fillStyle="#070410";ctx.beginPath();ctx.arc(40,-12,9,0,Math.PI*2);ctx.fill();ctx.stroke();
+      ctx.restore();
+      ctx.restore();
+      // Microphone (fixed, in front)
+      ctx.strokeStyle="#5a4a7a";ctx.lineWidth=3;
+      ctx.beginPath();ctx.moveTo(250,180);ctx.lineTo(250,220);ctx.stroke();
+      ctx.fillStyle="#2a2040";
+      ctx.beginPath();ctx.ellipse(250,168,11,18,0,0,Math.PI*2);ctx.fill();
+      ctx.strokeStyle="#a06bff";ctx.lineWidth=2;
+      for(let i=0;i<3;i++){ctx.beginPath();ctx.moveTo(240,160+i*6);ctx.lineTo(260,160+i*6);ctx.stroke();}
       raf=requestAnimationFrame(draw);
     };
     draw();return()=>cancelAnimationFrame(raf);
@@ -667,13 +688,14 @@ function App(){
       const s=window.speechSynthesis;if(!s||!text){res();return;}
       s.cancel();
       const myToken=++speakTokenRef.current;
-      setSpeaking(true);speakingRef.current=true;
+      setSpeaking(true);speakingRef.current=true;lastSpokeRef.current=Date.now();
       // Split into sentence-sized chunks (Android Chrome silently truncates long utterances).
       const chunks=text.match(/[^.!?…]+[.!?…]+|\S[^.!?…]*$/g)||[text];
       await new Promise(r=>setTimeout(r,60)); // let cancel() settle
       for(const ch of chunks){
         if(speakTokenRef.current!==myToken)break;   // interrupted (mic/stop/new gen)
         const piece=ch.trim();if(!piece)continue;
+        lastSpokeRef.current=Date.now();
         await speakChunk(s,piece,myToken);
       }
       if(speakTokenRef.current===myToken){setSpeaking(false);speakingRef.current=false;}
@@ -745,39 +767,40 @@ function App(){
     if(showHw)lastHighwayReport.current=now;
     if(showNative)lastNativeReport.current=now;
 
-    if(isQ)return`You are the host of "Road Radio", a science-and-discovery broadcast for a driver. The listener just spoke to you directly and said: "${question}".
+    if(isQ)return`You are the host of "Road Radio", a tour-guide broadcast for a driver. The driver called in and asked about the place they are driving through RIGHT NOW: "${question}".
 
-This may be a QUESTION about the area, OR feedback about how you host (e.g. "stop talking about beauty", "give me more facts", "talk slower"). 
-- If it is FEEDBACK about your style: acknowledge it briefly and warmly in one sentence, then continue the broadcast honoring it.
-- If it is a QUESTION: answer it directly and concretely in 2-4 sentences. Real facts only. If you don't know, say plainly you're not certain rather than inventing.
-Then return to the broadcast naturally. Answer in ${al}. Reply ONLY valid JSON: {"story":"your spoken answer","location":"current place in English","prefs":"if the listener stated a lasting preference about your hosting style, summarize it in a short imperative phrase in English, e.g. 'no purple prose, more hard facts'; otherwise empty string"}`;
+Answer their question directly and concretely in 2-5 sentences, about THIS exact area (${ld.city||"this area"}${ld.state?`, ${ld.state}`:""}, ${c.lat.toFixed(4)}, ${Math.abs(c.lng).toFixed(4)}W). Real, documented facts only. If you don't know, say plainly you're not certain rather than inventing. Warm, clear, like a guide answering a passenger. Then add one short friendly line handing back to the broadcast. Answer entirely in ${al}.
+Reply ONLY valid JSON: {"story":"your spoken answer in ${al}","location":"current place in English"}`;
 
     const prefs=listenerPrefsRef.current;
-    const orderCtx=prefs?`\n\n========================\n‼ ПРИКАЗ СЛУШАТЕЛЯ (THE LISTENER'S DIRECT ORDER) ‼\nThis is the single most important instruction. It OVERRIDES the broadcast mode, the topic rotation, and every default below. The listener personally told you: "${prefs}".\nIf they said to talk ONLY about certain things, then everything else (roads, history, towns, fuel, films, etc.) is FORBIDDEN unless it directly serves their request. Obey this literally and on EVERY segment, not just once.\n========================`:"";
+    const orderCtx=prefs?`\n\n========================\n‼ ПРИКАЗ СЛУШАТЕЛЯ (THE LISTENER'S STANDING ORDER) ‼\nThe listener personally told you: "${prefs}".\nThis overrides defaults. BUT interpret it correctly:\n- If they said "ONLY about X" / "только про X" → talk strictly about X, nothing else.\n- If they said "MORE about X" / "побольше про X" → bring X up MORE OFTEN than other things, but STILL cover other topics too. "More" does NOT mean "only". Do not get stuck on one subject forever.\nApply this sensibly on every segment.\n========================`:"";
     const cfg=topicsCfgRef.current||{};
-    const recentFacts=saidFactsRef.current.slice(-10).join(" | ");
+    const lastSaid=saidFactsRef.current.slice(-1)[0]||"";
+    const recentFacts=saidFactsRef.current.slice(-14).join(" | ");
     const samePlace=ld.city&&ld.city===prevPlaceRef.current;
     const topicMenu=[
-      cfg.history!==false?"a piece of local history (who founded the town and when, what happened here, the railroad and what it links)":null,
-      cfg.wildlife!==false?"wildlife — animals living here now, or creatures that lived here long ago (prehistoric, ice-age, what went extinct), told briefly and vividly":null,
-      cfg.films!==false?"a movie or show filmed in this area and the year — ONLY if you actually know it's true for this exact place":null,
+      cfg.history!==false?"local history (who founded the town and when, what happened here, the railroad and what it links)":null,
+      cfg.wildlife!==false?"wildlife — animals here now, or creatures that lived here long ago (prehistoric, ice-age, extinct), brief and vivid":null,
+      cfg.films!==false?"a movie or show filmed here and the year — ONLY if truly documented for this exact place":null,
       cfg.famous!==false?"a famous person born in or tied to this place — only if real":null,
-      "the geology and shape of the land, mining, industry, what's farmed here",
-      cfg.photo!==false?"a heads-up about a genuinely good photo spot or viewpoint coming up, if a real one exists":null,
+      cfg.geology!==false?"geology and the shape of the land, mining, industry, what's farmed here":null,
+      cfg.culture!==false?"local culture, food, traditions, how people live here":null,
+      cfg.photo!==false?"a heads-up about a real scenic viewpoint or photo spot coming up":null,
     ].filter(Boolean).join(" • ");
+    const enabledNote=topicMenu?`The listener has chosen these topics — stay within them: ${topicMenu}.`:`The listener turned most topics off; keep to whatever remains and the listener's order.`;
 
-    return`You are the host of "Road Radio" — a charismatic personal TOUR GUIDE sitting beside the driver, like the best sightseeing-bus guide who knows wonderful TRUE stories about every place and makes the miles fly. Warm, easy, a little charming. Not a dry lecturer. Not a poet gushing about beauty. A storyteller who knows the real story of any place in America.${orderCtx}
+    return`You are the host of "Road Radio" — a charismatic personal TOUR GUIDE riding beside the driver, the kind of sightseeing-bus guide who turns a drive into one flowing, fascinating story. Warm, human, a little charming. Not a dry lecturer. Not a poet gushing about scenery. A real storyteller who knows the true story of any place in America.${orderCtx}
 
-THE 7 CORE RULES (follow all, every time):
-1. ONE CONTINUOUS SHOW for ONE person who has been listening the whole drive. Never restart, never re-introduce yourself or the region.
-2. IF THE PLACE HASN'T CHANGED, do not name it again like it's new. ${samePlace?`You ALREADY named "${ld.city}" — now say "здесь", "в этом месте", "на этом участке", "в этих краях" instead of repeating the name.`:`This appears to be a new area.`}
-3. ONE NEW THOUGHT per segment. Move to something you have NOT said. Rotate among: ${topicMenu}.
-4. IF THERE'S LITTLE TO SAY, keep it short — 2-3 sentences — then hand back. Don't pad. Length follows how interesting the spot truly is (rich spot → up to ~8 sentences).
-5. DON'T INVENT. The driver instantly catches lies and stops trusting you. Only say things that are real and documented for THIS exact area/state. Never promise "a junction in a mile" or name a town/animal/film unless it's in the data below or you're certain it belongs here. When unsure, speak generally about the region instead.
-6. THE LISTENER'S ORDER (above, if any) beats everything.
-7. NEVER repeat a fact or a phrasing you've already used this drive.
+HOW A GREAT GUIDE TALKS (this is the heart of the job):
+1. ONE CONTINUOUS STORY, not separate blocks. The same person has listened the whole drive. This segment must feel like the NATURAL CONTINUATION of the last one — use a bridge to connect them, the way a real guide does: "Кстати, раз уж речь зашла о...", "А вон то, что мы только что проехали, связано с...", "И это подводит нас к...". The last thing you talked about was: "${lastSaid||"(nothing yet — open the show warmly)"}". Flow ONWARD from it; do NOT jump to a random unrelated fact.
+2. DON'T HOP AROUND. A real guide doesn't say one minute about history, then jerk to geology, then to animals. Follow a thread. Let one thought lead to the next.
+3. KEEP EACH SEGMENT SHORT — about 3 to 5 sentences. This is radio, not a lecture. Say one good thing well, then hand the thread to the next segment. Never drone on.
+4. ${samePlace?`You ALREADY named "${ld.city}". Say "здесь", "в этом месте", "в этих краях" — do NOT re-introduce the place.`:`This looks like a new area — you may set the scene briefly.`}
+5. DON'T INVENT. The driver catches lies instantly and stops trusting you. State only what's real for THIS exact area/state. Never promise "a turn in a mile" or name a town, animal, film, or person unless it's in the data below or you are certain it belongs here. Unsure → speak generally, don't fabricate.
+6. ${enabledNote}
+7. NEVER repeat a fact OR a phrasing you've used. You must remember the whole drive (see the list below) and keep finding something new.
 
-VARY YOUR OPENING. Do NOT start segments the same way. Never use a stock opener like "Впереди вас" or "Знаете что". Instead rotate the FORMAT of your opening: sometimes a question, sometimes a surprising fact, sometimes a mini-story, sometimes "слева/справа от нас...", sometimes a continuation of the previous thought, sometimes straight into the subject. Each segment should open differently from the last.
+OPENINGS: never start two segments the same way, and never with a stock phrase ("Впереди вас", "Знаете что", "А вот интересно"). Open by continuing the thread, or with a question, a person, a small story, a "посмотрите налево...". Vary it genuinely.
 
 CURRENT POSITION (ground truth — the driver is HERE now):
 - Road: ${ld.highway||"this road"}
@@ -789,27 +812,27 @@ CURRENT POSITION (ground truth — the driver is HERE now):
 
 ${nightCtx}
 
-ALREADY SAID THIS DRIVE (never repeat, not even reworded): ${recentFacts||"nothing yet — first segment"}
+EVERYTHING YOU'VE ALREADY SAID THIS DRIVE (never repeat any of it, not even reworded — this is your memory of the last ~15 minutes): ${recentFacts||"nothing yet — this is your first segment"}
 
 - ${showSpd?`You may mention speed once.`:"Never mention speed, mph, or km/h."}
 - ${showHw?`You may name the road once.`:"Don't repeat the road name."}
 - Keep time-of-day consistent with "${phase}".
-- LANGUAGE LOCK: the ENTIRE segment must be in ${al}. Do not slip into any other language. No foreign words.
+- LANGUAGE LOCK: the ENTIRE segment in ${al}. No foreign words, no slipping languages.
 
-Reply ONLY valid JSON: {"story":"your spoken segment in ${al}","location":"exact place in English","topics":"a short specific phrase naming the ONE thing you just covered (e.g. 'founding of Flagstaff 1882','pronghorn antelope')"}`;
+Reply ONLY valid JSON: {"story":"your spoken segment in ${al}, 3-5 sentences, continuing the thread","location":"exact place in English","topics":"a short specific phrase naming the ONE thing you just covered (e.g. 'founding of Flagstaff 1882','pronghorn antelope')"}`;
   };
 
   const callClaude=async(sys,msg,forNext)=>{
     const key=localStorage.getItem(KEY_STORE);
     const msgs=forNext?[{role:"user",content:msg}]:[...histRef.current.slice(-4),{role:"user",content:msg}];
-    const r=await fetch(PROXY,{method:"POST",headers:{"Content-Type":"application/json","x-api-key":key,"anthropic-version":"2023-06-01","anthropic-dangerous-direct-browser-access":"true"},body:JSON.stringify({model:"claude-haiku-4-5-20251001",max_tokens:1100,system:sys,messages:msgs})});
+    const r=await fetch(PROXY,{method:"POST",headers:{"Content-Type":"application/json","x-api-key":key,"anthropic-version":"2023-06-01","anthropic-dangerous-direct-browser-access":"true"},body:JSON.stringify({model:"claude-haiku-4-5-20251001",max_tokens:700,system:sys,messages:msgs})});
     if(!r.ok)throw new Error(await r.text());
     const d=await r.json();
     const txt=(d.content?.[0]?.text||"{}").replace(/```json|```/g,"").trim();
     const res=extract(txt);
     if(!forNext){
       histRef.current=[...msgs,{role:"assistant",content:txt}];
-      if(res.topics){topicsUsedRef.current=[...topicsUsedRef.current,res.topics].slice(-12);saidFactsRef.current=[...saidFactsRef.current,res.topics].slice(-20);}
+      if(res.topics){topicsUsedRef.current=[...topicsUsedRef.current,res.topics].slice(-20);saidFactsRef.current=[...saidFactsRef.current,res.topics].slice(-30);}
     }
     return res;
   };
@@ -888,23 +911,36 @@ Reply ONLY valid JSON: {"story":"your spoken segment in ${al}","location":"exact
       setStory(storyText);
       if(res.location)setLocData(p=>({...p,name:res.location}));
       prevPlaceRef.current=locDataRef.current.city||"";   // for "here" continuity next time
-      // Pacing follows content: a short note = short gap before the next item; a rich segment = a longer breath.
-      const wordCount=storyText.split(/\s+/).length;
-      const gapSec=wordCount<40?8:wordCount<90?14:22;
-      setStatus("ready");startCd(gapSec);prefetch();
+      setStatus("ready");startCd(3);
+      prefetch();                       // start preparing the NEXT segment now, while this one is being spoken
       if(storyText)await speak(storyText);
       if(gen!==loopGenRef.current||!runRef.current||parkedRef.current)return;
     }finally{
       loopBusyRef.current=false;
     }
-    // Only the live generation schedules the next round, with a gap matched to the segment.
+    // Continuous radio: almost no gap. The next segment is usually already prefetched, so it starts right away.
     if(gen===loopGenRef.current&&runRef.current&&!parkedRef.current){
-      const wc=storyText.split(/\s+/).length;
-      const gap=wc<40?8000:wc<90?14000:22000;
-      scheduleNext(gen,gap);
+      scheduleNext(gen,1500);
     }
   };
   loopRef.current=loop;
+
+  // Watchdog: if the show is running but nothing has been spoken for a long time
+  // (a wedged fetch, or a stuck speech engine on a long Android session), kick it back to life.
+  useEffect(()=>{
+    const iv=setInterval(()=>{
+      if(!runRef.current||parkedRef.current||pausedRef.current||callPhaseRef.current!=="idle")return;
+      const since=Date.now()-(lastSpokeRef.current||0);
+      if(since>45000){           // 45s of total silence while supposedly live = wedged
+        loopBusyRef.current=false;
+        try{window.speechSynthesis&&window.speechSynthesis.cancel();}catch{}
+        loopGenRef.current++;const g=loopGenRef.current;
+        lastSpokeRef.current=Date.now();
+        setTimeout(()=>{if(runRef.current&&loopGenRef.current===g)loopRef.current?.(false,false);},300);
+      }
+    },15000);
+    return()=>clearInterval(iv);
+  },[]);
 
   // Speed/parked detection
   useEffect(()=>{
@@ -1013,12 +1049,23 @@ Reply ONLY valid JSON: {"story":"your spoken segment in ${al}","location":"exact
     setCallMode(true);setCallPhase("greeting");callPhaseRef.current="greeting";
     const isRu=langRef.current==="ru";
     const greet=isRu
-      ?"Вы дозвонились на Дорожное Радио! Слушаю вас — что бы вы хотели услышать в эфире? О чём рассказывать больше, о чём меньше? Говорите после сигнала."
-      :"You've reached Road Radio! I'm listening — what would you like to hear on the air? More of what, less of what? Speak after the tone.";
+      ?"Вы дозвонились на Дорожное Радио! Спрашивайте — что вы хотите узнать об этом месте, где сейчас едете? Говорите, я слушаю."
+      :"You've reached Road Radio! Go ahead — what would you like to know about this place you're driving through? I'm listening.";
     await speak(greet);
     if(callPhaseRef.current!=="greeting")return;   // user cancelled
     setCallPhase("listening");callPhaseRef.current="listening";
     callListen();
+  };
+
+  // Collapse accidental repeats like "стою стою стою" and cap length so the screen can never overflow.
+  const cleanTranscript=s=>{
+    let out=(s||"").replace(/\s+/g," ").trim();
+    // remove immediate duplicated words
+    out=out.replace(/\b(\S+)(\s+\1\b)+/gi,"$1");
+    // remove immediate duplicated short phrases (2-5 words)
+    out=out.replace(/\b((?:\S+\s+){1,4}\S+)\s+\1\b/gi,"$1");
+    if(out.length>400)out=out.slice(-400);
+    return out;
   };
 
   const callListen=()=>{
@@ -1027,9 +1074,7 @@ Reply ONLY valid JSON: {"story":"your spoken segment in ${al}","location":"exact
       if(!SR){setCallPhase("type");callPhaseRef.current="type";return;}   // fall back to typing
       const rec=new SR();
       rec.lang=L[langRef.current]?.tts||"en-US";
-      rec.continuous=true;rec.interimResults=true;
-      // This recognizer's OWN final text (each restart is a fresh session, so build it from scratch
-      // every onresult and never append blindly — that was causing the duplicated "стою стою стою...").
+      rec.continuous=false;rec.interimResults=true;   // one clean phrase per session — avoids replay-duplication
       let sessionFinal="";
       rec.onresult=e=>{
         sessionFinal="";let interim="";
@@ -1037,17 +1082,15 @@ Reply ONLY valid JSON: {"story":"your spoken segment in ${al}","location":"exact
           if(e.results[i].isFinal)sessionFinal+=e.results[i][0].transcript+" ";
           else interim+=e.results[i][0].transcript;
         }
-        // show everything committed so far + this session's words
-        setMicTranscript((callTextRef.current+sessionFinal+interim).trim());
+        setMicTranscript(cleanTranscript(callTextRef.current+" "+sessionFinal+" "+interim));
       };
       rec.onerror=()=>{};
-      // Chrome on Android ends continuous recognition by itself. Commit this session's final words
-      // to the master buffer ONCE, then restart to keep listening until the user is done.
       rec.onend=()=>{
-        if(sessionFinal)callTextRef.current=(callTextRef.current+sessionFinal).replace(/\s+/g," ");
-        setMicTranscript(callTextRef.current.trim());
+        if(sessionFinal)callTextRef.current=cleanTranscript(callTextRef.current+" "+sessionFinal);
+        setMicTranscript(callTextRef.current);
+        // keep listening across phrases until the user taps "I'm done"
         if(callPhaseRef.current==="listening"&&!userDoneRef.current){
-          setTimeout(()=>{ if(callPhaseRef.current==="listening"&&!userDoneRef.current)callListen(); },300);
+          setTimeout(()=>{ if(callPhaseRef.current==="listening"&&!userDoneRef.current)callListen(); },250);
         }
       };
       callRecRef.current=rec;
@@ -1064,24 +1107,25 @@ Reply ONLY valid JSON: {"story":"your spoken segment in ${al}","location":"exact
     try{callRecRef.current&&callRecRef.current.stop();}catch{}
     setCallPhase("closing");callPhaseRef.current="closing";setMicTranscript("");
     const isRu=langRef.current==="ru";
+    let answer="";
     if(spoken&&spoken.trim()){
-      // Detect a "keep talking even when I'm stopped" instruction and make it stick.
-      const low=spoken.toLowerCase();
-      if(/(стою|стоянк|останов|не двига|на месте|stopped|standing|parked|not moving)/.test(low) && /(рассказ|говори|продолж|talk|keep|continue|don't ask|не спрашив)/.test(low)){
-        neverParkRef.current=true;tourAckRef.current=true;try{localStorage.setItem("rr_neverpark","1");}catch{}
-      }
+      // This button is ONLY a question about the current place. Answer it; do NOT save as a preference.
       try{
         const res=await callClaude(buildSys(true,spoken,false),spoken,false);
-        if(res.prefs)addListenerPref(res.prefs); else addListenerPref(spoken.trim());
-      }catch{addListenerPref(spoken.trim());}
+        answer=(res&&res.story)?res.story:"";
+      }catch{}
     }
-    const bye=isRu
-      ?"Понял вас, всё записал. Учту в эфире. Хорошей дороги... продолжаем!"
-      :"Got it, all noted. I'll keep it in mind. Drive safe... back to the show!";
-    await speak(bye);
     setCallMode(false);setCallPhase("idle");callPhaseRef.current="idle";
-    pausedRef.current=false;setPaused(false);
-    if(runRef.current){loopBusyRef.current=false;loopGenRef.current++;const g=loopGenRef.current;setTimeout(()=>{if(runRef.current&&loopGenRef.current===g)loopRef.current?.(false,false);},500);}
+    // Speak the DJ's answer on air, then resume the show.
+    if(answer){
+      const g=++loopGenRef.current;
+      await speak(answer);
+      pausedRef.current=false;setPaused(false);
+      if(runRef.current){loopBusyRef.current=false;loopGenRef.current++;const g2=loopGenRef.current;setTimeout(()=>{if(runRef.current&&loopGenRef.current===g2)loopRef.current?.(false,false);},500);}
+    }else{
+      pausedRef.current=false;setPaused(false);
+      if(runRef.current){loopBusyRef.current=false;loopGenRef.current++;const g=loopGenRef.current;setTimeout(()=>{if(runRef.current&&loopGenRef.current===g)loopRef.current?.(false,false);},500);}
+    }
   };
 
   const cancelCall=()=>{
@@ -1287,19 +1331,13 @@ Reply ONLY valid JSON: {"story":"your spoken segment in ${al}","location":"exact
               ))}
             </div>
             <button className="tts-btn" onClick={openTTSSettings}>⚙️ {isRu?"Докачать голоса в настройках телефона →":"Add more voices in phone settings →"}</button>
-            <div className="set-sect">{isRu?"Что НЕ рассказывать":"What NOT to narrate"}</div>
-            <div className="topic-grid">
-              {TOPICS.map(t=>(
-                <div key={t.id} className={`topic-item${excluded.includes(t.id)?" on":""}`} onClick={()=>setExcluded(p=>p.includes(t.id)?p.filter(x=>x!==t.id):[...p,t.id])}>
-                  <div className="topic-check">{excluded.includes(t.id)?"✕":""}</div>
-                  <div className="topic-lbl">{isRu?t.ru:t.en}</div>
-                </div>
-              ))}
-            </div>
             <div className="set-sect">{isRu?"О чём рассказывать":"What to talk about"}</div>
+            <div style={{fontSize:"13px",color:"#9aabbf",margin:"0 2px 8px"}}>{isRu?"Зелёное — рассказывает. Нажмите, чтобы выключить (станет серым).":"Green = on. Tap to turn a topic off."}</div>
             <div className="topic-grid">
               <div className={`topic-item${topicHistory?" on2":""}`} onClick={()=>setTopicHistory(v=>!v)}><div className="topic-check on">{topicHistory?"✓":""}</div><div className="topic-lbl">{isRu?"История места":"Local history"}</div></div>
               <div className={`topic-item${topicWildlife?" on2":""}`} onClick={()=>setTopicWildlife(v=>!v)}><div className="topic-check on">{topicWildlife?"✓":""}</div><div className="topic-lbl">{isRu?"Животные (и древние)":"Wildlife (& ancient)"}</div></div>
+              <div className={`topic-item${topicGeology?" on2":""}`} onClick={()=>setTopicGeology(v=>!v)}><div className="topic-check on">{topicGeology?"✓":""}</div><div className="topic-lbl">{isRu?"Природа и геология":"Land & geology"}</div></div>
+              <div className={`topic-item${topicCulture?" on2":""}`} onClick={()=>setTopicCulture(v=>!v)}><div className="topic-check on">{topicCulture?"✓":""}</div><div className="topic-lbl">{isRu?"Культура и быт":"Culture & life"}</div></div>
               <div className={`topic-item${topicFilms?" on2":""}`} onClick={()=>setTopicFilms(v=>!v)}><div className="topic-check on">{topicFilms?"✓":""}</div><div className="topic-lbl">{isRu?"Где снимали фильмы":"Movie locations"}</div></div>
               <div className={`topic-item${topicFamous?" on2":""}`} onClick={()=>setTopicFamous(v=>!v)}><div className="topic-check on">{topicFamous?"✓":""}</div><div className="topic-lbl">{isRu?"Знаменитости":"Famous people"}</div></div>
               <div className={`topic-item${topicPhoto?" on2":""}`} onClick={()=>setTopicPhoto(v=>!v)}><div className="topic-check on">{topicPhoto?"✓":""}</div><div className="topic-lbl">{isRu?"Фотозоны по пути":"Photo spots ahead"}</div></div>
@@ -1385,7 +1423,7 @@ Reply ONLY valid JSON: {"story":"your spoken segment in ${al}","location":"exact
 
       {screen==="setup"&&(
         <div className="setup">
-          <div className="s-hero"><div className="s-icon">{bmObj.icon}</div><div className="s-title">Road Radio</div><div className="s-sub">{slogan}</div></div>
+          <div className="s-hero"><div className="s-icon">📻</div><div className="s-title">Road Radio</div><div className="s-sub">{slogan}</div></div>
           {needsReview&&(
             <div className="review-banner" onClick={()=>{setSettingsOpen(true);localStorage.setItem("rr_review",String(Date.now()));setNeedsReview(false);}}>
               ⚙️ {isRu?"Давно не заглядывали в настройки. Проверить, всё ли по вкусу? →":"Haven't checked your settings in a while. Tap to review →"}
@@ -1441,20 +1479,15 @@ Reply ONLY valid JSON: {"story":"your spoken segment in ${al}","location":"exact
 
           <div className="sa">
             <div className="airbar">
-              <div className="airlbl">{status==="ready"&&<div className="airdot"/>}{status==="loading"?(isRu?"ГЕНЕРИРУЮ...":"GENERATING..."):(isRu?"В ЭФИРЕ":"ON AIR")}</div>
+              <div className="airlbl">{status==="ready"&&<div className="airdot"/>}{isRu?"В ЭФИРЕ":"ON AIR"}</div>
               <div className="timeinfo">{timeStr}</div>
             </div>
-            {status==="loading"&&<div className="ldtxt"><span className="spinico">◌</span>&nbsp;{isRu?"Готовлю рассказ...":"Preparing..."}</div>}
-            {showTxt&&story&&status!=="loading"&&<div className="stxt">{story}</div>}
-            {!showTxt&&story&&status!=="loading"&&<div className="ldtxt">🔊</div>}
+            {/* Live equalizer — pulses while the host speaks, idle bars otherwise. No "buffering" shown to the user. */}
+            <div className={`eq${speaking?" live":""}`}>
+              {[0,1,2,3,4,5,6,7,8,9,10,11,12,13].map(i=><span key={i} style={{animationDelay:`${(i%7)*0.09}s`}}/>)}
+            </div>
+            {showTxt&&story&&<div className="stxt">{story}</div>}
             {micTranscript&&<div className="mic-transcript">🎤 {micTranscript}</div>}
-            {story&&status==="ready"&&(
-              <div className="pgrow">
-                <span className="pglbl">⟳ {isRu?"след.":"next"}</span>
-                <div className="pgbar"><div className="pgfill" style={{width:`${Math.max(0,(1-cd/(cdTotalRef.current||55))*100)}%`}}/></div>
-                <span className="pglbl">{cd}s</span>
-              </div>
-            )}
           </div>
 
           {parked&&(
@@ -1513,7 +1546,7 @@ Reply ONLY valid JSON: {"story":"your spoken segment in ${al}","location":"exact
               <button className="mbtn stop" onClick={stop}>{isRu?"■ Стоп":"■ Stop"}</button>
               <button className={`mbtn pause${paused?" on":""}`} onClick={togglePause}>{paused?(isRu?"▶ Дальше":"▶ Resume"):(isRu?"⏸ Пауза":"⏸ Pause")}</button>
             </div>
-            <button className="callbtn" onClick={openCall}>📞 {isRu?"Позвонить диджею":"Call the DJ"}</button>
+            <button className="callbtn" onClick={openCall}>📞 {isRu?"Спросить про это место":"Ask about this place"}</button>
             <div className="sec-btns">
               <button className={`sbtn big${showTxt?" act":""}`} onClick={()=>setShowTxt(t=>!t)}>{showTxt?(isRu?"📄 Текст ✓":"📄 Text ✓"):(isRu?"📄 Текст":"📄 Text")}</button>
               <button className={`sbtn big${djMode?" act":""}`} onClick={()=>setDjMode(d=>!d)}>{djMode?(isRu?"🎙 Диктор ✓":"🎙 DJ ✓"):(isRu?"🛣 Дорога":"🛣 Road")}</button>
