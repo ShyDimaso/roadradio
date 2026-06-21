@@ -150,7 +150,7 @@ body{font-family:'Inter',sans-serif;color:#fff;}
 .geobtn.ok{border-color:#00e87a;color:#00e87a;background:#071410;}
 
 /* DJ AVATAR */
-.dj-zone{position:relative;height:300px;overflow:hidden;flex-shrink:0;background:radial-gradient(circle at 50% 38%,#2a1a4e,#140d28 60%,#0a0618);display:flex;align-items:center;justify-content:center;border-bottom:2px solid #3a2a5e;}
+.dj-zone{position:relative;height:300px;overflow:hidden;flex-shrink:0;background:radial-gradient(circle at 50% 42%,#241a0e,#140d06 60%,#0a0703);display:flex;align-items:center;justify-content:center;border-bottom:2px solid #4a3a1e;}
 .dj-canvas{position:absolute;left:0;top:0;width:100%;height:230px;}
 .dj-over{display:none;}
 .dj-info{position:absolute;bottom:0;left:0;right:0;padding:10px 18px;background:rgba(8,6,18,0.92);border-top:1px solid #2a1f45;}
@@ -274,21 +274,16 @@ body{font-family:'Inter',sans-serif;color:#fff;}
 const {useState,useRef,useEffect}=React;
 const PROXY="https://corsproxy.io/?https://api.anthropic.com/v1/messages";
 const KEY_STORE="rr_key_v3";
-const VER="v26";
+const VER="v27";
 
 const OPENERS_RU=["На этой земле...","Да, кстати...","Мало кто знает, но...","Справа от вас...","История этого края...","Сто лет назад здесь...","Тишина здесь обманчива...","Когда-то давно здесь...","Через пару миль...","Вот что примечательно..."];
 const OPENERS_EN=["On this land...","Here's something few know...","Just to your right...","The history here...","A hundred years ago...","Locals know that...","In a few miles...","What's remarkable is...","This stretch of highway...","Worth knowing..."];
 
 const TRAVEL=[{id:"car",icon:"🚗",en:"Car",ru:"Машина"},{id:"bus",icon:"🚌",en:"Bus/Train",ru:"Автобус"},{id:"bike",icon:"🚲",en:"Bike",ru:"Велосипед"},{id:"walk",icon:"🚶",en:"Walk",ru:"Пешком"}];
 const BCASTS=[
-  {id:"normal",icon:"📻",en:"Road Radio",ru:"Обычный",desc:"Classic",descRu:"Классика",prompt:"You are a warm, knowledgeable road companion on classic FM radio. Friendly and conversational, like a smart friend in the passenger seat. Mix history, nature, and local color. Medium pace, easy to listen to."},
-  {id:"night",icon:"🌌",en:"Night Drive",ru:"Ночная езда",desc:"Poetic",descRu:"Поэтично",prompt:"You are a late-night radio poet broadcasting to lonely drivers. Speak slowly, intimately, almost in a whisper. Stars, shadows, the hum of tires, nocturnal animals at the edge of the headlights. Dreamlike, hushed, lyrical. Short sentences. Lots of silence between thoughts."},
-  {id:"trucker",icon:"🚛",en:"Trucker",ru:"Дальнобойщик",desc:"CB Radio",descRu:"Дальнобойщик",prompt:"You are a grizzled veteran trucker talking over the CB radio. Blunt, practical, gravelly. Talk grades, mile markers, weigh stations, rest stops, weather, road surface, what's coming up. Use trucker slang lightly. No poetry — just real talk between drivers. Call the listener 'driver'."},
-  {id:"discovery",icon:"🔍",en:"Discovery",ru:"Открытия",desc:"Science",descRu:"Наука",prompt:"You are a National Geographic documentary narrator. Authoritative, precise, awe-inspiring. Geology, ecology, climate, the deep-time story of the land. Drop one genuinely surprising scientific fact each time. Educational with a wow factor. Measured, confident delivery."},
-  {id:"americana",icon:"🇺🇸",en:"Americana",ru:"Американа",desc:"History",descRu:"История",prompt:"You are a nostalgic American storyteller, like a Ken Burns narrator. Settlers, railroads, Route 66, oil booms, dust bowls, small-town America. Proud, warm, a little wistful. Paint pictures of the past layered over the present road. Rich, unhurried."},
-  {id:"zen",icon:"🌲",en:"Nature Zen",ru:"Природа",desc:"Peaceful",descRu:"Спокойно",prompt:"You are a calm meditation and nature guide. Soothing, grounding, present-tense. Trees, rivers, wind, light, seasons, breathing. Help the driver feel calm and connected to the landscape. Gentle, restorative, no rush, no drama. Soft language."},
-  {id:"mystery",icon:"👻",en:"Mysteries",ru:"Тайны",desc:"Legends",descRu:"Легенды",prompt:"You are a teller of strange tales on a midnight mystery show. Local legends, ghost towns, unexplained history, eerie folklore tied to this land. Build suspense. Slightly spooky, intriguing, theatrical — but never silly. Leave the listener with a chill and a question."},
-  {id:"funny",icon:"😄",en:"Road DJ",ru:"Весёлый DJ",desc:"Fun",descRu:"С юмором",prompt:"You are an upbeat, funny road-trip DJ with big energy. Quick wit, playful observations, amusing real facts, light jokes about road life. Keep it punchy and fun, like morning-show banter. Never mean, never crude. Make the driver smile."},
+  {id:"normal",icon:"📻",en:"Neutral",ru:"Нейтральный",desc:"Classic",descRu:"Обычный",prompt:"NEUTRAL HOST. A warm, knowledgeable, easy-going radio guide. Clear and friendly, neither joking nor lecturing. Tell the story of the place naturally, like a smart pleasant companion in the passenger seat. Balanced and calm."},
+  {id:"funny",icon:"😂",en:"Comedian",ru:"Юмористический",desc:"Stand-up",descRu:"Стендап",prompt:"STAND-UP COMEDIAN HOST. Big charisma, playful, quick wit — like a beloved stand-up comic. The humor comes from your DELIVERY and unexpected comparisons, not crude jokes. Tease gently, exaggerate for effect, toss in funny asides and vivid everyday metaphors and a little self-irony. Make the driver actually smile — but the facts underneath stay TRUE. Light, bright, never mean, never vulgar. Even an ordinary fact should be told in a fun way."},
+  {id:"science",icon:"🔬",en:"Naturalist",ru:"Научный",desc:"Popularizer",descRu:"Популяризатор",prompt:"ENTHUSIASTIC POPULARIZER HOST — in the warm spirit of a beloved nature-documentary presenter (a kind, captivated naturalist like Nikolai Drozdov). Speak with genuine wonder and affection, gently and unhurried, savoring each fascinating detail. Make science, nature and history feel magical and cozy. Soft, warm, mesmerizing, never dry. You clearly LOVE what you describe and want the listener to love it too."},
 ];
 const TOPICS=[{id:"geology",en:"Geology",ru:"Геология"},{id:"weather",en:"Weather",ru:"Погода"},{id:"wildlife",en:"Wildlife",ru:"Животные"},{id:"plants",en:"Plants",ru:"Растения"},{id:"history",en:"History",ru:"История"},{id:"towns",en:"Towns",ru:"Города"},{id:"road",en:"Roads",ru:"Дороги"},{id:"humor",en:"Humor",ru:"Юмор"}];
 const L={en:{lb:"EN",tts:"en-US",ai:"English"},ru:{lb:"RU",tts:"ru-RU",ai:"Russian"},uk:{lb:"UA",tts:"uk-UA",ai:"Ukrainian"},es:{lb:"ES",tts:"es-ES",ai:"Spanish"},pt:{lb:"PT",tts:"pt-BR",ai:"Portuguese"},de:{lb:"DE",tts:"de-DE",ai:"German"},fr:{lb:"FR",tts:"fr-FR",ai:"French"},ja:{lb:"JA",tts:"ja-JP",ai:"Japanese"},zh:{lb:"ZH",tts:"zh-CN",ai:"Chinese"},ko:{lb:"KO",tts:"ko-KR",ai:"Korean"},ar:{lb:"AR",tts:"ar-SA",ai:"Arabic"},hi:{lb:"HI",tts:"hi-IN",ai:"Hindi"},it:{lb:"IT",tts:"it-IT",ai:"Italian"},tr:{lb:"TR",tts:"tr-TR",ai:"Turkish"}};
@@ -381,8 +376,14 @@ function App(){
   const [topicFamous,setTopicFamous]=useState(localStorage.getItem("rr_t_fam")!=="0");
   const [topicGeology,setTopicGeology]=useState(localStorage.getItem("rr_t_geo")!=="0");
   const [topicCulture,setTopicCulture]=useState(localStorage.getItem("rr_t_cult")!=="0");
+  const EXTRA_TOPIC_KEYS=["music","sports","politics","crime","war","native","architecture","economy","legends","food"];
+  const [moreTopics,setMoreTopics]=useState(()=>{try{return JSON.parse(localStorage.getItem("rr_more_topics")||"{}");}catch{return{};}});
+  const isOn=k=>moreTopics[k]!==false; // default on
+  const toggleMore=k=>setMoreTopics(p=>({...p,[k]:p[k]===false?true:false}));
   const [needsReview,setNeedsReview]=useState(false);
   const [neverPark,setNeverPark]=useState(localStorage.getItem("rr_neverpark")==="1");
+  const [voiceRate,setVoiceRate]=useState(parseFloat(localStorage.getItem("rr_rate")||"0.9"));
+  const voiceRateRef=useRef(voiceRate);
   const [cd,setCd]=useState(0);
   const [speaking,setSpeaking]=useState(false);
   const [wakeLock,setWakeLock]=useState(false);
@@ -461,10 +462,11 @@ function App(){
   useEffect(()=>{weatherRef.current=weather;},[weather]);
   useEffect(()=>{pausedRef.current=paused;},[paused]);
   useEffect(()=>{neverParkRef.current=neverPark;try{localStorage.setItem("rr_neverpark",neverPark?"1":"0");}catch{}},[neverPark]);
+  useEffect(()=>{voiceRateRef.current=voiceRate;try{localStorage.setItem("rr_rate",String(voiceRate));}catch{}},[voiceRate]);
   useEffect(()=>{try{localStorage.setItem("rr_voice",selVoice);}catch{}},[selVoice]);
   const topicsCfgRef=useRef({});
   useEffect(()=>{
-    topicsCfgRef.current={wildlife:topicWildlife,films:topicFilms,photo:topicPhoto,history:topicHistory,famous:topicFamous,geology:topicGeology,culture:topicCulture,fuel:fuelAlerts,fuelMiles};
+    topicsCfgRef.current={wildlife:topicWildlife,films:topicFilms,photo:topicPhoto,history:topicHistory,famous:topicFamous,geology:topicGeology,culture:topicCulture,music:isOn("music"),sports:isOn("sports"),politics:isOn("politics"),crime:isOn("crime"),war:isOn("war"),native:isOn("native"),architecture:isOn("architecture"),economy:isOn("economy"),legends:isOn("legends"),food:isOn("food"),fuel:fuelAlerts,fuelMiles};
     localStorage.setItem("rr_fuel",fuelAlerts?"1":"0");
     localStorage.setItem("rr_fuelmi",String(fuelMiles));
     localStorage.setItem("rr_t_wild",topicWildlife?"1":"0");
@@ -474,9 +476,10 @@ function App(){
     localStorage.setItem("rr_t_fam",topicFamous?"1":"0");
     localStorage.setItem("rr_t_geo",topicGeology?"1":"0");
     localStorage.setItem("rr_t_cult",topicCulture?"1":"0");
+    localStorage.setItem("rr_more_topics",JSON.stringify(moreTopics));
     // Settings changed — drop any pre-generated segment so the NEXT one uses the new topics immediately.
     nextRef.current=null;bufferRef.current=[];
-  },[topicWildlife,topicFilms,topicPhoto,topicHistory,topicFamous,topicGeology,topicCulture,fuelAlerts,fuelMiles]);
+  },[topicWildlife,topicFilms,topicPhoto,topicHistory,topicFamous,topicGeology,topicCulture,moreTopics,fuelAlerts,fuelMiles]);
 
   // Persist a lasting listener preference about how the host should speak
   const addListenerPref=p=>{
@@ -535,9 +538,9 @@ function App(){
     draw();return()=>cancelAnimationFrame(raf);
   },[screen,djMode]);
 
-  // DJ canvas animation
+  // Radio receiver animation (vintage wooden/gold set with antenna + schematic waves)
   useEffect(()=>{
-    if(screen!=="main"||!djMode)return;       // only when DJ avatar is visible
+    if(screen!=="main"||!djMode)return;
     if(!djCanvasRef.current)return;
     const cv=djCanvasRef.current;const ctx=cv.getContext('2d');
     cv.width=500;cv.height=230;
@@ -545,63 +548,83 @@ function App(){
     const draw=()=>{
       f++;
       const spk=speakingRef.current;
-      const t=f*0.025;   // slower, calmer timebase
-      // Purple studio background with soft vignette
-      const bg=ctx.createLinearGradient(0,0,0,230);
-      bg.addColorStop(0,"#1a0f2e");bg.addColorStop(0.6,"#120a22");bg.addColorStop(1,"#0a0618");
+      const t=f*0.04;
+      // Warm dark studio backdrop
+      const bg=ctx.createRadialGradient(250,120,20,250,120,300);
+      bg.addColorStop(0,"#241a0e");bg.addColorStop(0.6,"#140d06");bg.addColorStop(1,"#0a0703");
       ctx.fillStyle=bg;ctx.fillRect(0,0,500,230);
-      const glow=ctx.createRadialGradient(250,90,10,250,110,230);
-      glow.addColorStop(0,spk?"rgba(150,90,255,0.22)":"rgba(120,70,220,0.12)");glow.addColorStop(1,"transparent");
-      ctx.fillStyle=glow;ctx.fillRect(0,0,500,220);
-      // Concentric sound rings when speaking
-      if(spk){
-        for(let i=0;i<5;i++){
-          const r=70+i*22+Math.sin(f*.16+i)*5;
-          ctx.strokeStyle=`rgba(170,110,255,${.28-i*.05})`;
-          ctx.lineWidth=2;ctx.beginPath();ctx.arc(250,120,r,0,Math.PI*2);ctx.stroke();
-        }
+
+      // ---- Antenna (top-right of set) with schematic radio waves ----
+      const antBaseX=330,antBaseY=70,antTipX=388,antTipY=18;
+      // schematic waves radiating from the antenna tip
+      const waveCount=4;
+      for(let i=0;i<waveCount;i++){
+        const phase=(f*0.05 - i*0.7);
+        const prog=((phase%waveCount)+waveCount)%waveCount/waveCount; // 0..1 looping
+        const r=14+prog*60;
+        const alpha=spk?(1-prog)*0.7:(1-prog)*0.22;
+        ctx.strokeStyle=`rgba(255,200,90,${alpha})`;
+        ctx.lineWidth=1.6;
+        ctx.beginPath();ctx.arc(antTipX,antTipY,r,-Math.PI*0.85,-Math.PI*0.05);ctx.stroke();
       }
-      // Gentle sway + breathing
-      const sway=Math.sin(t)* (spk?4:2);
-      const breath=Math.sin(t*1.6)*(spk?3:1.5);
-      ctx.save();ctx.translate(250+sway,0);
-      // Silhouette figure (shoulders + head) — dark with a violet rim light
-      ctx.fillStyle="#070410";
-      ctx.strokeStyle="rgba(170,120,255,0.55)";ctx.lineWidth=2.5;
-      // shoulders/torso
-      ctx.beginPath();ctx.moveTo(-78,220);ctx.quadraticCurveTo(-70,150+breath,-40,140+breath);
-      ctx.lineTo(40,140+breath);ctx.quadraticCurveTo(70,150+breath,78,220);ctx.closePath();ctx.fill();ctx.stroke();
-      // head
-      ctx.beginPath();ctx.arc(0,96+breath,40,0,Math.PI*2);ctx.fill();ctx.stroke();
-      // headphone band + cups
-      ctx.strokeStyle="#a06bff";ctx.lineWidth=6;
-      ctx.beginPath();ctx.arc(0,88+breath,46,Math.PI*1.12,Math.PI*1.88,false);ctx.stroke();
-      ctx.fillStyle="#a06bff";
-      ctx.beginPath();ctx.ellipse(-44,98+breath,9,15,0,0,Math.PI*2);ctx.fill();
-      ctx.beginPath();ctx.ellipse(44,98+breath,9,15,0,0,Math.PI*2);ctx.fill();
-      // eyes
-      ctx.fillStyle="#cdb4ff";
-      ctx.beginPath();ctx.arc(-13,92+breath,4,0,Math.PI*2);ctx.fill();
-      ctx.beginPath();ctx.arc(13,92+breath,4,0,Math.PI*2);ctx.fill();
-      // mouth — animated when speaking
-      const mOpen=spk?5+Math.abs(Math.sin(f*.28))*9:2.5;
-      ctx.fillStyle="#3a1f5a";
-      ctx.beginPath();ctx.ellipse(0,112+breath,12,mOpen,0,0,Math.PI*2);ctx.fill();
-      // gesturing hand near the mic when speaking
-      const ga=spk?Math.sin(t*1.1)*0.28:0.08;
-      ctx.save();ctx.translate(54,170+breath);ctx.rotate(-0.5+ga);
-      ctx.strokeStyle="rgba(170,120,255,0.6)";ctx.lineWidth=8;ctx.lineCap="round";
-      ctx.beginPath();ctx.moveTo(0,0);ctx.lineTo(34,-10);ctx.stroke();   // forearm
-      ctx.fillStyle="#070410";ctx.beginPath();ctx.arc(40,-12,9,0,Math.PI*2);ctx.fill();ctx.stroke();
-      ctx.restore();
-      ctx.restore();
-      // Microphone (fixed, in front)
-      ctx.strokeStyle="#5a4a7a";ctx.lineWidth=3;
-      ctx.beginPath();ctx.moveTo(250,180);ctx.lineTo(250,220);ctx.stroke();
-      ctx.fillStyle="#2a2040";
-      ctx.beginPath();ctx.ellipse(250,168,11,18,0,0,Math.PI*2);ctx.fill();
-      ctx.strokeStyle="#a06bff";ctx.lineWidth=2;
-      for(let i=0;i<3;i++){ctx.beginPath();ctx.moveTo(240,160+i*6);ctx.lineTo(260,160+i*6);ctx.stroke();}
+      // antenna rod
+      ctx.strokeStyle="#d9b25a";ctx.lineWidth=3;ctx.lineCap="round";
+      ctx.beginPath();ctx.moveTo(antBaseX,antBaseY);ctx.lineTo(antTipX,antTipY);ctx.stroke();
+      ctx.fillStyle="#f0d080";ctx.beginPath();ctx.arc(antTipX,antTipY,4,0,Math.PI*2);ctx.fill();
+
+      // ---- Wooden body ----
+      const bx=120,by=60,bw=260,bh=140,rad=16;
+      const wood=ctx.createLinearGradient(bx,by,bx,by+bh);
+      wood.addColorStop(0,"#9a6a32");wood.addColorStop(0.5,"#7a4f24");wood.addColorStop(1,"#5e3c1a");
+      ctx.fillStyle=wood;
+      ctx.beginPath();ctx.moveTo(bx+rad,by);ctx.arcTo(bx+bw,by,bx+bw,by+bh,rad);ctx.arcTo(bx+bw,by+bh,bx,by+bh,rad);ctx.arcTo(bx,by+bh,bx,by,rad);ctx.arcTo(bx,by,bx+bw,by,rad);ctx.closePath();ctx.fill();
+      // gold outer frame
+      ctx.strokeStyle="#e8c06a";ctx.lineWidth=3;ctx.stroke();
+      // subtle wood grain
+      ctx.strokeStyle="rgba(40,24,8,0.25)";ctx.lineWidth=1;
+      for(let i=0;i<5;i++){ctx.beginPath();ctx.moveTo(bx+8,by+22+i*24);ctx.bezierCurveTo(bx+bw*0.4,by+18+i*24,bx+bw*0.6,by+26+i*24,bx+bw-8,by+22+i*24);ctx.stroke();}
+
+      // ---- Speaker grille (left) ----
+      const gx=bx+22,gy=by+26,gw=96,gh=92;
+      ctx.fillStyle="#2c1c0c";
+      ctx.beginPath();ctx.rect(gx,gy,gw,gh);ctx.fill();
+      ctx.strokeStyle="#caa050";ctx.lineWidth=2;ctx.strokeRect(gx,gy,gw,gh);
+      // grille holes, pulsing subtly with speech
+      const pulse=spk?0.5+Math.abs(Math.sin(f*0.25))*0.5:0.5;
+      ctx.fillStyle=`rgba(210,170,90,${0.4+pulse*0.3})`;
+      for(let r=0;r<7;r++)for(let c=0;c<7;c++){ctx.beginPath();ctx.arc(gx+12+c*12,gy+12+r*12,2.1,0,Math.PI*2);ctx.fill();}
+
+      // ---- Tuning dial (right top) ----
+      const dx=bx+150,dy=by+24,dw=86,dh=40;
+      ctx.fillStyle="#f3e3b0";ctx.fillRect(dx,dy,dw,dh);
+      ctx.strokeStyle="#caa050";ctx.lineWidth=2;ctx.strokeRect(dx,dy,dw,dh);
+      // dial ticks + numbers feel
+      ctx.strokeStyle="#7a5a20";ctx.lineWidth=1;
+      for(let i=0;i<9;i++){const tx=dx+8+i*9;ctx.beginPath();ctx.moveTo(tx,dy+6);ctx.lineTo(tx,dy+13);ctx.stroke();}
+      // moving red needle
+      const needle=dx+8+((Math.sin(t*0.7)*0.5+0.5)*(dw-16));
+      ctx.strokeStyle="#e23b2e";ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(needle,dy+4);ctx.lineTo(needle,dy+dh-4);ctx.stroke();
+
+      // ---- Two knobs (right bottom), detailed ----
+      const drawKnob=(kx,ky,kr,ang)=>{
+        const kg=ctx.createRadialGradient(kx-3,ky-3,2,kx,ky,kr);
+        kg.addColorStop(0,"#f0d27e");kg.addColorStop(1,"#9a7322");
+        ctx.fillStyle=kg;ctx.beginPath();ctx.arc(kx,ky,kr,0,Math.PI*2);ctx.fill();
+        ctx.strokeStyle="#5e4012";ctx.lineWidth=2;ctx.stroke();
+        // pointer
+        ctx.strokeStyle="#3a2606";ctx.lineWidth=2.5;
+        ctx.beginPath();ctx.moveTo(kx,ky);ctx.lineTo(kx+Math.cos(ang)*(kr-4),ky+Math.sin(ang)*(kr-4));ctx.stroke();
+        // ridges
+        ctx.strokeStyle="rgba(60,40,8,0.5)";ctx.lineWidth=1;
+        for(let a=0;a<12;a++){const aa=a/12*Math.PI*2;ctx.beginPath();ctx.moveTo(kx+Math.cos(aa)*(kr-2),ky+Math.sin(aa)*(kr-2));ctx.lineTo(kx+Math.cos(aa)*kr,ky+Math.sin(aa)*kr);ctx.stroke();}
+      };
+      drawKnob(bx+168,by+96,17, t*0.8);
+      drawKnob(bx+212,by+96,17, -t*0.6+1);
+
+      // tiny "on air" lamp that glows with speech
+      ctx.fillStyle=spk?`rgba(255,90,60,${0.6+pulse*0.4})`:"rgba(120,40,30,0.5)";
+      ctx.beginPath();ctx.arc(dx+dw-6,dy+dh+14,5,0,Math.PI*2);ctx.fill();
+
       raf=requestAnimationFrame(draw);
     };
     draw();return()=>cancelAnimationFrame(raf);
@@ -678,7 +701,7 @@ function App(){
     try{
       const tl=L[langRef.current]?.tts||"en-US";
       const u=new SpeechSynthesisUtterance(chunk);
-      u.lang=tl;u.rate=0.84;u.pitch=1.0;
+      u.lang=tl;u.rate=voiceRateRef.current||0.9;u.pitch=1.0;
       try{const vs=s.getVoices();const v=selVoice?vs.find(x=>x.name===selVoice):vs.find(x=>x.lang===tl)||vs.find(x=>x.lang.startsWith(tl.split("-")[0]))||vs[0];if(v)u.voice=v;}catch{}
       u.onend=fin;u.onerror=fin;
       const w=chunk.split(/\s+/).length;
@@ -792,6 +815,16 @@ Reply ONLY valid JSON: {"story":"your spoken answer in ${al}","location":"curren
       {key:"films",label:"movies/TV filmed here (only if truly documented)"},
       {key:"famous",label:"famous people born in or tied to this place"},
       {key:"photo",label:"scenic viewpoints and good photo spots ahead"},
+      {key:"music",label:"music tied to this place — local genres, musicians, songs about it"},
+      {key:"sports",label:"sports — local teams, athletes, famous games connected here"},
+      {key:"politics",label:"notable politicians, leaders, or political history tied to this place"},
+      {key:"crime",label:"true-crime and mystery stories, outlaws, famous cases from this area"},
+      {key:"war",label:"battles, military history, forts, wars connected to this land"},
+      {key:"native",label:"Native American history and heritage of this region"},
+      {key:"architecture",label:"notable architecture, bridges, landmarks, building styles"},
+      {key:"economy",label:"industry, farming, mining, what built this local economy"},
+      {key:"legends",label:"local legends, folklore, ghost towns, odd stories"},
+      {key:"food",label:"regional food and drink, local dishes, where they came from"},
     ];
     const allowed=TOPIC_DEFS.filter(t=>cfg[t.key]!==false);
     const forbidden=TOPIC_DEFS.filter(t=>cfg[t.key]===false);
@@ -833,7 +866,7 @@ CORE RULES:
 3. ${samePlace?`You ALREADY named "${ld.city}". Say "здесь", "в этом месте" — do not re-introduce it.`:`New area — you may set the scene briefly.`}
 4. DON'T FAKE WHAT'S OUT THE WINDOW. Only say "посмотрите налево/направо, вы увидите X" if X is in REAL NEARBY OBJECTS below. Otherwise speak generally: "в этих краях...", "эта местность известна тем, что...". If you mention buildings/architecture but aren't sure they're visible, say "возможно, за деревьями скрываются..." — never claim to see what you can't confirm. Either precise (from data) or general — never a confident guess.
 5. ANTI-REPEAT: never repeat a fact or wording from this drive.${overused?` You OVERUSED these words — BANNED this segment: ${overused}.`:``}
-6. OPENINGS: never start two segments alike; never use "Впереди", "Дальше", "Знаете что", "Слушайте", "А вот интересно", "посмотрите вокруг".
+6. OPENINGS: never start two segments alike; never use "Впереди", "Дальше", "Знаете", "Знаете что", "Слушайте", "А вот интересно", "посмотрите вокруг". Just begin with the substance.
 
 CURRENT POSITION (ground truth):
 - Road: ${ld.highway||"this road"}
@@ -1075,10 +1108,11 @@ Reply ONLY valid JSON: {"story":"your segment in ${al}, 3-5 sentences, in the ${
     const isRu=langRef.current==="ru";
     const everStarted=localStorage.getItem("rr_started");
     const hw=locDataRef.current.highway;const dir=toDir(coordsRef.current?.heading||90);
-    const roadPart=hw?(isRu?` Сейчас мы движемся по ${hw} в направлении ${dir}.`:` We're on ${hw} heading ${dir}.`):"";
+    const roadPart=hw?(isRu?` Едем по ${hw} в направлении ${dir}.`:` We're on ${hw} heading ${dir}.`):(isRu?` Едем в направлении ${dir}.`:` Heading ${dir}.`);
+    const tagline=isRu?" Я расскажу всё, что было и есть вокруг вас по пути. В настройках можно выбрать стиль и темы. Приятного путешествия!":" I'll tell you everything that happened and happens around you along the way. You can pick the style and topics in settings. Enjoy the trip!";
     const greet=everStarted
-      ?(isRu?`И снова здравствуйте, вы на Дорожном Радио.${roadPart} Поехали.`:`Welcome back to Road Radio.${roadPart} Let's roll.`)
-      :(isRu?`Здравствуйте, вы на Дорожном Радио. Я ваш личный гид на этой дороге.${roadPart} Устраивайтесь поудобнее... поехали.`:`Hello, you're on Road Radio. I'm your personal guide on this road.${roadPart} Settle in... let's go.`);
+      ?(isRu?`Вы снова на Дорожном Радио.${roadPart}${tagline}`:`You're back on Road Radio.${roadPart}${tagline}`)
+      :(isRu?`Здравствуйте, вы на Дорожном Радио.${roadPart}${tagline}`:`Hello, you're on Road Radio.${roadPart}${tagline}`);
     roadReminderRef.current=Date.now();
     localStorage.setItem("rr_started","1");localStorage.setItem("rr_review",String(Date.now()));setNeedsReview(false);
     const g=loopGenRef.current;
@@ -1322,7 +1356,7 @@ Reply ONLY valid JSON: {"story":"your segment in ${al}, 3-5 sentences, in the ${
       s.cancel();
       const u=new SpeechSynthesisUtterance(isRu?"Здравствуйте, вы на Дорожном Радио. Вот как звучит этот голос.":"Hello, you're on Road Radio. This is how this voice sounds.");
       const v=voices.find(x=>x.name===name);if(v){u.voice=v;u.lang=v.lang;}
-      u.rate=0.92;
+      u.rate=voiceRateRef.current||0.92;
       s.speak(u);
     }catch{}
   };
@@ -1400,6 +1434,12 @@ Reply ONLY valid JSON: {"story":"your segment in ${al}, 3-5 sentences, in the ${
               ))}
             </div>
             <button className="tts-btn" onClick={openTTSSettings}>⚙️ {isRu?"Докачать голоса в настройках телефона →":"Add more voices in phone settings →"}</button>
+            <div className="set-sect">{isRu?"Скорость голоса":"Voice speed"}</div>
+            <div style={{padding:"4px 2px 10px"}}>
+              <div style={{fontSize:"13px",color:"#9aabbf",marginBottom:"6px"}}>{isRu?`Темп речи: ${voiceRate.toFixed(2)}× ${voiceRate<0.85?"(медленнее)":voiceRate>1.05?"(быстрее)":"(норма)"}`:`Speech rate: ${voiceRate.toFixed(2)}×`}</div>
+              <input type="range" min="0.7" max="1.5" step="0.05" value={voiceRate} onChange={e=>setVoiceRate(parseFloat(e.target.value))} style={{width:"100%"}}/>
+              <button className="tts-btn" style={{marginTop:"6px"}} onClick={()=>previewVoice(selVoice)}>▶ {isRu?"Проверить голос":"Test voice"}</button>
+            </div>
             <div className="set-sect">{isRu?"О чём рассказывать":"What to talk about"}</div>
             <div style={{fontSize:"13px",color:"#9aabbf",margin:"0 2px 8px"}}>{isRu?"Зелёное — рассказывает. Нажмите, чтобы выключить (станет серым).":"Green = on. Tap to turn a topic off."}</div>
             <div className="topic-grid">
@@ -1410,6 +1450,9 @@ Reply ONLY valid JSON: {"story":"your segment in ${al}, 3-5 sentences, in the ${
               <div className={`topic-item${topicFilms?" on2":""}`} onClick={()=>setTopicFilms(v=>!v)}><div className="topic-check on">{topicFilms?"✓":""}</div><div className="topic-lbl">{isRu?"Где снимали фильмы":"Movie locations"}</div></div>
               <div className={`topic-item${topicFamous?" on2":""}`} onClick={()=>setTopicFamous(v=>!v)}><div className="topic-check on">{topicFamous?"✓":""}</div><div className="topic-lbl">{isRu?"Знаменитости":"Famous people"}</div></div>
               <div className={`topic-item${topicPhoto?" on2":""}`} onClick={()=>setTopicPhoto(v=>!v)}><div className="topic-check on">{topicPhoto?"✓":""}</div><div className="topic-lbl">{isRu?"Фотозоны по пути":"Photo spots ahead"}</div></div>
+              {[["music",isRu?"Музыка":"Music"],["sports",isRu?"Спорт":"Sports"],["politics",isRu?"Политика":"Politics"],["crime",isRu?"Криминал/детектив":"True crime"],["war",isRu?"Войны и битвы":"Wars & battles"],["native",isRu?"Индейцы":"Native heritage"],["architecture",isRu?"Архитектура":"Architecture"],["economy",isRu?"Промышленность":"Industry"],["legends",isRu?"Легенды":"Legends"],["food",isRu?"Еда и напитки":"Food & drink"]].map(([k,lbl])=>(
+                <div key={k} className={`topic-item${isOn(k)?" on2":""}`} onClick={()=>toggleMore(k)}><div className="topic-check on">{isOn(k)?"✓":""}</div><div className="topic-lbl">{lbl}</div></div>
+              ))}
             </div>
             <div className="set-sect">{isRu?"Заправки":"Fuel stops"}</div>
             <div className={`topic-item${fuelAlerts?" on2":""}`} style={{marginBottom:"8px"}} onClick={()=>setFuelAlerts(v=>!v)}><div className="topic-check on">{fuelAlerts?"✓":""}</div><div className="topic-lbl">{isRu?"Предупреждать о заправках":"Warn about fuel stops"}</div></div>
