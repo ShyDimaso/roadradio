@@ -102,7 +102,8 @@ body{font-family:'Inter',sans-serif;color:#fff;}
 .mode-btn.sel .mode-lbl{color:#ff6b35;}
 .voice-sel{width:100%;background:#0d1525;border:2px solid #4a9eff;border-radius:10px;padding:12px 14px;color:#4a9eff;font-size:14px;outline:none;margin-top:4px;}
 .tts-btn{width:100%;padding:14px;background:#0d1828;border:2px solid #4a9eff;border-radius:10px;color:#4a9eff;font-size:14px;font-weight:700;cursor:pointer;margin-top:8px;display:flex;align-items:center;justify-content:center;gap:8px;}
-.voice-list{display:flex;flex-direction:column;gap:6px;margin-bottom:6px;max-height:260px;overflow-y:auto;}
+.voice-list{display:flex;flex-direction:column;gap:6px;margin-bottom:6px;max-height:300px;overflow-y:auto;}
+.voice-collapse{display:flex;justify-content:space-between;align-items:center;background:#0d1525;border:2px solid #2a4a80;border-radius:10px;padding:14px 14px;color:#cfe0f0;font-size:15px;cursor:pointer;margin-bottom:6px;}
 .voice-row{display:flex;align-items:center;gap:8px;background:#0d1525;border:2px solid #1e2d45;border-radius:10px;padding:2px 4px 2px 0;}
 .voice-row.sel{border-color:#3fb950;background:#0d1a0d;}
 .voice-pick{flex:1;padding:13px 12px;color:#cfe0f0;font-size:15px;cursor:pointer;}
@@ -151,6 +152,13 @@ body{font-family:'Inter',sans-serif;color:#fff;}
 
 /* DJ AVATAR */
 .dj-zone{position:relative;height:300px;overflow:hidden;flex-shrink:0;background:radial-gradient(circle at 50% 42%,#241a0e,#140d06 60%,#0a0703);display:flex;align-items:center;justify-content:center;border-bottom:2px solid #4a3a1e;}
+.dj-zone.focus{height:calc(100vh - 150px);transition:height .6s ease;}
+.focus-col{position:absolute;right:14px;bottom:18px;display:flex;flex-direction:column;gap:14px;}
+.fc-item{text-align:right;}
+.fc-v{font-family:'Orbitron',monospace;font-size:26px;font-weight:900;color:#f0c060;line-height:1;}
+.fc-l{font-size:11px;color:#9a8050;letter-spacing:2px;}
+.focus-hint{position:absolute;bottom:10px;left:0;right:0;text-align:center;font-size:12px;color:#6a5a3a;letter-spacing:1px;}
+.focus-ctrl{padding:12px 14px;}
 .dj-canvas{position:absolute;left:0;top:0;width:100%;height:230px;}
 .dj-over{display:none;}
 .dj-info{position:absolute;bottom:0;left:0;right:0;padding:10px 18px;background:rgba(8,6,18,0.92);border-top:1px solid #2a1f45;}
@@ -274,16 +282,16 @@ body{font-family:'Inter',sans-serif;color:#fff;}
 const {useState,useRef,useEffect}=React;
 const PROXY="https://corsproxy.io/?https://api.anthropic.com/v1/messages";
 const KEY_STORE="rr_key_v3";
-const VER="v27";
+const VER="v28";
 
 const OPENERS_RU=["На этой земле...","Да, кстати...","Мало кто знает, но...","Справа от вас...","История этого края...","Сто лет назад здесь...","Тишина здесь обманчива...","Когда-то давно здесь...","Через пару миль...","Вот что примечательно..."];
 const OPENERS_EN=["On this land...","Here's something few know...","Just to your right...","The history here...","A hundred years ago...","Locals know that...","In a few miles...","What's remarkable is...","This stretch of highway...","Worth knowing..."];
 
 const TRAVEL=[{id:"car",icon:"🚗",en:"Car",ru:"Машина"},{id:"bus",icon:"🚌",en:"Bus/Train",ru:"Автобус"},{id:"bike",icon:"🚲",en:"Bike",ru:"Велосипед"},{id:"walk",icon:"🚶",en:"Walk",ru:"Пешком"}];
 const BCASTS=[
-  {id:"normal",icon:"📻",en:"Neutral",ru:"Нейтральный",desc:"Classic",descRu:"Обычный",prompt:"NEUTRAL HOST. A warm, knowledgeable, easy-going radio guide. Clear and friendly, neither joking nor lecturing. Tell the story of the place naturally, like a smart pleasant companion in the passenger seat. Balanced and calm."},
-  {id:"funny",icon:"😂",en:"Comedian",ru:"Юмористический",desc:"Stand-up",descRu:"Стендап",prompt:"STAND-UP COMEDIAN HOST. Big charisma, playful, quick wit — like a beloved stand-up comic. The humor comes from your DELIVERY and unexpected comparisons, not crude jokes. Tease gently, exaggerate for effect, toss in funny asides and vivid everyday metaphors and a little self-irony. Make the driver actually smile — but the facts underneath stay TRUE. Light, bright, never mean, never vulgar. Even an ordinary fact should be told in a fun way."},
-  {id:"science",icon:"🔬",en:"Naturalist",ru:"Научный",desc:"Popularizer",descRu:"Популяризатор",prompt:"ENTHUSIASTIC POPULARIZER HOST — in the warm spirit of a beloved nature-documentary presenter (a kind, captivated naturalist like Nikolai Drozdov). Speak with genuine wonder and affection, gently and unhurried, savoring each fascinating detail. Make science, nature and history feel magical and cozy. Soft, warm, mesmerizing, never dry. You clearly LOVE what you describe and want the listener to love it too."},
+  {id:"normal",icon:"📻",en:"Neutral",ru:"Нейтральный",desc:"Classic",descRu:"Обычный",prompt:"NEUTRAL HOST — a calm, plain-spoken radio guide. Just the facts of the place told clearly and simply, like a knowledgeable friend giving you the straight story. NO jokes, NO sense of wonder or awe, NO dramatic flourishes. Even, matter-of-fact, grounded. Short clear sentences. You are the baseline 'just tell me about this place' voice."},
+  {id:"funny",icon:"😂",en:"Comedian",ru:"Юмористический",desc:"Stand-up",descRu:"Стендап",prompt:"STAND-UP COMEDIAN HOST. You are FIRST a comedian, second a guide. Open almost every segment with something that makes the driver grin — a joke, a punchy exaggeration, a sarcastic aside, a ridiculous-but-apt comparison. Riff on the facts, roast the boring ones, act amazed at silly details, use comic timing ('...and THAT, my friend, is the most exciting thing to happen here since the vending machine got restocked'). Big charisma like a club comic. The facts stay TRUE but the WRAPPER is comedy. Never vulgar, never mean — just genuinely funny. If a segment isn't making the driver smile, you're doing it wrong."},
+  {id:"science",icon:"🔬",en:"Naturalist",ru:"Научный",desc:"Wonder",descRu:"Восторженный",prompt:"AWE-STRUCK NATURE-DOCUMENTARY NARRATOR — in the spirit of a beloved naturalist like Drozdov or Attenborough. You are FILLED with wonder. Everything is fascinating, miraculous, breathtaking. Speak slowly, warmly, reverently, savoring each detail like it's a marvel ('...and here — right HERE — beneath these very fields, lies a story 300 million years in the making'). Rich sensory imagery, deep time, the poetry of nature and history. Hushed, mesmerizing, emotional. The OPPOSITE of the plain neutral host — where they are flat, you are soaring with amazement."},
 ];
 const TOPICS=[{id:"geology",en:"Geology",ru:"Геология"},{id:"weather",en:"Weather",ru:"Погода"},{id:"wildlife",en:"Wildlife",ru:"Животные"},{id:"plants",en:"Plants",ru:"Растения"},{id:"history",en:"History",ru:"История"},{id:"towns",en:"Towns",ru:"Города"},{id:"road",en:"Roads",ru:"Дороги"},{id:"humor",en:"Humor",ru:"Юмор"}];
 const L={en:{lb:"EN",tts:"en-US",ai:"English"},ru:{lb:"RU",tts:"ru-RU",ai:"Russian"},uk:{lb:"UA",tts:"uk-UA",ai:"Ukrainian"},es:{lb:"ES",tts:"es-ES",ai:"Spanish"},pt:{lb:"PT",tts:"pt-BR",ai:"Portuguese"},de:{lb:"DE",tts:"de-DE",ai:"German"},fr:{lb:"FR",tts:"fr-FR",ai:"French"},ja:{lb:"JA",tts:"ja-JP",ai:"Japanese"},zh:{lb:"ZH",tts:"zh-CN",ai:"Chinese"},ko:{lb:"KO",tts:"ko-KR",ai:"Korean"},ar:{lb:"AR",tts:"ar-SA",ai:"Arabic"},hi:{lb:"HI",tts:"hi-IN",ai:"Hindi"},it:{lb:"IT",tts:"it-IT",ai:"Italian"},tr:{lb:"TR",tts:"tr-TR",ai:"Turkish"}};
@@ -384,6 +392,14 @@ function App(){
   const [neverPark,setNeverPark]=useState(localStorage.getItem("rr_neverpark")==="1");
   const [voiceRate,setVoiceRate]=useState(parseFloat(localStorage.getItem("rr_rate")||"0.9"));
   const voiceRateRef=useRef(voiceRate);
+  const [radioFocus,setRadioFocus]=useState(false);   // true = only radio + minimal info, menu hidden
+  const [voiceListOpen,setVoiceListOpen]=useState(false);
+  const focusTimerRef=useRef(null);
+  const revealMenu=()=>{
+    setRadioFocus(false);
+    if(focusTimerRef.current)clearTimeout(focusTimerRef.current);
+    focusTimerRef.current=setTimeout(()=>setRadioFocus(true),18000); // auto-hide after 18s of no touch
+  };
   const [cd,setCd]=useState(0);
   const [speaking,setSpeaking]=useState(false);
   const [wakeLock,setWakeLock]=useState(false);
@@ -477,8 +493,9 @@ function App(){
     localStorage.setItem("rr_t_geo",topicGeology?"1":"0");
     localStorage.setItem("rr_t_cult",topicCulture?"1":"0");
     localStorage.setItem("rr_more_topics",JSON.stringify(moreTopics));
-    // Settings changed — drop any pre-generated segment so the NEXT one uses the new topics immediately.
-    nextRef.current=null;bufferRef.current=[];
+    // Settings changed — drop any pre-generated segment so the NEXT one uses the new topics immediately,
+    // and force a road/direction mention on the next segment.
+    nextRef.current=null;bufferRef.current=[];roadReminderRef.current=0;
   },[topicWildlife,topicFilms,topicPhoto,topicHistory,topicFamous,topicGeology,topicCulture,moreTopics,fuelAlerts,fuelMiles]);
 
   // Persist a lasting listener preference about how the host should speak
@@ -556,16 +573,15 @@ function App(){
 
       // ---- Antenna (top-right of set) with schematic radio waves ----
       const antBaseX=330,antBaseY=70,antTipX=388,antTipY=18;
-      // schematic waves radiating from the antenna tip
-      const waveCount=4;
-      for(let i=0;i<waveCount;i++){
-        const phase=(f*0.05 - i*0.7);
-        const prog=((phase%waveCount)+waveCount)%waveCount/waveCount; // 0..1 looping
-        const r=14+prog*60;
-        const alpha=spk?(1-prog)*0.7:(1-prog)*0.22;
-        ctx.strokeStyle=`rgba(255,200,90,${alpha})`;
-        ctx.lineWidth=1.6;
-        ctx.beginPath();ctx.arc(antTipX,antTipY,r,-Math.PI*0.85,-Math.PI*0.05);ctx.stroke();
+      // clean concentric schematic waves radiating from the antenna tip
+      const waveN=5;
+      for(let i=0;i<waveN;i++){
+        const phase=((f*0.04 - i*0.55)%waveN+waveN)%waveN/waveN;
+        const r=10+phase*70;
+        const alpha=(spk?0.85:0.3)*(1-phase);
+        ctx.strokeStyle=`rgba(255,205,100,${alpha})`;
+        ctx.lineWidth=2.2;
+        ctx.beginPath();ctx.arc(antTipX,antTipY,r,-Math.PI*0.92,-Math.PI*0.08);ctx.stroke();
       }
       // antenna rod
       ctx.strokeStyle="#d9b25a";ctx.lineWidth=3;ctx.lineCap="round";
@@ -861,12 +877,15 @@ ${forbiddenStr?`FORBIDDEN topics — you are BANNED from mentioning these at all
 Pick something from the ALLOWED list that you have NOT covered yet. Rotate — do not stay glued to one subject (especially not landscape/farming).
 
 CORE RULES:
-1. Continue the show naturally from your last thought ("${lastSaid||"opening — greet warmly"}"). One flowing story, not separate blocks.
-2. Each segment is SHORT — 3 to 5 sentences. Radio, not a lecture.
-3. ${samePlace?`You ALREADY named "${ld.city}". Say "здесь", "в этом месте" — do not re-introduce it.`:`New area — you may set the scene briefly.`}
-4. DON'T FAKE WHAT'S OUT THE WINDOW. Only say "посмотрите налево/направо, вы увидите X" if X is in REAL NEARBY OBJECTS below. Otherwise speak generally: "в этих краях...", "эта местность известна тем, что...". If you mention buildings/architecture but aren't sure they're visible, say "возможно, за деревьями скрываются..." — never claim to see what you can't confirm. Either precise (from data) or general — never a confident guess.
-5. ANTI-REPEAT: never repeat a fact or wording from this drive.${overused?` You OVERUSED these words — BANNED this segment: ${overused}.`:``}
-6. OPENINGS: never start two segments alike; never use "Впереди", "Дальше", "Знаете", "Знаете что", "Слушайте", "А вот интересно", "посмотрите вокруг". Just begin with the substance.
+1. Continue the show naturally from your last thought ("${lastSaid||"opening — greet warmly"}"). One flowing story with smooth radio-DJ bridges between segments — each segment clearly connects to the one before.
+2. FINISH A TOPIC, THEN MOVE ON. Tell one subject FULLY and well, then transition to a DIFFERENT subject. Do NOT cover something, drift away, then circle back to the same subject a few segments later. Once a topic is done, it's done — pick a new one. No ping-ponging back to football, farming, the landscape, etc.
+3. Each segment is SHORT — 3 to 5 sentences. Radio, not a lecture.
+4. ${samePlace?`You ALREADY named "${ld.city}". Say "здесь", "в этом месте" — do not re-introduce it.`:`New area — you may set the scene briefly.`}
+5. DON'T INVENT. If the ALLOWED topic genuinely has nothing real for this exact spot (e.g. no real films were shot here, no famous actor is from here), DON'T fabricate a vague "a few actors were born around here" — instead honestly pivot: say you don't have a confirmed film tie to this exact spot and give a real, concrete fact from the same topic about the broader region, or note it and move to the next allowed topic. Never make up names, titles, or specifics.
+6. DON'T FAKE WHAT'S OUT THE WINDOW. Only say "посмотрите налево/направо, вы увидите X" if X is in REAL NEARBY OBJECTS below. Otherwise speak generally. If unsure something's visible, say "возможно, за деревьями..." — never claim to see what you can't confirm.
+7. ANTI-REPEAT — CRITICAL. You repeat yourself badly, even within 3 minutes. Do NOT restate a fact you've already given, even reworded, even from a new angle. Each segment must contain genuinely NEW information.${overused?` You OVERUSED these words — BANNED this segment: ${overused}.`:``}
+8. MOVEMENT AWARENESS: The listener is travelling by: ${tmCtx}. ${ (toMph(c.speed)||0) < 3 ? `The driver is currently STOPPED/parked. Do NOT say "you're speeding along", "as you drive", "rushing past". Speak as to someone standing still here: "здесь, где вы остановились...", "в этом месте...".` : tm==="bike"?`On a bicycle — slower pace, closer to nature, mention things a cyclist would notice.`:tm==="walk"?`On foot — intimate pace, immediate surroundings.`:`Moving at about ${Math.round(toMph(c.speed)||0)} mph.` }
+9. OPENINGS: never start two segments alike; BANNED openers: "Впереди", "Дальше", "Знаете", "Знаете что", "Слушайте", "А вот интересно", "посмотрите вокруг". Use a WIDE variety of natural openings — a bridge from the last topic, a question, a name, a date, a vivid image, a number, a contrast. Make each opening distinct.
 
 CURRENT POSITION (ground truth):
 - Road: ${ld.highway||"this road"}
@@ -882,7 +901,7 @@ ALREADY SAID THIS DRIVE (never repeat): ${recentFacts||"nothing yet — first se
 
 - ${showSpd?`You may mention speed once.`:"Never mention speed or mph."}
 - ${showHw?`You may name the road once.`:"Don't repeat the road name."}
-- Keep time-of-day consistent with "${phase}".
+- Keep time-of-day consistent with "${phase}". The exact local time is ${tStr} — if you mention the time at all, state it correctly; do NOT approximate it to a different hour.
 - ‼ LANGUAGE LOCK ‼: write EVERY single word in ${al}. Never switch to English or any other language mid-segment. If you catch yourself starting an English word, stop and use ${al}.
 
 Reply ONLY valid JSON: {"story":"your segment in ${al}, 3-5 sentences, in the ${bm.id} persona","location":"exact place in English","topics":"short phrase naming the ONE thing you covered"}`;
@@ -1021,6 +1040,16 @@ Reply ONLY valid JSON: {"story":"your segment in ${al}, 3-5 sentences, in the ${
   };
   loopRef.current=loop;
 
+  // Auto-enter "radio only" focus mode a few seconds into speaking (DJ mode), unless the user is interacting.
+  useEffect(()=>{
+    if(!djMode||screen!=="main")return;
+    if(speaking&&!radioFocus&&!settingsOpen&&!callMode&&!parked){
+      if(focusTimerRef.current)clearTimeout(focusTimerRef.current);
+      focusTimerRef.current=setTimeout(()=>{if(speakingRef.current&&!settingsOpen&&!callMode&&!parked)setRadioFocus(true);},6000);
+    }
+    return()=>{if(focusTimerRef.current)clearTimeout(focusTimerRef.current);};
+  },[speaking,djMode,screen,settingsOpen,callMode,parked,radioFocus]);
+
   // Watchdog: if the show is running but nothing has been spoken for a long time
   // (a wedged fetch, or a stuck speech engine on a long Android session), kick it back to life.
   useEffect(()=>{
@@ -1133,6 +1162,7 @@ Reply ONLY valid JSON: {"story":"your segment in ${al}, 3-5 sentences, in the ${
     if(pausedRef.current){
       // resume
       pausedRef.current=false;setPaused(false);
+      roadReminderRef.current=0;   // mention road/direction again on resume
       if(runRef.current){loopGenRef.current++;const g=loopGenRef.current;setTimeout(()=>{if(runRef.current&&!pausedRef.current&&loopGenRef.current===g)loopRef.current?.(false,false);},400);}
     }else{
       // pause: stop talking, stop scheduling, keep all state/position
@@ -1332,7 +1362,7 @@ Reply ONLY valid JSON: {"story":"your segment in ${al}, 3-5 sentences, in the ${
   const stTxt=!isMain?(isRu?"ГОТОВ":"READY"):status==="loading"?(isRu?"ЗАГРУЗКА":"LOADING"):(isRu?"В ЭФИРЕ":"ON AIR");
   const wBadge=weather?`${getWI(weather.code)} ${weather.temp}°F`:null;
   const bmObj=BCASTS.find(b=>b.id===bcastMode)||BCASTS[0];
-  const slogan=isRu?"Радио, которое тебя видит.":"The radio that sees you.";
+  const slogan=isRu?"Ваш живой гид в дороге.":"Your living guide on the road.";
   const hwDisplay=locData.highway&&locData.highway!=="unknown"?`${locData.highway}${locData.state?" · "+locData.state:""}`:locData.state||"";
   const curVoices=voices.filter(v=>v.lang.startsWith((L[lang]?.tts||"en-US").split("-")[0]));
   // Voices for THIS language first, then everything else, so the user always sees something to pick.
@@ -1419,20 +1449,26 @@ Reply ONLY valid JSON: {"story":"your segment in ${al}, 3-5 sentences, in the ${
               ))}
             </div>
             <div className="set-sect">{isRu?"Голос диктора":"Host voice"}</div>
-            {voiceChoices.length===0&&<div style={{fontSize:"14px",color:"#9aabbf",padding:"4px 2px 8px"}}>{isRu?"Голоса телефона ещё загружаются... откройте меню заново через секунду, либо докачайте голоса кнопкой ниже.":"Phone voices still loading... reopen this menu in a second, or add voices with the button below."}</div>}
+            {voiceChoices.length===0&&<div style={{fontSize:"14px",color:"#9aabbf",padding:"4px 2px 8px"}}>{isRu?"Голоса телефона ещё загружаются... откройте меню заново через секунду.":"Phone voices still loading... reopen this menu in a second."}</div>}
+            <div className="voice-collapse" onClick={()=>setVoiceListOpen(o=>!o)}>
+              <span>🎙 {selVoice?voiceLabel(voiceChoices.find(v=>v.name===selVoice)||{name:selVoice,lang:""}):(isRu?"По умолчанию":"Default")}</span>
+              <span>{voiceListOpen?"▲":"▼"}</span>
+            </div>
+            {voiceListOpen&&(
             <div className="voice-list">
               <div className={`voice-row${selVoice===""?" sel":""}`}>
-                <div className="voice-pick" onClick={()=>setSelVoice("")}>{selVoice===""?"●":"○"} {isRu?"По умолчанию":"Default"}</div>
+                <div className="voice-pick" onClick={()=>{setSelVoice("");setVoiceListOpen(false);}}>{selVoice===""?"●":"○"} {isRu?"По умолчанию":"Default"}</div>
               </div>
               {voiceChoices.map(v=>(
                 <div key={v.name} className={`voice-row${selVoice===v.name?" sel":""}`}>
-                  <div className="voice-pick" onClick={()=>setSelVoice(v.name)}>
+                  <div className="voice-pick" onClick={()=>{setSelVoice(v.name);setVoiceListOpen(false);}}>
                     {selVoice===v.name?"●":"○"} {voiceLabel(v)}
                   </div>
                   <button className="voice-play" onClick={()=>previewVoice(v.name)}>▶</button>
                 </div>
               ))}
             </div>
+            )}
             <button className="tts-btn" onClick={openTTSSettings}>⚙️ {isRu?"Докачать голоса в настройках телефона →":"Add more voices in phone settings →"}</button>
             <div className="set-sect">{isRu?"Скорость голоса":"Voice speed"}</div>
             <div style={{padding:"4px 2px 10px"}}>
@@ -1558,16 +1594,25 @@ Reply ONLY valid JSON: {"story":"your segment in ${al}, 3-5 sentences, in the ${
       {screen==="main"&&(
         <>
           {djMode?(
-            <div className="dj-zone">
+            <div className={`dj-zone${radioFocus?" focus":""}`} onClick={()=>{if(radioFocus)revealMenu();}}>
               <canvas ref={djCanvasRef} className="dj-canvas"/>
-              <div className="dj-over"/>
-              <div className="dj-top"><div className="bcast-badge">{bmObj.icon}</div>{wBadge&&<div className="weather-badge">{wBadge}</div>}</div>
-              <div className="dj-info">
-                {hwDisplay&&<div className="dj-hw">{hwDisplay}</div>}
-                <div className="dj-loc">{locData.name||locData.city||"On the road..."}</div>
-                {coords&&<div className="dj-crd">{coords.lat.toFixed(4)}°N / {Math.abs(coords.lng).toFixed(4)}°W</div>}
-                {nearbyPOI.length>0&&<div className="dj-poi">📍 {nearbyPOI.slice(0,4).join(" · ")}</div>}
-              </div>
+              {radioFocus?(
+                <div className="focus-col">
+                  <div className="fc-item"><div className="fc-v">{toMph(coords?.speed)||parseInt(speedVal)||"—"}</div><div className="fc-l">MPH</div></div>
+                  <div className="fc-item"><div className="fc-v">{toDir(coords?.heading)}</div><div className="fc-l">DIR</div></div>
+                  <div className="fc-item"><div className="fc-v">{weather?`${weather.temp}°`:"—"}</div><div className="fc-l">°F</div></div>
+                </div>
+              ):(
+                <>
+                  <div className="dj-top"><div className="bcast-badge">{bmObj.icon}</div>{wBadge&&<div className="weather-badge">{wBadge}</div>}</div>
+                  <div className="dj-info">
+                    {hwDisplay&&<div className="dj-hw">{hwDisplay}</div>}
+                    <div className="dj-loc">{locData.name||locData.city||"On the road..."}</div>
+                    {coords&&<div className="dj-crd">{coords.lat.toFixed(4)}°N / {Math.abs(coords.lng).toFixed(4)}°W</div>}
+                  </div>
+                </>
+              )}
+              {radioFocus&&<div className="focus-hint">{isRu?"коснитесь — меню":"tap for menu"}</div>}
             </div>
           ):(
             <div className="road-bg">
@@ -1583,6 +1628,7 @@ Reply ONLY valid JSON: {"story":"your segment in ${al}, 3-5 sentences, in the ${
             </div>
           )}
 
+          {!radioFocus&&(<>
           <div className="dash">
             <div className="gauge"><div className="gv">{toMph(coords?.speed)||parseInt(speedVal)||"—"}</div><div className="gl">MPH</div></div>
             <div className="gauge"><div className="gv d">{toDir(coords?.heading)}</div><div className="gl">DIR</div></div>
@@ -1594,13 +1640,10 @@ Reply ONLY valid JSON: {"story":"your segment in ${al}, 3-5 sentences, in the ${
               <div className="airlbl">{status==="ready"&&<div className="airdot"/>}{isRu?"В ЭФИРЕ":"ON AIR"}</div>
               <div className="timeinfo">{timeStr}</div>
             </div>
-            {/* Live equalizer — pulses while the host speaks, idle bars otherwise. No "buffering" shown to the user. */}
-            <div className={`eq${speaking?" live":""}`}>
-              {[0,1,2,3,4,5,6,7,8,9,10,11,12,13].map(i=><span key={i} style={{animationDelay:`${(i%7)*0.09}s`}}/>)}
-            </div>
             {showTxt&&story&&<div className="stxt">{story}</div>}
             {micTranscript&&<div className="mic-transcript">🎤 {micTranscript}</div>}
           </div>
+          </>)}
 
           {parked&&(
             <div className="parked-modal">
@@ -1653,6 +1696,12 @@ Reply ONLY valid JSON: {"story":"your segment in ${al}, 3-5 sentences, in the ${
             </div>
           )}
 
+          {radioFocus?(
+            <div className="bottom-ctrl focus-ctrl">
+              <button className="callbtn" onClick={(e)=>{e.stopPropagation();openCall();}}>📞 {isRu?"Спросить про это место":"Ask about this place"}</button>
+              <button className="roadwatch-btn" onClick={(e)=>{e.stopPropagation();if(coordsRef.current){const{lat,lng}=coordsRef.current;const ts=new Date().toISOString();const data=JSON.parse(localStorage.getItem("rr_roadwatch")||"[]");data.push({lat,lng,ts,type:"roadkill"});localStorage.setItem("rr_roadwatch",JSON.stringify(data.slice(-100)));alert(isRu?"✓ Отметка сохранена":"✓ Marked");}}}>⚠️ ROADWATCH</button>
+            </div>
+          ):(
           <div className="bottom-ctrl">
             <div className="main-btns">
               <button className="mbtn stop" onClick={stop}>{isRu?"■ Стоп":"■ Stop"}</button>
@@ -1661,11 +1710,7 @@ Reply ONLY valid JSON: {"story":"your segment in ${al}, 3-5 sentences, in the ${
             <button className="callbtn" onClick={openCall}>📞 {isRu?"Спросить про это место":"Ask about this place"}</button>
             <div className="sec-btns">
               <button className={`sbtn big${showTxt?" act":""}`} onClick={()=>setShowTxt(t=>!t)}>{showTxt?(isRu?"📄 Текст ✓":"📄 Text ✓"):(isRu?"📄 Текст":"📄 Text")}</button>
-              <button className={`sbtn big${djMode?" act":""}`} onClick={()=>setDjMode(d=>!d)}>{djMode?(isRu?"🎙 Диктор ✓":"🎙 DJ ✓"):(isRu?"🛣 Дорога":"🛣 Road")}</button>
-            </div>
-            <div className="sec-btns">
-              <button className={`sbtn${speaking?" act":""}`} onClick={()=>story&&speak(story)}>{speaking?"🔊 ●":"🔊"}</button>
-              <button className={`sbtn wake${wakeLock?" act":""}`} onClick={()=>wakeLock?wlRef.current?.release():requestWake()}>{wakeLock?"🔆 ✓":"🔆"}</button>
+              <button className="sbtn big" onClick={()=>{revealMenu();setRadioFocus(true);}}>{isRu?"📻 Только радио":"📻 Radio only"}</button>
               <button className="sbtn" onClick={()=>setSettingsOpen(true)}>⚙️</button>
             </div>
             <button className="roadwatch-btn" onClick={()=>{if(coordsRef.current){const{lat,lng}=coordsRef.current;const ts=new Date().toISOString();const data=JSON.parse(localStorage.getItem("rr_roadwatch")||"[]");data.push({lat,lng,ts,type:"roadkill"});localStorage.setItem("rr_roadwatch",JSON.stringify(data.slice(-100)));alert(isRu?"✓ Отметка сохранена":"✓ Marked");}}}>
@@ -1673,6 +1718,7 @@ Reply ONLY valid JSON: {"story":"your segment in ${al}, 3-5 sentences, in the ${
             </button>
             <div className="wakeinfo">{wakeLock?(isRu?"🔆 Экран включён":"🔆 Screen on"):(isRu?"⚠ Экран может погаснуть":"⚠ Screen may turn off")}</div>
           </div>
+          )}
         </>
       )}
     </div>
