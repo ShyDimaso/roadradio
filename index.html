@@ -3,21 +3,21 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-<meta name="theme-color" content="#05070f">
+<meta name="theme-color" content="#0a0a14">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Road Radio">
-<link rel="manifest" href='data:application/manifest+json,{"name":"Road Radio","short_name":"Road Radio","start_url":".","scope":".","display":"standalone","orientation":"portrait","background_color":"%2305070f","theme_color":"%2305070f","icons":[{"src":"data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%22512%22 height=%22512%22%3E%3Crect width=%22512%22 height=%22512%22 fill=%22%2305070f%22/%3E%3Ctext x=%2250%25%22 y=%2258%25%22 font-size=%22300%22 text-anchor=%22middle%22 dominant-baseline=%22middle%22%3E%F0%9F%93%BB%3C/text%3E%3C/svg%3E","sizes":"512x512","type":"image/svg+xml","purpose":"any maskable"}]}'>
+<link rel="manifest" href='data:application/manifest+json,{"name":"Road Radio","short_name":"Road Radio","start_url":".","scope":".","display":"standalone","orientation":"portrait","background_color":"%230a0a14","theme_color":"%230a0a14","icons":[{"src":"data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%22512%22 height=%22512%22%3E%3Crect width=%22512%22 height=%22512%22 fill=%22%230a0a14%22/%3E%3Ctext x=%2250%25%22 y=%2258%25%22 font-size=%22300%22 text-anchor=%22middle%22 dominant-baseline=%22middle%22%3E%F0%9F%93%BB%3C/text%3E%3C/svg%3E","sizes":"512x512","type":"image/svg+xml","purpose":"any maskable"}]}'>
 <title>Road Radio</title>
 <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
 <style>
 *{box-sizing:border-box;margin:0;padding:0;}
-html,body{background:#05070f;height:100%;overscroll-behavior:none;}
+html,body{background:#0a0a14;height:100%;overscroll-behavior:none;}
 body{font-family:'Inter',sans-serif;color:#fff;}
-.app{min-height:100vh;background:#05070f;display:flex;flex-direction:column;max-width:500px;margin:0 auto;}
+.app{min-height:100vh;background:linear-gradient(165deg,#12101f 0%,#0a0a14 45%,#080810 100%);display:flex;flex-direction:column;max-width:500px;margin:0 auto;}
 
 /* SPLASH */
-.splash{position:fixed;inset:0;background:#05070f;z-index:999;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;animation:splashOut 0.5s ease forwards 2.8s;}
+.splash{position:fixed;inset:0;background:#0a0a14;z-index:999;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;animation:splashOut 0.5s ease forwards 2.8s;}
 @keyframes splashOut{to{opacity:0;pointer-events:none;}}
 .sp-logo{font-family:'Orbitron',monospace;font-size:40px;font-weight:900;color:#ff6b35;letter-spacing:3px;}
 .sp-logo em{color:#4a9eff;font-style:normal;}
@@ -37,7 +37,7 @@ body{font-family:'Inter',sans-serif;color:#fff;}
 .install-banner{background:#0d1828;border-bottom:2px solid #4a9eff;padding:12px 16px;display:flex;align-items:center;justify-content:space-between;gap:10px;}
 .install-txt{font-size:14px;color:#aabbcc;flex:1;}
 .install-txt b{color:#4a9eff;}
-.install-btn{background:#4a9eff;color:#05070f;border:none;border-radius:8px;padding:8px 14px;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap;}
+.install-btn{background:#4a9eff;color:#0a0a14;border:none;border-radius:8px;padding:8px 14px;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap;}
 .install-x{background:none;border:none;color:#9aabbf;font-size:20px;cursor:pointer;padding:4px;}
 
 /* HEADER */
@@ -45,7 +45,7 @@ body{font-family:'Inter',sans-serif;color:#fff;}
 .logo-wrap{display:flex;flex-direction:column;}
 .logo{font-family:'Orbitron',monospace;font-size:17px;font-weight:900;letter-spacing:2px;color:#ff6b35;}
 .logo em{color:#4a9eff;font-style:normal;}
-.logo-ver{font-family:'Orbitron',monospace;font-size:11px;color:#ff6b35;letter-spacing:3px;margin-top:1px;opacity:.7;}
+.logo-ver{font-family:'Orbitron',monospace;font-size:13px;color:#e8b860;letter-spacing:3px;margin-top:2px;opacity:.95;}
 .hdr-r{display:flex;align-items:center;gap:8px;}
 .langsel{background:#0d1525;border:2px solid #4a9eff;border-radius:8px;padding:6px 9px;color:#4a9eff;font-family:'Orbitron',monospace;font-size:10px;font-weight:700;cursor:pointer;outline:none;}
 .setbtn{background:#0d1525;border:2px solid #1e2d45;border-radius:8px;padding:6px 12px;color:#aabbcc;font-size:18px;cursor:pointer;outline:none;}
@@ -80,7 +80,7 @@ body{font-family:'Inter',sans-serif;color:#fff;}
 .ob-install-icon{font-size:48px;margin-bottom:12px;}
 .ob-install-title{font-family:'Orbitron',monospace;font-size:16px;color:#4a9eff;margin-bottom:8px;letter-spacing:1px;}
 .ob-install-text{font-size:14px;color:#778899;line-height:1.6;margin-bottom:16px;}
-.ob-install-btn{width:100%;padding:16px;background:#4a9eff;border:none;border-radius:12px;color:#05070f;font-size:16px;font-weight:700;cursor:pointer;}
+.ob-install-btn{width:100%;padding:16px;background:#4a9eff;border:none;border-radius:12px;color:#0a0a14;font-size:16px;font-weight:700;cursor:pointer;}
 
 /* OVERLAY / SETTINGS */
 .overlay{position:fixed;inset:0;background:rgba(0,0,0,.92);z-index:200;display:flex;align-items:flex-end;}
@@ -152,19 +152,20 @@ body{font-family:'Inter',sans-serif;color:#fff;}
 
 /* DJ AVATAR */
 .dj-zone{position:relative;height:300px;overflow:hidden;flex-shrink:0;background:radial-gradient(circle at 50% 42%,#241a0e,#140d06 60%,#0a0703);display:flex;align-items:center;justify-content:center;border-bottom:2px solid #4a3a1e;}
-.dj-zone.focus{height:calc(100vh - 150px);transition:height .6s ease;}
-.focus-col{position:absolute;right:14px;bottom:18px;display:flex;flex-direction:column;gap:14px;}
+.dj-zone.focus{height:calc(100vh - 150px);transition:height .6s ease;align-items:flex-start;padding-top:14vh;}
+.focus-col{position:absolute;right:16px;bottom:24px;display:flex;flex-direction:column;gap:18px;}
 .fc-item{text-align:right;}
-.fc-v{font-family:'Orbitron',monospace;font-size:26px;font-weight:900;color:#f0c060;line-height:1;}
-.fc-l{font-size:11px;color:#9a8050;letter-spacing:2px;}
-.focus-hint{position:absolute;bottom:10px;left:0;right:0;text-align:center;font-size:12px;color:#6a5a3a;letter-spacing:1px;}
+.fc-v{font-family:'Orbitron',monospace;font-size:30px;font-weight:900;color:#f3d27a;line-height:1;}
+.fc-l{font-size:13px;color:#cdb87a;letter-spacing:2px;font-weight:700;}
+.focus-hint{position:absolute;bottom:12px;left:0;right:0;text-align:center;font-size:13px;color:#8a7a5a;letter-spacing:1px;}
 .focus-ctrl{padding:12px 14px;}
 .dj-canvas{position:absolute;left:0;top:0;width:100%;height:230px;}
+.dj-zone.focus .dj-canvas{top:50%;transform:translateY(-55%);}
 .dj-over{display:none;}
 .dj-info{position:absolute;bottom:0;left:0;right:0;padding:10px 18px;background:rgba(8,6,18,0.92);border-top:1px solid #2a1f45;}
 .dj-hw{font-family:'Orbitron',monospace;font-size:13px;font-weight:900;color:#00e87a;letter-spacing:2px;margin-bottom:3px;}
-.dj-loc{font-family:'Orbitron',monospace;font-size:11px;color:#ff6b35;text-transform:uppercase;letter-spacing:2px;margin-bottom:2px;}
-.dj-crd{font-family:'Orbitron',monospace;font-size:10px;color:#aabbcc;letter-spacing:1px;}
+.dj-loc{font-family:'Orbitron',monospace;font-size:14px;color:#f0a850;text-transform:uppercase;letter-spacing:2px;margin-bottom:3px;font-weight:700;}
+.dj-crd{font-family:'Orbitron',monospace;font-size:12px;color:#d8e2ee;letter-spacing:1px;}
 .dj-poi{font-size:11px;color:#6aa0d8;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .dj-top{position:absolute;top:0;left:0;right:0;padding:10px 14px;display:flex;justify-content:space-between;}
 .weather-badge{background:rgba(6,9,18,.9);border:1px solid #1e2d45;border-radius:16px;padding:6px 14px;font-family:'Orbitron',monospace;font-size:12px;color:#f5c842;}
@@ -177,8 +178,8 @@ body{font-family:'Inter',sans-serif;color:#fff;}
 .road-top{position:absolute;top:0;left:0;right:0;padding:10px 14px;display:flex;justify-content:space-between;}
 .road-bot{position:absolute;bottom:0;left:0;right:0;padding:12px 18px;}
 .road-hw{font-family:'Orbitron',monospace;font-size:13px;font-weight:900;color:#00e87a;letter-spacing:2px;margin-bottom:3px;}
-.road-loc{font-family:'Orbitron',monospace;font-size:11px;color:#ff6b35;text-transform:uppercase;letter-spacing:2px;margin-bottom:2px;}
-.road-crd{font-family:'Orbitron',monospace;font-size:10px;color:#aabbcc;letter-spacing:1px;}
+.road-loc{font-family:'Orbitron',monospace;font-size:14px;color:#f0a850;text-transform:uppercase;letter-spacing:2px;margin-bottom:3px;font-weight:700;}
+.road-crd{font-family:'Orbitron',monospace;font-size:12px;color:#d8e2ee;letter-spacing:1px;}
 .road-poi{font-size:11px;color:#6aa0d8;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 
 /* DASH */
@@ -235,7 +236,7 @@ body{font-family:'Inter',sans-serif;color:#fff;}
 .sbtn{padding:14px 4px;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer;text-align:center;background:#0d1525;border:2px solid #1e2d45;color:#aabbcc;}
 .sbtn.act{border-color:#4a9eff;color:#4a9eff;background:#0a1a30;}
 .sbtn.wake.act{border-color:#f5c842;color:#f5c842;background:#120f04;}
-.roadwatch-btn{width:100%;padding:16px;background:linear-gradient(135deg,#2a0808,#600000);border:2px solid #cc2020;border-radius:12px;color:#ff9090;font-size:15px;font-weight:700;cursor:pointer;margin-top:10px;display:flex;align-items:center;justify-content:center;gap:10px;}
+.roadwatch-btn{width:100%;padding:11px;background:transparent;border:1px solid #4a2a2a;border-radius:10px;color:#9a6a6a;font-size:13px;font-weight:600;cursor:pointer;margin-top:10px;display:flex;align-items:center;justify-content:center;gap:8px;opacity:.75;}
 .mbtn.pause{background:#0d1828;color:#7ac0ff;border-color:#2a4a80;}
 .mbtn.pause.on{background:#0d1a0d;border-color:#3fb950;color:#5fd97a;}
 .callbtn{width:100%;padding:18px;margin-top:10px;border-radius:14px;font-size:18px;font-weight:800;cursor:pointer;background:linear-gradient(135deg,#0d2a14,#155026);border:2px solid #3fb950;color:#7af0a0;display:flex;align-items:center;justify-content:center;gap:10px;}
@@ -282,7 +283,7 @@ body{font-family:'Inter',sans-serif;color:#fff;}
 const {useState,useRef,useEffect}=React;
 const PROXY="https://corsproxy.io/?https://api.anthropic.com/v1/messages";
 const KEY_STORE="rr_key_v3";
-const VER="v28";
+const VER="v29";
 
 const OPENERS_RU=["На этой земле...","Да, кстати...","Мало кто знает, но...","Справа от вас...","История этого края...","Сто лет назад здесь...","Тишина здесь обманчива...","Когда-то давно здесь...","Через пару миль...","Вот что примечательно..."];
 const OPENERS_EN=["On this land...","Here's something few know...","Just to your right...","The history here...","A hundred years ago...","Locals know that...","In a few miles...","What's remarkable is...","This stretch of highway...","Worth knowing..."];
@@ -292,6 +293,7 @@ const BCASTS=[
   {id:"normal",icon:"📻",en:"Neutral",ru:"Нейтральный",desc:"Classic",descRu:"Обычный",prompt:"NEUTRAL HOST — a calm, plain-spoken radio guide. Just the facts of the place told clearly and simply, like a knowledgeable friend giving you the straight story. NO jokes, NO sense of wonder or awe, NO dramatic flourishes. Even, matter-of-fact, grounded. Short clear sentences. You are the baseline 'just tell me about this place' voice."},
   {id:"funny",icon:"😂",en:"Comedian",ru:"Юмористический",desc:"Stand-up",descRu:"Стендап",prompt:"STAND-UP COMEDIAN HOST. You are FIRST a comedian, second a guide. Open almost every segment with something that makes the driver grin — a joke, a punchy exaggeration, a sarcastic aside, a ridiculous-but-apt comparison. Riff on the facts, roast the boring ones, act amazed at silly details, use comic timing ('...and THAT, my friend, is the most exciting thing to happen here since the vending machine got restocked'). Big charisma like a club comic. The facts stay TRUE but the WRAPPER is comedy. Never vulgar, never mean — just genuinely funny. If a segment isn't making the driver smile, you're doing it wrong."},
   {id:"science",icon:"🔬",en:"Naturalist",ru:"Научный",desc:"Wonder",descRu:"Восторженный",prompt:"AWE-STRUCK NATURE-DOCUMENTARY NARRATOR — in the spirit of a beloved naturalist like Drozdov or Attenborough. You are FILLED with wonder. Everything is fascinating, miraculous, breathtaking. Speak slowly, warmly, reverently, savoring each detail like it's a marvel ('...and here — right HERE — beneath these very fields, lies a story 300 million years in the making'). Rich sensory imagery, deep time, the poetry of nature and history. Hushed, mesmerizing, emotional. The OPPOSITE of the plain neutral host — where they are flat, you are soaring with amazement."},
+  {id:"troll",icon:"😏",en:"Trickster",ru:"Тролль",desc:"Deadpan",descRu:"Стёб",prompt:"DEADPAN TRICKSTER COMEDIAN — dark, dry, absurdist humor in the spirit of Sacha Baron Cohen and deadpan comics. You travel along spinning tall tales, absurd exaggerations, mock-serious 'legends' and wild what-ifs that make the listener laugh — then you WINK and admit it was a joke ('...по легенде, здесь зарыт сундук пиратского золота. Ладно, выдумал я это прямо сейчас. Но согласитесь, звучало солидно?'). CRITICAL SAFETY RULES, never break: (1) all REAL facts stay TRUE; (2) you may invent absurd JOKES/'legends' but must reveal them as jokes IN THE SAME segment — never leave a fake 'fact' standing as if real; (3) NEVER give false road directions, fake turns, fake hazards or anything about driving/navigation — the road is ALWAYS serious and honest. Joke about history and places, never about the driving."},
 ];
 const TOPICS=[{id:"geology",en:"Geology",ru:"Геология"},{id:"weather",en:"Weather",ru:"Погода"},{id:"wildlife",en:"Wildlife",ru:"Животные"},{id:"plants",en:"Plants",ru:"Растения"},{id:"history",en:"History",ru:"История"},{id:"towns",en:"Towns",ru:"Города"},{id:"road",en:"Roads",ru:"Дороги"},{id:"humor",en:"Humor",ru:"Юмор"}];
 const L={en:{lb:"EN",tts:"en-US",ai:"English"},ru:{lb:"RU",tts:"ru-RU",ai:"Russian"},uk:{lb:"UA",tts:"uk-UA",ai:"Ukrainian"},es:{lb:"ES",tts:"es-ES",ai:"Spanish"},pt:{lb:"PT",tts:"pt-BR",ai:"Portuguese"},de:{lb:"DE",tts:"de-DE",ai:"German"},fr:{lb:"FR",tts:"fr-FR",ai:"French"},ja:{lb:"JA",tts:"ja-JP",ai:"Japanese"},zh:{lb:"ZH",tts:"zh-CN",ai:"Chinese"},ko:{lb:"KO",tts:"ko-KR",ai:"Korean"},ar:{lb:"AR",tts:"ar-SA",ai:"Arabic"},hi:{lb:"HI",tts:"hi-IN",ai:"Hindi"},it:{lb:"IT",tts:"it-IT",ai:"Italian"},tr:{lb:"TR",tts:"tr-TR",ai:"Turkish"}};
@@ -388,6 +390,20 @@ function App(){
   const [moreTopics,setMoreTopics]=useState(()=>{try{return JSON.parse(localStorage.getItem("rr_more_topics")||"{}");}catch{return{};}});
   const isOn=k=>moreTopics[k]!==false; // default on
   const toggleMore=k=>setMoreTopics(p=>({...p,[k]:p[k]===false?true:false}));
+  // Count all enabled topics (main + extra) to enforce a minimum of 3 for a varied broadcast.
+  const countEnabledTopics=()=>{
+    let n=0;
+    [topicHistory,topicWildlife,topicGeology,topicCulture,topicFilms,topicFamous,topicPhoto].forEach(v=>{if(v)n++;});
+    EXTRA_TOPIC_KEYS.forEach(k=>{if(isOn(k))n++;});
+    return n;
+  };
+  const guardTopicOff=(currentlyOn,doToggle)=>{
+    if(currentlyOn&&countEnabledTopics()<=3){
+      alert(isRu?"Для живого эфира нужно минимум 3 темы — иначе диктор начнёт повторяться. Оставьте хотя бы три.":"A lively broadcast needs at least 3 topics, or the host repeats itself. Keep at least three.");
+      return;
+    }
+    doToggle();
+  };
   const [needsReview,setNeedsReview]=useState(false);
   const [neverPark,setNeverPark]=useState(localStorage.getItem("rr_neverpark")==="1");
   const [voiceRate,setVoiceRate]=useState(parseFloat(localStorage.getItem("rr_rate")||"0.9"));
@@ -454,6 +470,13 @@ function App(){
   const saidFactsRef=useRef([]);      // longer memory of what was actually said (anti-repeat)
   const recentStoriesRef=useRef([]);  // last few full segments, to catch repeated wording
   const roadReminderRef=useRef(0);     // last time we reminded which highway we're on
+  // ---- "Эфирный режиссёр" (broadcast director) state ----
+  const dirTopicRef=useRef(null);      // current topic key being covered
+  const dirCountRef=useRef(0);         // how many segments spent on current topic
+  const dirTargetRef=useRef(2);        // how many segments this topic should run
+  const dirRecentTopicsRef=useRef([]); // topics covered recently (to avoid immediate repeats)
+  const dirSummariesRef=useRef([]);    // semantic summaries of what was already said
+  const dirMoodRef=useRef("normal");   // mood of the next block
   const callPhaseRef=useRef("idle");
   const callRecRef=useRef(null);
   const cdTotalRef=useRef(55);
@@ -669,13 +692,29 @@ function App(){
     }catch{return{highway:"",county:"",state:"",city:""};}
   };
 
-  const fetchPOI=async(lat,lng)=>{
+  const fetchPOI=async(lat,lng,hdg)=>{
     try{
       const q=`[out:json][timeout:10];(node["place"~"city|town|village|hamlet"](around:12000,${lat},${lng});way["waterway"~"river|stream"]["name"](around:6000,${lat},${lng});node["natural"~"peak|lake"](around:8000,${lat},${lng});way["bridge"="yes"]["name"](around:4000,${lat},${lng});node["historic"](around:6000,${lat},${lng}););out body qt 18;`;
       const r=await fetch(`https://overpass-api.de/api/interpreter?data=${encodeURIComponent(q)}`);
       const d=await r.json();
-      const names=[...new Set(d.elements?.map(e=>e.tags?.name).filter(Boolean))].slice(0,6);
-      setNearbyPOI(names);return names;
+      const R=3958.8,rad=x=>x*Math.PI/180;
+      const dist=(la,lo)=>{const dLa=rad(la-lat),dLo=rad(lo-lng);const a=Math.sin(dLa/2)**2+Math.cos(rad(lat))*Math.cos(rad(la))*Math.sin(dLo/2)**2;return 2*R*Math.asin(Math.sqrt(a));};
+      const bear=(la,lo)=>{const y=Math.sin(rad(lo-lng))*Math.cos(rad(la));const x=Math.cos(rad(lat))*Math.sin(rad(la))-Math.sin(rad(lat))*Math.cos(rad(la))*Math.cos(rad(lo-lng));return (Math.atan2(y,x)*180/Math.PI+360)%360;};
+      const seen=new Set();const detailed=[];
+      for(const e of (d.elements||[])){
+        const nm=e.tags?.name;if(!nm||seen.has(nm))continue;seen.add(nm);
+        const la=e.lat??e.center?.lat, lo=e.lon??e.center?.lon;
+        let info={name:nm};
+        if(la!=null&&lo!=null&&hdg!=null){
+          const dd=dist(la,lo); let rel=(bear(la,lo)-hdg+360)%360;
+          const side=rel<45||rel>315?"впереди":rel<135?"справа":rel<225?"позади":"слева";
+          info.miles=dd; info.side=side;
+        }
+        detailed.push(info);
+      }
+      const names=detailed.map(x=>x.name).slice(0,6);
+      setNearbyPOI(names);
+      return detailed.slice(0,8);
     }catch{return[];}
   };
 
@@ -764,6 +803,77 @@ function App(){
     const o=list[openerIdx.current%list.length];
     openerIdx.current++;
     return o;
+  };
+
+  // ===== ЭФИРНЫЙ РЕЖИССЁР (broadcast director) =====
+  // Decides ONE job for the next segment: keep going on the current topic, finish it,
+  // or open a brand-new one. Returns a compact instruction block injected into the prompt.
+  const directNextBlock=()=>{
+    const cfg=topicsCfgRef.current||{};
+    const ALL=[
+      ["history","истории края (основание, события, старые маршруты, железные дороги)"],
+      ["wildlife","животных — нынешних и древних (вымерших, ледниковых)"],
+      ["geology","геологии и форме земли, горам, рекам, пещерам"],
+      ["culture","культуре, быту, традициям, как тут живут"],
+      ["films","фильмам/сериалам, снятым здесь (только если реально)"],
+      ["famous","знаменитостям, связанным с этим местом"],
+      ["photo","живописным точкам и видам впереди"],
+      ["music","музыке, связанной с этим местом"],
+      ["sports","спорту — командам, атлетам, играм"],
+      ["politics","политикам и политической истории места"],
+      ["crime","детективным и криминальным историям, разбойникам"],
+      ["war","битвам, военной истории, фортам"],
+      ["native","истории и наследию коренных народов"],
+      ["architecture","архитектуре, мостам, ориентирам"],
+      ["economy","промышленности, фермерству, добыче"],
+      ["legends","легендам, фольклору, городам-призракам"],
+      ["food","местной еде и напиткам"],
+    ];
+    const enabled=ALL.filter(([k])=>cfg[k]!==false);
+    if(enabled.length===0)enabled.push(["history","истории края"]);
+    const recent=dirRecentTopicsRef.current;
+    const fresh=enabled.filter(([k])=>!recent.slice(-3).includes(k));
+    const pool=fresh.length?fresh:enabled;
+
+    let job,topicKey,topicLabel,mustClose=false,openNew=false;
+    if(dirTopicRef.current && dirCountRef.current < dirTargetRef.current){
+      // keep developing the current topic
+      topicKey=dirTopicRef.current;
+      topicLabel=(ALL.find(([k])=>k===topicKey)||["","эту тему"])[1];
+      dirCountRef.current++;
+      mustClose = dirCountRef.current >= dirTargetRef.current;
+      job = mustClose ? "ЗАВЕРШЕНИЕ ТЕМЫ" : "ПРОДОЛЖЕНИЕ ТЕМЫ";
+    }else{
+      // open a brand-new topic
+      const pick=pool[Math.floor(Math.random()*pool.length)];
+      topicKey=pick[0];topicLabel=pick[1];
+      dirTopicRef.current=topicKey;
+      dirCountRef.current=1;
+      dirTargetRef.current=1+Math.floor(Math.random()*2); // each topic runs 1-2 segments, told fully
+      mustClose = dirCountRef.current>=dirTargetRef.current;
+      openNew=true;
+      job = "НОВАЯ ТЕМА";
+      dirRecentTopicsRef.current=[...recent,topicKey].slice(-5);
+    }
+    // mood: mostly steady, sometimes a short light beat
+    const moods=["спокойный","спокойный","спокойный","короткий лёгкий факт","тёплый, с настроением"];
+    dirMoodRef.current=moods[Math.floor(Math.random()*moods.length)];
+
+    const otherTopics=enabled.filter(([k])=>k!==topicKey).map(([,l])=>l);
+    const summaries=dirSummariesRef.current.slice(-12);
+    return {
+      topicKey,
+      text:`=== РЕЖИССЁР ЭФИРА (выполняй строго) ===
+ЗАДАЧА ЭТОГО БЛОКА: ${job}.
+ТЕМА БЛОКА: говори ТОЛЬКО про ${topicLabel}.
+${openNew?`Это НОВАЯ тема. Начни её свежо, не связывай натужно с прошлым блоком. Прошлые темы больше не упоминай.`:``}
+${job==="ПРОДОЛЖЕНИЕ ТЕМЫ"?`Продолжай ЭТУ ЖЕ тему, дай НОВЫЙ факт в её рамках. Не перескакивай на другое.`:``}
+${mustClose?`Это ПОСЛЕДНИЙ блок темы — заверши её красиво, законченной мыслью. После него мы сменим тему.`:``}
+НЕ ПЕРЕСКАКИВАЙ на эти темы сейчас: ${otherTopics.join("; ")||"—"}.
+Настроение блока: ${dirMoodRef.current}.
+СМЫСЛЫ, КОТОРЫЕ УЖЕ БЫЛИ СКАЗАНЫ (не повторяй даже другими словами): ${summaries.length?summaries.join(" | "):"пока ничего"}.
+========================`
+    };
   };
 
   const buildSys=(isQ,question,isTourist)=>{
@@ -878,14 +988,14 @@ Pick something from the ALLOWED list that you have NOT covered yet. Rotate — d
 
 CORE RULES:
 1. Continue the show naturally from your last thought ("${lastSaid||"opening — greet warmly"}"). One flowing story with smooth radio-DJ bridges between segments — each segment clearly connects to the one before.
-2. FINISH A TOPIC, THEN MOVE ON. Tell one subject FULLY and well, then transition to a DIFFERENT subject. Do NOT cover something, drift away, then circle back to the same subject a few segments later. Once a topic is done, it's done — pick a new one. No ping-ponging back to football, farming, the landscape, etc.
+2. FINISH A TOPIC, THEN MOVE ON. (The director below tells you which.) Within the segment, use a tiny arc: a HOOK → a real FACT → a small TURN/insight → a CLEAN close. Not a flat list of facts.
 3. Each segment is SHORT — 3 to 5 sentences. Radio, not a lecture.
 4. ${samePlace?`You ALREADY named "${ld.city}". Say "здесь", "в этом месте" — do not re-introduce it.`:`New area — you may set the scene briefly.`}
 5. DON'T INVENT. If the ALLOWED topic genuinely has nothing real for this exact spot (e.g. no real films were shot here, no famous actor is from here), DON'T fabricate a vague "a few actors were born around here" — instead honestly pivot: say you don't have a confirmed film tie to this exact spot and give a real, concrete fact from the same topic about the broader region, or note it and move to the next allowed topic. Never make up names, titles, or specifics.
-6. DON'T FAKE WHAT'S OUT THE WINDOW. Only say "посмотрите налево/направо, вы увидите X" if X is in REAL NEARBY OBJECTS below. Otherwise speak generally. If unsure something's visible, say "возможно, за деревьями..." — never claim to see what you can't confirm.
+6. SPATIAL HONESTY: Distances and sides (слева/справа/впереди/через N миль) may ONLY come from the code-confirmed list provided below the prompt. NEVER invent "через 2 мили", "озеро слева" etc. If you have no confirmed object, speak generally ("в этих краях", "в этой части штата") with no distance and no side.
 7. ANTI-REPEAT — CRITICAL. You repeat yourself badly, even within 3 minutes. Do NOT restate a fact you've already given, even reworded, even from a new angle. Each segment must contain genuinely NEW information.${overused?` You OVERUSED these words — BANNED this segment: ${overused}.`:``}
 8. MOVEMENT AWARENESS: The listener is travelling by: ${tmCtx}. ${ (toMph(c.speed)||0) < 3 ? `The driver is currently STOPPED/parked. Do NOT say "you're speeding along", "as you drive", "rushing past". Speak as to someone standing still here: "здесь, где вы остановились...", "в этом месте...".` : tm==="bike"?`On a bicycle — slower pace, closer to nature, mention things a cyclist would notice.`:tm==="walk"?`On foot — intimate pace, immediate surroundings.`:`Moving at about ${Math.round(toMph(c.speed)||0)} mph.` }
-9. OPENINGS: never start two segments alike; BANNED openers: "Впереди", "Дальше", "Знаете", "Знаете что", "Слушайте", "А вот интересно", "посмотрите вокруг". Use a WIDE variety of natural openings — a bridge from the last topic, a question, a name, a date, a vivid image, a number, a contrast. Make each opening distinct.
+9. ENTRY TYPE for this segment (vary every time, never repeat the last one): ${["начни с вопроса","начни с даты или числа","начни с имени человека","начни с контраста ('Казалось бы... но')","начни с короткой шутки","продолжи мысль прошлого блока","начни с 'а теперь о другом'","начни прямо с яркого факта","начни с образа, картинки"][Math.floor(Math.random()*9)]}. NEVER open with stock phrases "Впереди","Дальше","Знаете","Знаете что","Слушайте","А вот интересно","посмотрите вокруг".
 
 CURRENT POSITION (ground truth):
 - Road: ${ld.highway||"this road"}
@@ -927,7 +1037,7 @@ Reply ONLY valid JSON: {"story":"your segment in ${al}, 3-5 sentences, in the ${
     }
     if(!forNext){
       histRef.current=[...msgs,{role:"assistant",content:txt}];
-      if(res.topics){topicsUsedRef.current=[...topicsUsedRef.current,res.topics].slice(-20);saidFactsRef.current=[...saidFactsRef.current,res.topics].slice(-30);}
+      if(res.topics){topicsUsedRef.current=[...topicsUsedRef.current,res.topics].slice(-20);saidFactsRef.current=[...saidFactsRef.current,res.topics].slice(-30);dirSummariesRef.current=[...dirSummariesRef.current,res.topics].slice(-16);}
       if(res.story)recentStoriesRef.current=[...recentStoriesRef.current,res.story].slice(-8);
     }
     return res;
@@ -1010,11 +1120,18 @@ Reply ONLY valid JSON: {"story":"your segment in ${al}, 3-5 sentences, in the ${
       }
       if(!res){
         setStatus("loading");
-        const[geo,pois]=await Promise.all([reverseGeocode(c.lat,c.lng),fetchPOI(c.lat,c.lng)]);
+        const[geo,pois]=await Promise.all([reverseGeocode(c.lat,c.lng),fetchPOI(c.lat,c.lng,c.heading??90)]);
         if(gen!==loopGenRef.current||!runRef.current)return;   // aborted while loading
+        const director=directNextBlock();
         const sys=buildSys(false,null,tourist||false);
-        const poiLine=pois.length>0?`\nREAL NEARBY OBJECTS (only mention these, no others): ${pois.join(", ")}`:"";
-        try{res=await callClaude(sys+poiLine,"Describe this exact location right now.",false);}
+        // Precise spatial facts computed by code — the ONLY distances/sides the host may state.
+        const withGeo=pois.filter(p=>p.miles!=null).map(p=>`${p.name} (${p.miles.toFixed(1)} миль, ${p.side})`);
+        const noGeo=pois.filter(p=>p.miles==null).map(p=>p.name);
+        let poiLine="";
+        if(withGeo.length)poiLine+=`\nTHE ONLY confirmed nearby objects WITH distance/side you may state (use these exact distances/sides, never invent others): ${withGeo.join("; ")}.`;
+        if(noGeo.length)poiLine+=`\nKnown in the general area (mention only generally, NO distance, NO side): ${noGeo.join(", ")}.`;
+        poiLine+=`\nIf an object is not in the list above, you MUST NOT say how far it is or which side it's on. No "через 2 мили", no "слева/справа" unless it came from the confirmed list.`;
+        try{res=await callClaude(sys+"\n\n"+director.text+poiLine,"Produce ONLY the director's assigned block.",false);res._dirTopic=director.topicKey;}
         catch(e){
           // Likely a dead zone / no signal. Use a buffered segment if we have one, instead of stopping.
           if(bufferRef.current.length>0){res=bufferRef.current.shift();}
@@ -1127,6 +1244,7 @@ Reply ONLY valid JSON: {"story":"your segment in ${al}, 3-5 sentences, in the ${
     if(!c){setErr(lang==="ru"?"Нажмите автоопределение или введите координаты":"Tap auto-detect or enter coordinates");return;}
     coordsRef.current=c;setCoords(c);destRef.current=destination;
     runRef.current=true;histRef.current=[];nextRef.current=null;topicsUsedRef.current=[];saidFactsRef.current=[];bufferRef.current=[];recentStoriesRef.current=[];
+    dirTopicRef.current=null;dirCountRef.current=0;dirTargetRef.current=2;dirRecentTopicsRef.current=[];dirSummariesRef.current=[];
     openerIdx.current=0;stoppedSince.current=null;fuelWarnedRef.current=0;tourAckRef.current=false;
     loopBusyRef.current=false;loopGenRef.current++;        // fresh single generation
     parkedRef.current=false;pausedRef.current=false;setPaused(false);
@@ -1479,15 +1597,15 @@ Reply ONLY valid JSON: {"story":"your segment in ${al}, 3-5 sentences, in the ${
             <div className="set-sect">{isRu?"О чём рассказывать":"What to talk about"}</div>
             <div style={{fontSize:"13px",color:"#9aabbf",margin:"0 2px 8px"}}>{isRu?"Зелёное — рассказывает. Нажмите, чтобы выключить (станет серым).":"Green = on. Tap to turn a topic off."}</div>
             <div className="topic-grid">
-              <div className={`topic-item${topicHistory?" on2":""}`} onClick={()=>setTopicHistory(v=>!v)}><div className="topic-check on">{topicHistory?"✓":""}</div><div className="topic-lbl">{isRu?"История места":"Local history"}</div></div>
-              <div className={`topic-item${topicWildlife?" on2":""}`} onClick={()=>setTopicWildlife(v=>!v)}><div className="topic-check on">{topicWildlife?"✓":""}</div><div className="topic-lbl">{isRu?"Животные (и древние)":"Wildlife (& ancient)"}</div></div>
-              <div className={`topic-item${topicGeology?" on2":""}`} onClick={()=>setTopicGeology(v=>!v)}><div className="topic-check on">{topicGeology?"✓":""}</div><div className="topic-lbl">{isRu?"Природа и геология":"Land & geology"}</div></div>
-              <div className={`topic-item${topicCulture?" on2":""}`} onClick={()=>setTopicCulture(v=>!v)}><div className="topic-check on">{topicCulture?"✓":""}</div><div className="topic-lbl">{isRu?"Культура и быт":"Culture & life"}</div></div>
-              <div className={`topic-item${topicFilms?" on2":""}`} onClick={()=>setTopicFilms(v=>!v)}><div className="topic-check on">{topicFilms?"✓":""}</div><div className="topic-lbl">{isRu?"Где снимали фильмы":"Movie locations"}</div></div>
-              <div className={`topic-item${topicFamous?" on2":""}`} onClick={()=>setTopicFamous(v=>!v)}><div className="topic-check on">{topicFamous?"✓":""}</div><div className="topic-lbl">{isRu?"Знаменитости":"Famous people"}</div></div>
-              <div className={`topic-item${topicPhoto?" on2":""}`} onClick={()=>setTopicPhoto(v=>!v)}><div className="topic-check on">{topicPhoto?"✓":""}</div><div className="topic-lbl">{isRu?"Фотозоны по пути":"Photo spots ahead"}</div></div>
+              <div className={`topic-item${topicHistory?" on2":""}`} onClick={()=>guardTopicOff(topicHistory,()=>setTopicHistory(v=>!v))}><div className="topic-check on">{topicHistory?"✓":""}</div><div className="topic-lbl">{isRu?"История места":"Local history"}</div></div>
+              <div className={`topic-item${topicWildlife?" on2":""}`} onClick={()=>guardTopicOff(topicWildlife,()=>setTopicWildlife(v=>!v))}><div className="topic-check on">{topicWildlife?"✓":""}</div><div className="topic-lbl">{isRu?"Животные (и древние)":"Wildlife (& ancient)"}</div></div>
+              <div className={`topic-item${topicGeology?" on2":""}`} onClick={()=>guardTopicOff(topicGeology,()=>setTopicGeology(v=>!v))}><div className="topic-check on">{topicGeology?"✓":""}</div><div className="topic-lbl">{isRu?"Природа и геология":"Land & geology"}</div></div>
+              <div className={`topic-item${topicCulture?" on2":""}`} onClick={()=>guardTopicOff(topicCulture,()=>setTopicCulture(v=>!v))}><div className="topic-check on">{topicCulture?"✓":""}</div><div className="topic-lbl">{isRu?"Культура и быт":"Culture & life"}</div></div>
+              <div className={`topic-item${topicFilms?" on2":""}`} onClick={()=>guardTopicOff(topicFilms,()=>setTopicFilms(v=>!v))}><div className="topic-check on">{topicFilms?"✓":""}</div><div className="topic-lbl">{isRu?"Где снимали фильмы":"Movie locations"}</div></div>
+              <div className={`topic-item${topicFamous?" on2":""}`} onClick={()=>guardTopicOff(topicFamous,()=>setTopicFamous(v=>!v))}><div className="topic-check on">{topicFamous?"✓":""}</div><div className="topic-lbl">{isRu?"Знаменитости":"Famous people"}</div></div>
+              <div className={`topic-item${topicPhoto?" on2":""}`} onClick={()=>guardTopicOff(topicPhoto,()=>setTopicPhoto(v=>!v))}><div className="topic-check on">{topicPhoto?"✓":""}</div><div className="topic-lbl">{isRu?"Фотозоны по пути":"Photo spots ahead"}</div></div>
               {[["music",isRu?"Музыка":"Music"],["sports",isRu?"Спорт":"Sports"],["politics",isRu?"Политика":"Politics"],["crime",isRu?"Криминал/детектив":"True crime"],["war",isRu?"Войны и битвы":"Wars & battles"],["native",isRu?"Индейцы":"Native heritage"],["architecture",isRu?"Архитектура":"Architecture"],["economy",isRu?"Промышленность":"Industry"],["legends",isRu?"Легенды":"Legends"],["food",isRu?"Еда и напитки":"Food & drink"]].map(([k,lbl])=>(
-                <div key={k} className={`topic-item${isOn(k)?" on2":""}`} onClick={()=>toggleMore(k)}><div className="topic-check on">{isOn(k)?"✓":""}</div><div className="topic-lbl">{lbl}</div></div>
+                <div key={k} className={`topic-item${isOn(k)?" on2":""}`} onClick={()=>guardTopicOff(isOn(k),()=>toggleMore(k))}><div className="topic-check on">{isOn(k)?"✓":""}</div><div className="topic-lbl">{lbl}</div></div>
               ))}
             </div>
             <div className="set-sect">{isRu?"Заправки":"Fuel stops"}</div>
