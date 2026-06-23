@@ -155,8 +155,8 @@ body{font-family:'Inter',sans-serif;color:#fff;}
 .dj-zone.focus{height:auto;flex:1;min-height:0;transition:none;align-items:flex-start;padding-top:6vh;}
 .dj-canvas{position:absolute;left:0;top:0;width:100%;height:230px;}
 .dj-zone.focus .dj-canvas{top:6vh;transform:none;}
-.focus-col{position:absolute;right:16px;top:50%;transform:translateY(-50%);display:flex;flex-direction:column;gap:18px;}
-.fc-item{text-align:right;}
+.focus-col{position:absolute;left:0;right:0;top:8px;display:flex;flex-direction:row;justify-content:space-around;gap:8px;z-index:5;}
+.fc-item{text-align:center;}
 .fc-v{font-family:'Orbitron',monospace;font-size:30px;font-weight:900;color:#f3d27a;line-height:1;}
 .fc-l{font-size:13px;color:#cdb87a;letter-spacing:2px;font-weight:700;}
 .focus-hint{position:absolute;bottom:12px;left:0;right:0;text-align:center;font-size:13px;color:#8a7a5a;letter-spacing:1px;}
@@ -286,7 +286,7 @@ body{font-family:'Inter',sans-serif;color:#fff;}
 const {useState,useRef,useEffect}=React;
 const PROXY="https://corsproxy.io/?https://api.anthropic.com/v1/messages";
 const KEY_STORE="rr_key_v3";
-const VER="v30";
+const VER="v31";
 
 const OPENERS_RU=["На этой земле...","Да, кстати...","Мало кто знает, но...","Справа от вас...","История этого края...","Сто лет назад здесь...","Тишина здесь обманчива...","Когда-то давно здесь...","Через пару миль...","Вот что примечательно..."];
 const OPENERS_EN=["On this land...","Here's something few know...","Just to your right...","The history here...","A hundred years ago...","Locals know that...","In a few miles...","What's remarkable is...","This stretch of highway...","Worth knowing..."];
@@ -296,7 +296,9 @@ const BCASTS=[
   {id:"normal",icon:"📻",en:"Neutral",ru:"Нейтральный",desc:"Classic",descRu:"Обычный",prompt:"NEUTRAL HOST — a calm, plain-spoken radio guide. Just the facts of the place told clearly and simply, like a knowledgeable friend giving you the straight story. NO jokes, NO sense of wonder or awe, NO dramatic flourishes. Even, matter-of-fact, grounded. Short clear sentences. You are the baseline 'just tell me about this place' voice."},
   {id:"funny",icon:"😂",en:"Comedian",ru:"Юмористический",desc:"Stand-up",descRu:"Стендап",prompt:"STAND-UP COMEDIAN HOST. You are FIRST a comedian, second a guide. Open almost every segment with something that makes the driver grin — a joke, a punchy exaggeration, a sarcastic aside, a ridiculous-but-apt comparison. Riff on the facts, roast the boring ones, act amazed at silly details, use comic timing ('...and THAT, my friend, is the most exciting thing to happen here since the vending machine got restocked'). Big charisma like a club comic. The facts stay TRUE but the WRAPPER is comedy. Never vulgar, never mean — just genuinely funny. If a segment isn't making the driver smile, you're doing it wrong."},
   {id:"science",icon:"🔬",en:"Naturalist",ru:"Научный",desc:"Wonder",descRu:"Восторженный",prompt:"AWE-STRUCK NATURE-DOCUMENTARY NARRATOR — in the spirit of a beloved naturalist like Drozdov or Attenborough. You are FILLED with wonder. Everything is fascinating, miraculous, breathtaking. Speak slowly, warmly, reverently, savoring each detail like it's a marvel ('...and here — right HERE — beneath these very fields, lies a story 300 million years in the making'). Rich sensory imagery, deep time, the poetry of nature and history. Hushed, mesmerizing, emotional. The OPPOSITE of the plain neutral host — where they are flat, you are soaring with amazement."},
-  {id:"troll",icon:"😏",en:"Trickster",ru:"Тролль",desc:"Deadpan",descRu:"Стёб",prompt:"DEADPAN TRICKSTER COMEDIAN — dark, dry, absurdist humor in the spirit of Sacha Baron Cohen and deadpan comics. You spin tall tales, absurd exaggerations and mock-serious 'legends' with a straight face, so good that the listener almost believes them. KEY TO THE HUMOR: do NOT confess 'я пошутил / I'm joking' at the end of every block — that kills it. Hold the bit. Let it breathe. Only occasionally, much later, give a sly wink that some of it was a tall tale ('...впрочем, не всему сказанному стоит верить'), or just leave a knowing absurdity that the listener feels is too wild to be real. SAFETY (never break): (1) NEVER give false road directions, fake turns, fake hazards, or anything about driving/navigation — the road and navigation are ALWAYS dead serious and honest. (2) Keep the absurd inventions to history/legends/places, never to safety. Joke about the world, never about the wheel."},
+  {id:"quotes",icon:"📖",en:"Quotemaster",ru:"Цитатник",desc:"Quotes",descRu:"Цитаты",prompt:"QUOTEMASTER HOST — you tell the place's story in normal warm narration, but wherever it genuinely fits, you weave in a REAL well-known quote, proverb, film line, song lyric or literary line that ties directly to the CURRENT topic and this place. STRICT: the quote must be REAL (never invented) and must be ON-TOPIC and relevant to what you are talking about right now — not random. Match the listener's language culture (for Russian: Soviet/Russian films, poems, songs, proverbs; for English: English-language sources). The quote is part of the talk, not bolted on. Roughly one apt quote per segment, no more."},
+  {id:"teacher",icon:"🗣",en:"Language tutor",ru:"Учитель языка",desc:"Language",descRu:"Язык",prompt:"LANGUAGE TUTOR HOST — you narrate about the place in the listener's NATIVE language, but teach the TARGET language by echoing key PHRASES. Take a 2-3 word phrase you just said (e.g. 'охотились на оленей', 'переезжаем мост') and immediately repeat ONLY that phrase in the target language, with a tiny pause before it (use ' — ' so the phone voice breaks). NO preface, NO comment like 'по-английски это' — just the native phrase, a dash, then the target-language phrase, then continue. Keep it to about 5-10% of speech, woven into the real story so words are learned in context. Prefer short PHRASES over single words. The target language is given below."},
+  {id:"troll",icon:"🧙",en:"Tall-tale teller",ru:"Сказочник",desc:"Tall tales",descRu:"Небылицы",prompt:"TALL-TALE TELLER (Skazochnik) — tell the real story of a place but woven with gloriously absurd tall tales delivered with a straight face. Trick: state something absurd as if fact ('right beyond that hill stands the Pyramid of Cheops'), then resolve it just as absurdly and playfully ('...but for technical reasons it was moved back to Giza last week'). NEVER flatly say it was a joke — that ruins it; dissolve each tall tale with another absurd flourish so the listener grins and KNOWS it was play. CRITICAL: (1) keep absurd inventions OBVIOUSLY fantastical so none is mistaken for a real fact; real facts stay real; (2) NEVER invent road directions, turns, hazards or anything about driving — the road is always dead honest. Joke about the world, never about the wheel."},
 ];
 const TOPICS=[{id:"geology",en:"Geology",ru:"Геология"},{id:"weather",en:"Weather",ru:"Погода"},{id:"wildlife",en:"Wildlife",ru:"Животные"},{id:"plants",en:"Plants",ru:"Растения"},{id:"history",en:"History",ru:"История"},{id:"towns",en:"Towns",ru:"Города"},{id:"road",en:"Roads",ru:"Дороги"},{id:"humor",en:"Humor",ru:"Юмор"}];
 const L={en:{lb:"EN",tts:"en-US",ai:"English"},ru:{lb:"RU",tts:"ru-RU",ai:"Russian"},uk:{lb:"UA",tts:"uk-UA",ai:"Ukrainian"},es:{lb:"ES",tts:"es-ES",ai:"Spanish"},pt:{lb:"PT",tts:"pt-BR",ai:"Portuguese"},de:{lb:"DE",tts:"de-DE",ai:"German"},fr:{lb:"FR",tts:"fr-FR",ai:"French"},ja:{lb:"JA",tts:"ja-JP",ai:"Japanese"},zh:{lb:"ZH",tts:"zh-CN",ai:"Chinese"},ko:{lb:"KO",tts:"ko-KR",ai:"Korean"},ar:{lb:"AR",tts:"ar-SA",ai:"Arabic"},hi:{lb:"HI",tts:"hi-IN",ai:"Hindi"},it:{lb:"IT",tts:"it-IT",ai:"Italian"},tr:{lb:"TR",tts:"tr-TR",ai:"Turkish"}};
@@ -446,6 +448,8 @@ function App(){
   const cdRef=useRef(null);
   const wlRef=useRef(null);
   const langRef=useRef(lang);
+  const [learnLang,setLearnLang]=useState(localStorage.getItem("rr_learn")||"en");
+  const learnLangRef=useRef(learnLang);
   const bcastRef=useRef(bcastMode);
   const travelRef=useRef(travelMode);
   const destRef=useRef(destination);
@@ -499,6 +503,7 @@ function App(){
     try{const last=parseInt(localStorage.getItem("rr_review")||"0");if(localStorage.getItem("rr_started")&&Date.now()-last>3*86400000)setNeedsReview(true);}catch{}
   },[]);
   useEffect(()=>{langRef.current=lang;},[lang]);
+  useEffect(()=>{learnLangRef.current=learnLang;try{localStorage.setItem("rr_learn",learnLang);}catch{}},[learnLang]);
   useEffect(()=>{bcastRef.current=bcastMode;localStorage.setItem("rr_bcast_v1",bcastMode);nextRef.current=null;bufferRef.current=[];},[bcastMode]);
   useEffect(()=>{travelRef.current=travelMode;localStorage.setItem("rr_mode_v1",travelMode);},[travelMode]);
   useEffect(()=>{destRef.current=destination;},[destination]);
@@ -646,7 +651,11 @@ function App(){
       const d=await r.json();const cw=d.current_weather;
       let sun=null;
       try{if(d.daily&&d.daily.sunrise&&d.daily.sunset){sun={rise:d.daily.sunrise[0],set:d.daily.sunset[0]};sunRef.current=sun;}}catch{}
-      if(cw)setWeather({temp:Math.round(cw.temperature),wind:Math.round(cw.windspeed),code:cw.weathercode,is_day:cw.is_day??1,sun});
+      if(cw){
+        const wc=cw.weathercode;
+        const wdesc=wc===0?"ясно":wc<=3?"переменная облачность":wc<=48?"туман":wc<=67?"дождь":wc<=77?"снег":wc<=82?"ливень":wc<=86?"снегопад":wc<=99?"гроза":"облачно";
+        setWeather({temp:Math.round(cw.temperature),wind:Math.round(cw.windspeed),code:wc,desc:wdesc,is_day:cw.is_day??1,sun});
+      }
     }catch{}
   };
 
@@ -827,9 +836,10 @@ function App(){
     const inCity=!!(ld.city&&ld.place==="city");
     const manyTopics=enabled.length>=6;
     const maxMs=inCity?300000:(manyTopics?180000:300000);
+    const minMs=90000; // keep a topic at least ~1.5 min before any switch
     const elapsed=dirTopicStartRef.current?Date.now()-dirTopicStartRef.current:1e9;
     const timeUp=elapsed>=maxMs;
-    const forced=dirForceSwitchRef.current;
+    const forced=dirForceSwitchRef.current&&elapsed>=minMs;
     dirForceSwitchRef.current=false;
 
     let job,topicKey,topicLabel,mustClose=false,openNew=false;
@@ -867,8 +877,8 @@ ${job==="ПРОДОЛЖЕНИЕ ТЕМЫ"?`Продолжай ЭТУ ЖЕ тем
 ${mustClose?`Заверши тему красиво, законченной мыслью — дальше сменим тему.`:``}
 НЕ ПЕРЕСКАКИВАЙ на эти темы сейчас: ${otherTopics.join("; ")||"—"}.
 Настроение: ${dirMoodRef.current}.
-УЖЕ СКАЗАННЫЕ СМЫСЛЫ (не повторяй даже другими словами): ${summaries.length?summaries.join(" | "):"пока ничего"}.
-Если для этой темы тут реально нет фактов — коротко это признай и я (режиссёр) сменю тему; НЕ растекайся водой про «подышим воздухом».
+УЖЕ СКАЗАННЫЕ СМЫСЛЫ (НЕ повторяй НИ ОДИН из них, даже другими словами, даже под другим углом — это запрещено): ${summaries.length?summaries.join(" || "):"пока ничего"}.
+Если про текущую тему все свежие факты для этого места уже названы — НЕ повторяй старое по кругу; честно и коротко скажи, что добавить нечего, и я сменю тему.
 ========================`
     };
   };
@@ -980,7 +990,7 @@ Reply ONLY valid JSON: {"story":"your spoken answer in ${al}","location":"curren
       cityAnnouncedRef.current=Date.now();
     }
     const styleBlock=`========================\n‼ DELIVERY STYLE — THIS IS A HARD REQUIREMENT, NOT A SUGGESTION ‼\nYou MUST speak in this exact persona for EVERY sentence. It must be obvious within the first few words which persona you are:\n${bm.prompt}\nIf this persona is "trucker", talk like a CB-radio trucker (blunt, gravelly, "driver", road talk). If "funny", be genuinely witty and light. If "discovery/science", be an authoritative documentary narrator. If "night", be a hushed late-night poet. Do NOT fall back into a generic neutral guide voice.
-NOTE: the director block below decides only the TOPIC and structure — it NEVER changes this persona/voice. Whatever topic you're given, deliver it in THIS persona's distinct voice.\n========================`;
+NOTE: the director block below decides only the TOPIC and structure — it NEVER changes this persona/voice. Whatever topic you're given, deliver it in THIS persona's distinct voice.${bm.id==="teacher"?`\nTARGET LANGUAGE to teach (echo key phrases in it): ${L[learnLangRef.current]?.ai||"English"}.`:""}\n========================`;
 
     return`${styleBlock}
 
@@ -1000,7 +1010,10 @@ CORE RULES:
 6. SPATIAL HONESTY: Distances and sides (слева/справа/впереди/через N миль) may ONLY come from the code-confirmed list provided below the prompt. NEVER invent "через 2 мили", "озеро слева" etc. If you have no confirmed object, speak generally ("в этих краях", "в этой части штата") with no distance and no side.
 7. ANTI-REPEAT — CRITICAL. You repeat yourself badly, even within 3 minutes. Do NOT restate a fact you've already given, even reworded, even from a new angle. Each segment must contain genuinely NEW information.${overused?` You OVERUSED these words — BANNED this segment: ${overused}.`:``}
 8. MOVEMENT AWARENESS: The listener is travelling by: ${tmCtx}. ${ (toMph(c.speed)||0) < 3 ? `The driver is currently STOPPED/parked. Do NOT say "you're speeding along", "as you drive", "rushing past". Speak as to someone standing still here: "здесь, где вы остановились...", "в этом месте...".` : tm==="bike"?`On a bicycle — slower pace, closer to nature, mention things a cyclist would notice.`:tm==="walk"?`On foot — intimate pace, immediate surroundings.`:`Moving at about ${Math.round(toMph(c.speed)||0)} mph.` }
-9. ENTRY TYPE for this segment (vary every time, never repeat the last one): ${["начни с вопроса","начни с даты или числа","начни с имени человека","начни с контраста ('Казалось бы... но')","начни с короткой шутки","продолжи мысль прошлого блока","начни с 'а теперь о другом'","начни прямо с яркого факта","начни с образа, картинки"][Math.floor(Math.random()*9)]}. NEVER open with stock phrases "Впереди","Дальше","Знаете","Знаете что","Слушайте","А вот интересно","посмотрите вокруг".
+9. ENTRY TYPE for this segment (vary every time, never repeat the last one): ${["начни с вопроса","начни с даты или числа","начни с имени человека","начни с контраста ('Казалось бы... но')","начни с короткой шутки","продолжи мысль прошлого блока","начни с 'а теперь о другом'","начни прямо с яркого факта","начни с образа, картинки"][Math.floor(Math.random()*9)]}. ABSOLUTELY BANNED as openers (and as filler anywhere): "Знаешь", "Знаете", "Слушай", "Слушайте", "Впереди", "Дальше", "А вот интересно", "посмотрите вокруг". Do not start segments with these. Just begin with the substance.
+10. UNITS: this is the USA — ALWAYS use miles, never kilometers. Distances in miles only.
+11. WEATHER MUST MATCH REALITY: current sky is "${weatherRef.current?(weatherRef.current.desc||""):"unknown"}". Do NOT describe sunsets, golden light, clear skies, or scenery you can "see" if the weather doesn't support it. If it's raining/cloudy/snowing, either skip visual-scenery talk or frame it as "будь сейчас ясно, вы бы увидели...". Never claim a visible sunset/sunrise that contradicts the real weather.
+12. SUN / TIME-OF-DAY: mention time of day or the sun AT MOST once in a long while — not every segment. Never guess which side the sun is on. Use the real phase "${phase}" only; never say "закат"/"sunset" in the morning or "рассвет"/"sunrise" in the evening.
 
 CURRENT POSITION (ground truth):
 - Road: ${ld.highway||"this road"} (when you say the road or direction OUT LOUD, say the highway number and the direction as a FULL WORD — "на ${toDirWord(hdg,langRef.current)}", "по трассе ${ld.highway||""}". NEVER read compass letters like "СВ", "С", "N".)
@@ -1053,7 +1066,9 @@ Reply ONLY valid JSON: {"story":"your segment in ${al}, 3-5 sentences, in the ${
         const cur=norm(res.story);
         if(cur.length>6){
           const overlap=cur.filter(w=>prevSet.has(w)).length/cur.length;
-          if(overlap>0.5)dirForceSwitchRef.current=true;
+          // Only force a switch on a STRONG echo, and only if we've already spent a bit of time on the topic.
+          const onTopicMs=dirTopicStartRef.current?Date.now()-dirTopicStartRef.current:0;
+          if(overlap>0.62&&onTopicMs>90000)dirForceSwitchRef.current=true;
         }
         recentStoriesRef.current=[...recentStoriesRef.current,res.story].slice(-8);
       }
@@ -1143,6 +1158,16 @@ Reply ONLY valid JSON: {"story":"your segment in ${al}, 3-5 sentences, in the ${
         if(gen!==loopGenRef.current||!runRef.current)return;   // aborted while loading
         const director=directNextBlock();
         const sys=buildSys(false,null,tourist||false);
+        // Short, punchy per-persona reminder injected LAST so the model can't drift to neutral.
+        const REMIND={
+          normal:"НЕЙТРАЛЬНЫЙ: ровно, спокойно, по делу. Без шуток, без восторгов, без поэзии. Просто понятно расскажи факт.",
+          funny:"ЮМОРИСТИЧЕСКИЙ (стендап): шути. Начни с шутки или смешного сравнения, добавь иронии и неожиданных образов. Слушатель должен улыбнуться. Если не смешно — переделай.",
+          science:"ВОСТОРЖЕННЫЙ (Дроздов/Аттенборо): говори с придыханием и восхищением — 'вы только вдумайтесь!', 'поразительно!'. Медленно, образно, заворожённо. Всё чудо.",
+          troll:"СКАЗОЧНИК-ТРОЛЬ: на голубом глазу выдай абсурдную небылицу как факт ('справа за холмом — пирамида Хеопса'), а потом так же абсурдно её 'объясни' ('но по техническим причинам её перенесли в Гизу'). Не говори 'это шутка'. Смешно и сказочно.",
+          quotes:"ЦИТАТНИК: вплети ОДНУ реальную крылатую фразу/цитату из фильма, книги, песни или пословицу, строго В ТЕМУ того, о чём сейчас речь, и под культуру языка. Не выдумывай цитаты.",
+          teacher:"УЧИТЕЛЬ ЯЗЫКА: рассказывай на родном, но 1-2 ключевые фразы (2-3 слова) тут же повтори на изучаемом языке через тире, без пояснений. Коротко, вплетено в рассказ.",
+        };
+        const bmReminder=REMIND[bcastRef.current]||REMIND.normal;
         // Precise spatial facts computed by code — the ONLY distances/sides the host may state.
         const withGeo=pois.filter(p=>p.miles!=null).map(p=>`${p.name} (${p.miles.toFixed(1)} миль, ${p.side})`);
         const noGeo=pois.filter(p=>p.miles==null).map(p=>p.name);
@@ -1150,7 +1175,8 @@ Reply ONLY valid JSON: {"story":"your segment in ${al}, 3-5 sentences, in the ${
         if(withGeo.length)poiLine+=`\nTHE ONLY confirmed nearby objects WITH distance/side you may state (use these exact distances/sides, never invent others): ${withGeo.join("; ")}.`;
         if(noGeo.length)poiLine+=`\nKnown in the general area (mention only generally, NO distance, NO side): ${noGeo.join(", ")}.`;
         poiLine+=`\nIf an object is not in the list above, you MUST NOT say how far it is or which side it's on. No "через 2 мили", no "слева/справа" unless it came from the confirmed list.`;
-        try{res=await callClaude(sys+"\n\n"+director.text+poiLine,"Produce ONLY the director's assigned block.",false);res._dirTopic=director.topicKey;}
+        const styleReminder=`\n\n‼ FINAL AND MOST IMPORTANT — VOICE/PERSONA ‼\nWhatever the topic above, you MUST deliver it in this exact persona, and it must be unmistakable from the very first words:\n${bmReminder}\nIf your answer would read the same in any other persona, you FAILED. Make the persona obvious.`;
+        try{res=await callClaude(sys+"\n\n"+director.text+poiLine+styleReminder,"Produce ONLY the director's assigned block, IN PERSONA.",false);res._dirTopic=director.topicKey;}
         catch(e){
           // Likely a dead zone / no signal. Use a buffered segment if we have one, instead of stopping.
           if(bufferRef.current.length>0){res=bufferRef.current.shift();}
@@ -1298,6 +1324,7 @@ Reply ONLY valid JSON: {"story":"your segment in ${al}, 3-5 sentences, in the ${
   const skipTopic=()=>{
     if(!runRef.current)return;
     dirForceSwitchRef.current=true;   // director will open a new topic
+    dirTopicStartRef.current=0;       // bypass minimum-dwell so the manual skip is instant
     nextRef.current=null;bufferRef.current=[];  // drop any prepared segment
     loopGenRef.current++;const g=loopGenRef.current;
     hardStop();setStatus("loading");
@@ -1585,6 +1612,15 @@ Reply ONLY valid JSON: {"story":"your segment in ${al}, 3-5 sentences, in the ${
                 </div>
               ))}
             </div>
+            {bcastMode==="teacher"&&(
+              <div style={{margin:"4px 2px 10px"}}>
+                <div style={{fontSize:"14px",color:"#cfe0f0",marginBottom:"6px"}}>{isRu?"Какой язык учить:":"Language to learn:"}</div>
+                <select className="langsel" style={{width:"100%",padding:"12px",fontSize:"15px"}} value={learnLang} onChange={e=>setLearnLang(e.target.value)}>
+                  {LK.filter(k=>k!==lang).map(k=><option key={k} value={k}>{L[k].lb}</option>)}
+                </select>
+                <div style={{fontSize:"12px",color:"#8a98ad",marginTop:"5px"}}>{isRu?"Ведущий будет вставлять ключевые фразы на этом языке.":"The host will weave key phrases in this language."}</div>
+              </div>
+            )}
             <div className="set-sect">{isRu?"Способ передвижения":"Travel Mode"}</div>
             <div className="mode-grid">
               {TRAVEL.map(m=>(
