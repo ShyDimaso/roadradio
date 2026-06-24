@@ -297,7 +297,7 @@ const BCASTS=[
   {id:"funny",icon:"😂",en:"Comedian",ru:"Юмористический",desc:"Stand-up",descRu:"Стендап",prompt:"STAND-UP COMEDIAN HOST. You are FIRST a comedian, second a guide. Open almost every segment with something that makes the driver grin — a joke, a punchy exaggeration, a sarcastic aside, a ridiculous-but-apt comparison. Riff on the facts, roast the boring ones, act amazed at silly details, use comic timing ('...and THAT, my friend, is the most exciting thing to happen here since the vending machine got restocked'). Big charisma like a club comic. The facts stay TRUE but the WRAPPER is comedy. Never vulgar, never mean — just genuinely funny. If a segment isn't making the driver smile, you're doing it wrong."},
   {id:"science",icon:"🔬",en:"Naturalist",ru:"Научный",desc:"Wonder",descRu:"Восторженный",prompt:"AWE-STRUCK NATURE-DOCUMENTARY NARRATOR — in the spirit of a beloved naturalist like Drozdov or Attenborough. You are FILLED with wonder. Everything is fascinating, miraculous, breathtaking. Speak slowly, warmly, reverently, savoring each detail like it's a marvel ('...and here — right HERE — beneath these very fields, lies a story 300 million years in the making'). Rich sensory imagery, deep time, the poetry of nature and history. Hushed, mesmerizing, emotional. The OPPOSITE of the plain neutral host — where they are flat, you are soaring with amazement."},
   {id:"quotes",icon:"📖",en:"Quotemaster",ru:"Цитатник",desc:"Quotes",descRu:"Цитаты",prompt:"QUOTEMASTER HOST — you tell the place's story in normal warm narration, but wherever it genuinely fits, you weave in a REAL well-known quote, proverb, film line, song lyric or literary line that ties directly to the CURRENT topic and this place. STRICT: the quote must be REAL (never invented) and must be ON-TOPIC and relevant to what you are talking about right now — not random. Match the listener's language culture (for Russian: Soviet/Russian films, poems, songs, proverbs; for English: English-language sources). The quote is part of the talk, not bolted on. Roughly one apt quote per segment, no more."},
-  {id:"teacher",icon:"🗣",en:"Language tutor",ru:"Учитель языка",desc:"Language",descRu:"Язык",prompt:"LANGUAGE TUTOR HOST — you narrate about the place in the listener's NATIVE language, but teach the TARGET language by echoing key PHRASES. Take a 2-3 word phrase you just said (e.g. 'охотились на оленей', 'переезжаем мост') and immediately repeat ONLY that phrase in the target language, with a tiny pause before it (use ' — ' so the phone voice breaks). NO preface, NO comment like 'по-английски это' — just the native phrase, a dash, then the target-language phrase, then continue. Keep it to about 5-10% of speech, woven into the real story so words are learned in context. Prefer short PHRASES over single words. The target language is given below."},
+  {id:"teacher",icon:"🗣",en:"Language tutor",ru:"Учитель языка",desc:"Language",descRu:"Язык",prompt:"LANGUAGE TUTOR HOST — narrate about the place in the listener's NATIVE language, but actively teach the TARGET language by echoing key PHRASES. In EVERY segment, pick at least 3-4 short 2-3 word phrases you just said (e.g. 'охотились на оленей', 'переезжаем мост', 'старый каменный дом') and immediately repeat EACH in the target language with a tiny pause before it (use ' — ' so the phone voice breaks). NO preface, NO comment like 'по-английски это' — just: native phrase — target phrase — keep going. Aim for roughly 15-20% of the segment to be these paired phrases, woven naturally into the real story so phrases are learned in context. Prefer PHRASES over single words. The target language is given below."},
   {id:"troll",icon:"🧙",en:"Tall-tale teller",ru:"Сказочник",desc:"Tall tales",descRu:"Небылицы",prompt:"TALL-TALE TELLER (Skazochnik) — tell the real story of a place but woven with gloriously absurd tall tales delivered with a straight face. Trick: state something absurd as if fact ('right beyond that hill stands the Pyramid of Cheops'), then resolve it just as absurdly and playfully ('...but for technical reasons it was moved back to Giza last week'). NEVER flatly say it was a joke — that ruins it; dissolve each tall tale with another absurd flourish so the listener grins and KNOWS it was play. CRITICAL: (1) keep absurd inventions OBVIOUSLY fantastical so none is mistaken for a real fact; real facts stay real; (2) NEVER invent road directions, turns, hazards or anything about driving — the road is always dead honest. Joke about the world, never about the wheel."},
 ];
 const TOPICS=[{id:"geology",en:"Geology",ru:"Геология"},{id:"weather",en:"Weather",ru:"Погода"},{id:"wildlife",en:"Wildlife",ru:"Животные"},{id:"plants",en:"Plants",ru:"Растения"},{id:"history",en:"History",ru:"История"},{id:"towns",en:"Towns",ru:"Города"},{id:"road",en:"Roads",ru:"Дороги"},{id:"humor",en:"Humor",ru:"Юмор"}];
@@ -1165,7 +1165,7 @@ Reply ONLY valid JSON: {"story":"your segment in ${al}, 3-5 sentences, in the ${
           science:"ВОСТОРЖЕННЫЙ (Дроздов/Аттенборо): говори с придыханием и восхищением — 'вы только вдумайтесь!', 'поразительно!'. Медленно, образно, заворожённо. Всё чудо.",
           troll:"СКАЗОЧНИК-ТРОЛЬ: на голубом глазу выдай абсурдную небылицу как факт ('справа за холмом — пирамида Хеопса'), а потом так же абсурдно её 'объясни' ('но по техническим причинам её перенесли в Гизу'). Не говори 'это шутка'. Смешно и сказочно.",
           quotes:"ЦИТАТНИК: вплети ОДНУ реальную крылатую фразу/цитату из фильма, книги, песни или пословицу, строго В ТЕМУ того, о чём сейчас речь, и под культуру языка. Не выдумывай цитаты.",
-          teacher:"УЧИТЕЛЬ ЯЗЫКА: рассказывай на родном, но 1-2 ключевые фразы (2-3 слова) тут же повтори на изучаемом языке через тире, без пояснений. Коротко, вплетено в рассказ.",
+          teacher:"УЧИТЕЛЬ ЯЗЫКА: рассказывай на родном, но в КАЖДОМ блоке возьми 3-4 ключевые фразы (2-3 слова) и тут же повтори каждую на изучаемом языке через тире, без пояснений. Примерно 15-20% речи — такие пары. Вплетено в рассказ.",
         };
         const bmReminder=REMIND[bcastRef.current]||REMIND.normal;
         // Precise spatial facts computed by code — the ONLY distances/sides the host may state.
@@ -1202,15 +1202,15 @@ Reply ONLY valid JSON: {"story":"your segment in ${al}, 3-5 sentences, in the ${
   };
   loopRef.current=loop;
 
-  // Auto-enter "radio only" focus mode a few seconds into speaking (DJ mode), unless the user is interacting.
+  // Auto-enter "radio only" focus mode a few seconds into speaking (DJ mode), unless the user is interacting or reading text.
   useEffect(()=>{
     if(!djMode||screen!=="main")return;
-    if(speaking&&!radioFocus&&!settingsOpen&&!callMode&&!parked){
+    if(speaking&&!radioFocus&&!settingsOpen&&!callMode&&!parked&&!showTxt){
       if(focusTimerRef.current)clearTimeout(focusTimerRef.current);
-      focusTimerRef.current=setTimeout(()=>{if(speakingRef.current&&!settingsOpen&&!callMode&&!parked)setRadioFocus(true);},6000);
+      focusTimerRef.current=setTimeout(()=>{if(speakingRef.current&&!settingsOpen&&!callMode&&!parked&&!showTxt)setRadioFocus(true);},6000);
     }
     return()=>{if(focusTimerRef.current)clearTimeout(focusTimerRef.current);};
-  },[speaking,djMode,screen,settingsOpen,callMode,parked,radioFocus]);
+  },[speaking,djMode,screen,settingsOpen,callMode,parked,radioFocus,showTxt]);
 
   // Watchdog: if the show is running but nothing has been spoken for a long time
   // (a wedged fetch, or a stuck speech engine on a long Android session), kick it back to life.
@@ -1301,7 +1301,7 @@ Reply ONLY valid JSON: {"story":"your segment in ${al}, 3-5 sentences, in the ${
     const everStarted=localStorage.getItem("rr_started");
     const hw=locDataRef.current.highway;const dir=toDirWord(coordsRef.current?.heading||90,langRef.current);
     const roadPart=hw?(isRu?` Едем по трассе ${hw} на ${dir}.`:` We're on ${hw} heading ${dir}.`):(isRu?` Едем на ${dir}.`:` Heading ${dir}.`);
-    const tagline=isRu?" Я расскажу всё самое интересное о местах, мимо которых вы едете. В настройках можно выбрать один из стилей ведущего и темы для рассказа по этой местности. Приятного путешествия!":" I'll tell you the most interesting things about the places you pass. In settings you can choose a host style and the topics to cover for this area. Enjoy the trip!";
+    const tagline=isRu?" Я расскажу всё самое интересное о местах, мимо которых вы едете. В настройках можно выбрать один из стилей ведущего и темы для эфира по этой местности. Приятного путешествия!":" I'll tell you the most interesting things about the places you pass. In settings you can choose a host style and the topics for the broadcast in this area. Enjoy the trip!";
     const greet=everStarted
       ?(isRu?`Вы снова на Дорожном Радио.${roadPart}${tagline}`:`You're back on Road Radio.${roadPart}${tagline}`)
       :(isRu?`Здравствуйте, вы на Дорожном Радио.${roadPart}${tagline}`:`Hello, you're on Road Radio.${roadPart}${tagline}`);
@@ -1331,15 +1331,21 @@ Reply ONLY valid JSON: {"story":"your segment in ${al}, 3-5 sentences, in the ${
     setTimeout(()=>{if(runRef.current&&!pausedRef.current&&loopGenRef.current===g)loopRef.current?.(false,false);},250);
   };
 
+  const pauseStartRef=useRef(0);
   const togglePause=()=>{
     if(pausedRef.current){
-      // resume
+      // resume — shift the topic timer forward by however long we were paused, so the
+      // director continues the SAME topic instead of thinking its time ran out.
       pausedRef.current=false;setPaused(false);
-      roadReminderRef.current=0;   // mention road/direction again on resume
+      if(pauseStartRef.current&&dirTopicStartRef.current){
+        dirTopicStartRef.current+=(Date.now()-pauseStartRef.current);
+      }
+      pauseStartRef.current=0;
       if(runRef.current){loopGenRef.current++;const g=loopGenRef.current;setTimeout(()=>{if(runRef.current&&!pausedRef.current&&loopGenRef.current===g)loopRef.current?.(false,false);},400);}
     }else{
       // pause: stop talking, stop scheduling, keep all state/position
       pausedRef.current=true;setPaused(true);
+      pauseStartRef.current=Date.now();
       loopGenRef.current++;
       if(loopRef.current?.scheduled)clearTimeout(loopRef.current.scheduled);
       hardStop();setStatus("ready");
@@ -1892,7 +1898,7 @@ Reply ONLY valid JSON: {"story":"your segment in ${al}, 3-5 sentences, in the ${
             </div>
             <button className="callbtn" onClick={openCall}>📞 {isRu?"Спросить про это место":"Ask about this place"}</button>
             <div className="sec-btns">
-              <button className={`sbtn big${showTxt?" act":""}`} onClick={()=>setShowTxt(t=>!t)}>{showTxt?(isRu?"📄 Текст ✓":"📄 Text ✓"):(isRu?"📄 Текст":"📄 Text")}</button>
+              <button className={`sbtn big${showTxt?" act":""}`} onClick={()=>{setShowTxt(t=>{const n=!t;if(n)setRadioFocus(false);return n;});}}>{showTxt?(isRu?"📄 Текст ✓":"📄 Text ✓"):(isRu?"📄 Текст":"📄 Text")}</button>
               <button className="sbtn big" onClick={()=>{revealMenu();setRadioFocus(true);}}>{isRu?"📻 Только радио":"📻 Radio only"}</button>
               <button className="sbtn" onClick={()=>setSettingsOpen(true)}>⚙️</button>
             </div>
