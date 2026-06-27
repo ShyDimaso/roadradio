@@ -286,7 +286,7 @@ body{font-family:'Inter',sans-serif;color:#fff;}
 const {useState,useRef,useEffect}=React;
 const PROXY="https://corsproxy.io/?https://api.anthropic.com/v1/messages";
 const KEY_STORE="rr_key_v3";
-const VER="v31";
+const VER="v32";
 
 const OPENERS_RU=["На этой земле...","Да, кстати...","Мало кто знает, но...","Справа от вас...","История этого края...","Сто лет назад здесь...","Тишина здесь обманчива...","Когда-то давно здесь...","Через пару миль...","Вот что примечательно..."];
 const OPENERS_EN=["On this land...","Here's something few know...","Just to your right...","The history here...","A hundred years ago...","Locals know that...","In a few miles...","What's remarkable is...","This stretch of highway...","Worth knowing..."];
@@ -716,15 +716,17 @@ function App(){
   // Look ahead along the heading for fuel stations; return miles to nearest one ahead, or null.
   const fetchFuelAhead=async(lat,lng,hdg)=>{
     try{
-      const q=`[out:json][timeout:12];node["amenity"="fuel"](around:80000,${lat},${lng});out body 60;`;
+      const q=`[out:json][timeout:12];node["amenity"="fuel"](around:90000,${lat},${lng});out body 80;`;
       const r=await fetch(`https://overpass-api.de/api/interpreter?data=${encodeURIComponent(q)}`);
       const d=await r.json();const els=d.elements||[];if(!els.length)return null;
       const R=3958.8,rad=x=>x*Math.PI/180;
       const dist=(la,lo)=>{const dLa=rad(la-lat),dLo=rad(lo-lng);const a=Math.sin(dLa/2)**2+Math.cos(rad(lat))*Math.cos(rad(la))*Math.sin(dLo/2)**2;return 2*R*Math.asin(Math.sqrt(a));};
       const bear=(la,lo)=>{const y=Math.sin(rad(lo-lng))*Math.cos(rad(la));const x=Math.cos(rad(lat))*Math.sin(rad(la))-Math.sin(rad(lat))*Math.cos(rad(la))*Math.cos(rad(lo-lng));return (Math.atan2(y,x)*180/Math.PI+360)%360;};
-      let near=null;
-      for(const e of els){if(e.lat==null||e.lon==null)continue;const dd=dist(e.lat,e.lon);if(dd<0.3)continue;let diff=Math.abs(bear(e.lat,e.lon)-hdg);if(diff>180)diff=360-diff;if(diff<70&&(near==null||dd<near))near=dd;}
-      return near;
+      const ahead=[];
+      for(const e of els){if(e.lat==null||e.lon==null)continue;const dd=dist(e.lat,e.lon);if(dd<0.3)continue;let diff=Math.abs(bear(e.lat,e.lon)-hdg);if(diff>180)diff=360-diff;if(diff<70)ahead.push(dd);}
+      ahead.sort((a,b)=>a-b);
+      if(!ahead.length)return null;
+      return {first:ahead[0],second:ahead[1]||null,count:ahead.length};
     }catch{return null;}
   };
 
@@ -764,6 +766,8 @@ function App(){
   const speak=text=>new Promise(async res=>{
     try{
       const s=window.speechSynthesis;if(!s||!text){res();return;}
+      // Remove ellipses / stray dot-runs so the voice never reads "точка точка точка".
+      text=String(text).replace(/\.{2,}/g,", ").replace(/…/g,", ").replace(/\s+,/g,",").replace(/,\s*,/g,",").trim();
       s.cancel();
       const myToken=++speakTokenRef.current;
       setSpeaking(true);speakingRef.current=true;lastSpokeRef.current=Date.now();
@@ -902,16 +906,17 @@ ${mustClose?`Заверши тему красиво, законченной мы
     if(sun&&sun.rise&&sun.set){
       const toMin=iso=>{const t=iso.split('T')[1]||"";const[h,m]=t.split(':');return (parseInt(h)||0)*60+(parseInt(m)||0);};
       const cur=hr*60+mn,rise=toMin(sun.rise),set=toMin(sun.set);
-      isDawn=cur>=rise-30&&cur<rise+45;
-      isDusk=cur>=set-45&&cur<set+30;
-      isNight=cur>=set+30||cur<rise-30;
+      isDawn=cur>=rise-60&&cur<rise+60;
+      isDusk=cur>=set-60&&cur<set+45;
+      isNight=(cur>=set+45||cur<rise-60);
       phase=isNight?"NIGHT":isDawn?"SUNRISE":isDusk?"SUNSET":"DAYTIME";
     }else{
       isNight=hr>=21||hr<5;isDusk=hr>=19&&hr<21;isDawn=hr>=5&&hr<7;
       phase=isNight?"NIGHT":isDawn?"SUNRISE":isDusk?"SUNSET":"DAYTIME";
     }
     const tStr=`${hr}:${mn.toString().padStart(2,'0')}`;
-    const timeCtx=`${phase}, local time ${tStr}, ${mo}${sun?` (sunrise ${(sun.rise.split('T')[1]||'').slice(0,5)}, sunset ${(sun.set.split('T')[1]||'').slice(0,5)})`:''}`;
+    const fullDate=now0.toLocaleDateString('en',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
+    const timeCtx=`${phase}, local time ${tStr}, today is ${fullDate}, ${mo}${sun?` (sunrise ${(sun.rise.split('T')[1]||'').slice(0,5)}, sunset ${(sun.set.split('T')[1]||'').slice(0,5)})`:''}. Use THIS date/season for any talk of seasons or whether days are getting longer or shorter — never contradict it.`;
     const tmCtx=isTourist?`Stopped/parked — tourist mode. Describe this location in detail as if person is exploring on foot.`:tm==="car"?`car at ${spd} mph`:tm==="bus"?`bus/train at ${spd} mph`:tm==="bike"?`bicycle`:tm==="walk"?"walking":"vehicle";
     const destCtx=dest?`\nHeading toward: ${dest} — for direction context ONLY. NEVER describe places not within 3 miles of current position.`:"";
     const exCtx=exl.length?`\nNEVER mention: ${exl.join(', ')}.`:"";
@@ -1129,16 +1134,27 @@ Reply ONLY valid JSON: {"story":"your segment in ${al}, 3-5 sentences, in the ${
       const fuelDue=Date.now()-fuelWarnedRef.current>420000; // at most ~ every 7 min
       if(canFuel&&fuelDue){
         try{
-          const mi=await fetchFuelAhead(c.lat,c.lng,c.heading||90);
+          const fa=await fetchFuelAhead(c.lat,c.lng,c.heading||90);
           if(gen!==loopGenRef.current||!runRef.current)return;
           const thresh=cfgF.fuelMiles||30;
-          if(mi!=null&&mi>=thresh){
+          const isRu=langRef.current==="ru";
+          const disc=isRu?"По нашим данным (база неполная, проверяйте сами)":"By our data (incomplete, please verify yourself)";
+          if(fa===null||fa.count===0){
+            // No stations found ahead within range — explicit safety warning.
             fuelWarnedRef.current=Date.now();
-            const isRu=langRef.current==="ru";
-            const miR=Math.round(mi);
             const warn=isRu
-              ?`Кстати, по заправкам: ближайшая впереди примерно через ${miR} миль, а следующая — заметно дальше. Просто имейте в виду. ... Продолжаем.`
-              :`A quick note on fuel: the next station ahead is about ${miR} miles out, and the one after that is considerably farther. Just so you know. ... Back to it.`;
+              ?`Важно про топливо. ${disc}, впереди на большом участке заправок не видно. Если бак ниже половины — лучше заправиться при первой же возможности, дальше может долго ничего не быть. Продолжаем эфир.`
+              :`Important fuel note. ${disc}, no stations show up ahead for a long stretch. If you're below half a tank, fill up at the first chance — there may be nothing for a while. Back to the broadcast.`;
+            res={story:warn,location:locDataRef.current.name||"",topics:"fuel warning"};
+          }else if(fa.first>=thresh||(fa.second&&fa.second-fa.first>=thresh)){
+            fuelWarnedRef.current=Date.now();
+            const f1=Math.round(fa.first);
+            const nextPart=fa.second
+              ?(isRu?` Следующая после неё — ещё примерно через ${Math.round(fa.second-fa.first)} миль.`:` The one after that is about ${Math.round(fa.second-fa.first)} miles further.`)
+              :(isRu?` А вот следующую за ней мы дальше уже не видим — учтите это.`:` We don't see another one beyond it — keep that in mind.`);
+            const warn=isRu
+              ?`Важно про топливо. ${disc}, ближайшая заправка впереди примерно через ${f1} миль.${nextPart} Решайте по своему баку. Продолжаем.`
+              :`Important fuel note. ${disc}, the nearest station ahead is about ${f1} miles out.${nextPart} Judge by your tank. Back to it.`;
             res={story:warn,location:locDataRef.current.name||"",topics:"fuel warning"};
           }
         }catch{}
@@ -1386,7 +1402,7 @@ Reply ONLY valid JSON: {"story":"your segment in ${al}, 3-5 sentences, in the ${
       if(!SR){setCallPhase("type");callPhaseRef.current="type";return;}   // fall back to typing
       const rec=new SR();
       rec.lang=L[langRef.current]?.tts||"en-US";
-      rec.continuous=false;rec.interimResults=true;   // one clean phrase per session — avoids replay-duplication
+      rec.continuous=true;rec.interimResults=true;   // stay in ONE session to avoid the repeated start/stop chime
       let sessionFinal="";
       rec.onresult=e=>{
         sessionFinal="";let interim="";
@@ -1400,9 +1416,9 @@ Reply ONLY valid JSON: {"story":"your segment in ${al}, 3-5 sentences, in the ${
       rec.onend=()=>{
         if(sessionFinal)callTextRef.current=cleanTranscript(callTextRef.current+" "+sessionFinal);
         setMicTranscript(callTextRef.current);
-        // keep listening across phrases until the user taps "I'm done"
+        // Only restart if it dropped unexpectedly while still listening (continuous usually keeps going).
         if(callPhaseRef.current==="listening"&&!userDoneRef.current){
-          setTimeout(()=>{ if(callPhaseRef.current==="listening"&&!userDoneRef.current)callListen(); },250);
+          setTimeout(()=>{ if(callPhaseRef.current==="listening"&&!userDoneRef.current)callListen(); },400);
         }
       };
       callRecRef.current=rec;
@@ -1470,7 +1486,7 @@ Reply ONLY valid JSON: {"story":"your segment in ${al}, 3-5 sentences, in the ${
             setStory(res.story||res);setStatus("ready");startCd(55);
             setMicState("idle");nextRef.current=null;
             const isRu=langRef.current==="ru";
-            const back=isRu?" ... Возвращаемся к дороге.":" ... Back to the road.";
+            const back=isRu?" Возвращаемся к дороге.":" Back to the road.";
             loopGenRef.current++;const g=loopGenRef.current;
             speak((res.story||res)+back).then(()=>{
               setTimeout(()=>{if(runRef.current&&!parkedRef.current&&loopGenRef.current===g)loopRef.current?.(false,false);},800);
