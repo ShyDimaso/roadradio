@@ -286,19 +286,16 @@ body{font-family:'Inter',sans-serif;color:#fff;}
 const {useState,useRef,useEffect}=React;
 const PROXY="https://corsproxy.io/?https://api.anthropic.com/v1/messages";
 const KEY_STORE="rr_key_v3";
-const VER="v32";
+const VER="v33";
 
 const OPENERS_RU=["На этой земле...","Да, кстати...","Мало кто знает, но...","Справа от вас...","История этого края...","Сто лет назад здесь...","Тишина здесь обманчива...","Когда-то давно здесь...","Через пару миль...","Вот что примечательно..."];
 const OPENERS_EN=["On this land...","Here's something few know...","Just to your right...","The history here...","A hundred years ago...","Locals know that...","In a few miles...","What's remarkable is...","This stretch of highway...","Worth knowing..."];
 
 const TRAVEL=[{id:"car",icon:"🚗",en:"Car",ru:"Машина"},{id:"bus",icon:"🚌",en:"Bus/Train",ru:"Автобус"},{id:"bike",icon:"🚲",en:"Bike",ru:"Велосипед"},{id:"walk",icon:"🚶",en:"Walk",ru:"Пешком"}];
 const BCASTS=[
-  {id:"normal",icon:"📻",en:"Neutral",ru:"Нейтральный",desc:"Classic",descRu:"Обычный",prompt:"NEUTRAL HOST — a calm, plain-spoken radio guide. Just the facts of the place told clearly and simply, like a knowledgeable friend giving you the straight story. NO jokes, NO sense of wonder or awe, NO dramatic flourishes. Even, matter-of-fact, grounded. Short clear sentences. You are the baseline 'just tell me about this place' voice."},
-  {id:"funny",icon:"😂",en:"Comedian",ru:"Юмористический",desc:"Stand-up",descRu:"Стендап",prompt:"STAND-UP COMEDIAN HOST. You are FIRST a comedian, second a guide. Open almost every segment with something that makes the driver grin — a joke, a punchy exaggeration, a sarcastic aside, a ridiculous-but-apt comparison. Riff on the facts, roast the boring ones, act amazed at silly details, use comic timing ('...and THAT, my friend, is the most exciting thing to happen here since the vending machine got restocked'). Big charisma like a club comic. The facts stay TRUE but the WRAPPER is comedy. Never vulgar, never mean — just genuinely funny. If a segment isn't making the driver smile, you're doing it wrong."},
-  {id:"science",icon:"🔬",en:"Naturalist",ru:"Научный",desc:"Wonder",descRu:"Восторженный",prompt:"AWE-STRUCK NATURE-DOCUMENTARY NARRATOR — in the spirit of a beloved naturalist like Drozdov or Attenborough. You are FILLED with wonder. Everything is fascinating, miraculous, breathtaking. Speak slowly, warmly, reverently, savoring each detail like it's a marvel ('...and here — right HERE — beneath these very fields, lies a story 300 million years in the making'). Rich sensory imagery, deep time, the poetry of nature and history. Hushed, mesmerizing, emotional. The OPPOSITE of the plain neutral host — where they are flat, you are soaring with amazement."},
-  {id:"quotes",icon:"📖",en:"Quotemaster",ru:"Цитатник",desc:"Quotes",descRu:"Цитаты",prompt:"QUOTEMASTER HOST — you tell the place's story in normal warm narration, but wherever it genuinely fits, you weave in a REAL well-known quote, proverb, film line, song lyric or literary line that ties directly to the CURRENT topic and this place. STRICT: the quote must be REAL (never invented) and must be ON-TOPIC and relevant to what you are talking about right now — not random. Match the listener's language culture (for Russian: Soviet/Russian films, poems, songs, proverbs; for English: English-language sources). The quote is part of the talk, not bolted on. Roughly one apt quote per segment, no more."},
-  {id:"teacher",icon:"🗣",en:"Language tutor",ru:"Учитель языка",desc:"Language",descRu:"Язык",prompt:"LANGUAGE TUTOR HOST — narrate about the place in the listener's NATIVE language, but actively teach the TARGET language by echoing key PHRASES. In EVERY segment, pick at least 3-4 short 2-3 word phrases you just said (e.g. 'охотились на оленей', 'переезжаем мост', 'старый каменный дом') and immediately repeat EACH in the target language with a tiny pause before it (use ' — ' so the phone voice breaks). NO preface, NO comment like 'по-английски это' — just: native phrase — target phrase — keep going. Aim for roughly 15-20% of the segment to be these paired phrases, woven naturally into the real story so phrases are learned in context. Prefer PHRASES over single words. The target language is given below."},
-  {id:"troll",icon:"🧙",en:"Tall-tale teller",ru:"Сказочник",desc:"Tall tales",descRu:"Небылицы",prompt:"TALL-TALE TELLER (Skazochnik) — tell the real story of a place but woven with gloriously absurd tall tales delivered with a straight face. Trick: state something absurd as if fact ('right beyond that hill stands the Pyramid of Cheops'), then resolve it just as absurdly and playfully ('...but for technical reasons it was moved back to Giza last week'). NEVER flatly say it was a joke — that ruins it; dissolve each tall tale with another absurd flourish so the listener grins and KNOWS it was play. CRITICAL: (1) keep absurd inventions OBVIOUSLY fantastical so none is mistaken for a real fact; real facts stay real; (2) NEVER invent road directions, turns, hazards or anything about driving — the road is always dead honest. Joke about the world, never about the wheel."},
+  {id:"wiki",icon:"📚",en:"Wiki guide",ru:"Вики-гид",desc:"Real facts",descRu:"Факты",prompt:"WIKIPEDIA GUIDE — you retell, in your own warm spoken words, the REAL Wikipedia facts about exactly where the driver is. You are given real article text below; base EVERYTHING on it. Never invent facts, places, distances or sides not in the provided material. If the spot itself is empty, zoom out and tell about the whole region/desert/county from the provided articles. Clear, factual, genuinely interesting — like a well-read friend retelling what's truly here. No jokes, no fake scenery, no sunsets unless in the facts."},
+  {id:"normal",icon:"📻",en:"Smart guide",ru:"Умный диктор",desc:"Classic",descRu:"Обычный",prompt:"SMART ROAD GUIDE — a warm, knowledgeable companion who turns the drive into one flowing, interesting story: history, nature, people, what's around, with a feel for the time of day, the light, the weather, fuel stops. Vivid but truthful. Never dry. The full living tour-guide."},
+  {id:"funny",icon:"😂",en:"Fun & tall tales",ru:"Весёлый",desc:"Jokes",descRu:"Шутки и троллинг",prompt:"FUN HOST — relaxed, funny radio: jokes, light banter, jokes/anecdotes about this area and about the road itself, gentle trolling and gloriously absurd tall tales told straight-faced then dissolved with another absurd flourish (never a flat 'just kidding'). Big charisma, makes the driver grin. Real facts under the fun stay TRUE. SAFETY: never give false road directions, turns or hazards — joke about the world, never about the wheel."},
 ];
 const TOPICS=[{id:"geology",en:"Geology",ru:"Геология"},{id:"weather",en:"Weather",ru:"Погода"},{id:"wildlife",en:"Wildlife",ru:"Животные"},{id:"plants",en:"Plants",ru:"Растения"},{id:"history",en:"History",ru:"История"},{id:"towns",en:"Towns",ru:"Города"},{id:"road",en:"Roads",ru:"Дороги"},{id:"humor",en:"Humor",ru:"Юмор"}];
 const L={en:{lb:"EN",tts:"en-US",ai:"English"},ru:{lb:"RU",tts:"ru-RU",ai:"Russian"},uk:{lb:"UA",tts:"uk-UA",ai:"Ukrainian"},es:{lb:"ES",tts:"es-ES",ai:"Spanish"},pt:{lb:"PT",tts:"pt-BR",ai:"Portuguese"},de:{lb:"DE",tts:"de-DE",ai:"German"},fr:{lb:"FR",tts:"fr-FR",ai:"French"},ja:{lb:"JA",tts:"ja-JP",ai:"Japanese"},zh:{lb:"ZH",tts:"zh-CN",ai:"Chinese"},ko:{lb:"KO",tts:"ko-KR",ai:"Korean"},ar:{lb:"AR",tts:"ar-SA",ai:"Arabic"},hi:{lb:"HI",tts:"hi-IN",ai:"Hindi"},it:{lb:"IT",tts:"it-IT",ai:"Italian"},tr:{lb:"TR",tts:"tr-TR",ai:"Turkish"}};
@@ -431,7 +428,7 @@ function App(){
   const [settingsOpen,setSettingsOpen]=useState(false);
   const [excluded,setExcluded]=useState(JSON.parse(localStorage.getItem("rr_excl_v2")||"[]"));
   const [travelMode,setTravelMode]=useState(localStorage.getItem("rr_mode_v1")||"car");
-  const [bcastMode,setBcastMode]=useState(localStorage.getItem("rr_bcast_v1")||"normal");
+  const [bcastMode,setBcastMode]=useState(()=>{const v=localStorage.getItem("rr_bcast_v1")||"normal";return BCASTS.some(b=>b.id===v)?v:"normal";});
   const [voices,setVoices]=useState([]);
   const [selVoice,setSelVoice]=useState(localStorage.getItem("rr_voice")||"");
   const [timeStr,setTimeStr]=useState("");
@@ -670,6 +667,32 @@ function App(){
       setLocData({name:city||county,highway:hw,county,state,city});
       return{highway:hw,county,state,city};
     }catch{return{highway:"",county:"",state:"",city:""};}
+  };
+
+  // Wikipedia: find real articles near the coords and fetch a short extract to retell. Cached per session.
+  const wikiCacheRef=useRef({});
+  const fetchWiki=async(lat,lng,langCode)=>{
+    try{
+      const wl=(["ru","uk","es","de","fr","pt"].includes(langCode))?langCode:"en";
+      const base=`https://${wl}.wikipedia.org/w/api.php`;
+      const geoUrl=`${base}?action=query&list=geosearch&gscoord=${lat}%7C${lng}&gsradius=10000&gslimit=6&format=json&origin=*`;
+      const gr=await fetch(geoUrl);const gd=await gr.json();
+      let pages=(gd.query&&gd.query.geosearch)||[];
+      if(!pages.length){
+        const geo2=`${base}?action=query&list=geosearch&gscoord=${lat}%7C${lng}&gsradius=50000&gslimit=6&format=json&origin=*`;
+        const gr2=await fetch(geo2);const gd2=await gr2.json();pages=(gd2.query&&gd2.query.geosearch)||[];
+      }
+      if(!pages.length)return null;
+      const used=wikiCacheRef.current;
+      const fresh=pages.find(p=>!used[p.pageid])||pages[0];
+      used[fresh.pageid]=true;
+      const exUrl=`${base}?action=query&prop=extracts&exintro=1&explaintext=1&pageids=${fresh.pageid}&format=json&origin=*`;
+      const er=await fetch(exUrl);const ed=await er.json();
+      const page=ed.query&&ed.query.pages&&ed.query.pages[fresh.pageid];
+      let extract=(page&&page.extract)||"";
+      if(extract.length>1500)extract=extract.slice(0,1500);
+      return extract?{title:fresh.title,dist:fresh.dist,extract}:null;
+    }catch{return null;}
   };
 
   const fetchPOI=async(lat,lng,hdg)=>{
@@ -1176,14 +1199,21 @@ Reply ONLY valid JSON: {"story":"your segment in ${al}, 3-5 sentences, in the ${
         const sys=buildSys(false,null,tourist||false);
         // Short, punchy per-persona reminder injected LAST so the model can't drift to neutral.
         const REMIND={
-          normal:"НЕЙТРАЛЬНЫЙ: ровно, спокойно, по делу. Без шуток, без восторгов, без поэзии. Просто понятно расскажи факт.",
-          funny:"ЮМОРИСТИЧЕСКИЙ (стендап): шути. Начни с шутки или смешного сравнения, добавь иронии и неожиданных образов. Слушатель должен улыбнуться. Если не смешно — переделай.",
-          science:"ВОСТОРЖЕННЫЙ (Дроздов/Аттенборо): говори с придыханием и восхищением — 'вы только вдумайтесь!', 'поразительно!'. Медленно, образно, заворожённо. Всё чудо.",
-          troll:"СКАЗОЧНИК-ТРОЛЬ: на голубом глазу выдай абсурдную небылицу как факт ('справа за холмом — пирамида Хеопса'), а потом так же абсурдно её 'объясни' ('но по техническим причинам её перенесли в Гизу'). Не говори 'это шутка'. Смешно и сказочно.",
-          quotes:"ЦИТАТНИК: вплети ОДНУ реальную крылатую фразу/цитату из фильма, книги, песни или пословицу, строго В ТЕМУ того, о чём сейчас речь, и под культуру языка. Не выдумывай цитаты.",
-          teacher:"УЧИТЕЛЬ ЯЗЫКА: рассказывай на родном, но в КАЖДОМ блоке возьми 3-4 ключевые фразы (2-3 слова) и тут же повтори каждую на изучаемом языке через тире, без пояснений. Примерно 15-20% речи — такие пары. Вплетено в рассказ.",
+          wiki:"ВИКИ-ГИД: пересказывай ТОЛЬКО реальные факты из приведённой статьи Википедии про это место/зону. Ничего не выдумывай. Если про точку пусто — расскажи про регион в целом из статьи. Понятно и интересно, без шуток и закатов.",
+          normal:"УМНЫЙ ДИКТОР: тёплый живой гид, единый интересный рассказ — история, природа, люди, что вокруг, с учётом времени суток и погоды. Ярко, но правдиво.",
+          funny:"ВЕСЁЛЫЙ: шути, байки и анекдоты про эту местность и про дорогу, лёгкий троллинг и абсурдные небылицы на серьёзе, потом разряжай их ещё одним абсурдом (не 'это шутка'). Факты под шуткой правдивы. Про дорогу/повороты НИКОГДА не шути.",
         };
         const bmReminder=REMIND[bcastRef.current]||REMIND.normal;
+        // Wiki guide: pull a real nearby Wikipedia article and hand its text to the model to retell.
+        let wikiBlock="";
+        if(bcastRef.current==="wiki"){
+          try{
+            const w=await fetchWiki(c.lat,c.lng,langRef.current);
+            if(gen!==loopGenRef.current||!runRef.current)return;
+            if(w){wikiBlock=`\n\n=== РЕАЛЬНАЯ СТАТЬЯ ВИКИПЕДИИ (перескажи СВОИМИ словами, ничего не добавляя от себя) ===\nЗаголовок: ${w.title} (примерно в ${(w.dist/1609).toFixed(1)} миль)\n${w.extract}\n========================`;}
+            else{wikiBlock=`\n\nДля этой точки статьи Википедии рядом нет — расскажи в общем про этот регion/округ/штат из того, что ты достоверно знаешь, без выдумок про конкретные мелкие объекты.`;}
+          }catch{}
+        }
         // Precise spatial facts computed by code — the ONLY distances/sides the host may state.
         const withGeo=pois.filter(p=>p.miles!=null).map(p=>`${p.name} (${p.miles.toFixed(1)} миль, ${p.side})`);
         const noGeo=pois.filter(p=>p.miles==null).map(p=>p.name);
@@ -1192,7 +1222,7 @@ Reply ONLY valid JSON: {"story":"your segment in ${al}, 3-5 sentences, in the ${
         if(noGeo.length)poiLine+=`\nKnown in the general area (mention only generally, NO distance, NO side): ${noGeo.join(", ")}.`;
         poiLine+=`\nIf an object is not in the list above, you MUST NOT say how far it is or which side it's on. No "через 2 мили", no "слева/справа" unless it came from the confirmed list.`;
         const styleReminder=`\n\n‼ FINAL AND MOST IMPORTANT — VOICE/PERSONA ‼\nWhatever the topic above, you MUST deliver it in this exact persona, and it must be unmistakable from the very first words:\n${bmReminder}\nIf your answer would read the same in any other persona, you FAILED. Make the persona obvious.`;
-        try{res=await callClaude(sys+"\n\n"+director.text+poiLine+styleReminder,"Produce ONLY the director's assigned block, IN PERSONA.",false);res._dirTopic=director.topicKey;}
+        try{res=await callClaude(sys+"\n\n"+director.text+poiLine+wikiBlock+styleReminder,"Produce ONLY the director's assigned block, IN PERSONA.",false);res._dirTopic=director.topicKey;}
         catch(e){
           // Likely a dead zone / no signal. Use a buffered segment if we have one, instead of stopping.
           if(bufferRef.current.length>0){res=bufferRef.current.shift();}
