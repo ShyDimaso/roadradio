@@ -286,7 +286,7 @@ body{font-family:'Inter',sans-serif;color:#fff;}
 const {useState,useRef,useEffect}=React;
 const PROXY="https://corsproxy.io/?https://api.anthropic.com/v1/messages";
 const KEY_STORE="rr_key_v3";
-const VER="v34";
+const VER="v35";
 
 const OPENERS_RU=["На этой земле...","Да, кстати...","Мало кто знает, но...","Справа от вас...","История этого края...","Сто лет назад здесь...","Тишина здесь обманчива...","Когда-то давно здесь...","Через пару миль...","Вот что примечательно..."];
 const OPENERS_EN=["On this land...","Here's something few know...","Just to your right...","The history here...","A hundred years ago...","Locals know that...","In a few miles...","What's remarkable is...","This stretch of highway...","Worth knowing..."];
@@ -478,6 +478,7 @@ function App(){
   const roadReminderRef=useRef(0);     // last time we reminded which highway we're on
   const cityAheadRef=useRef(null);     // {name,miles} of a big city ahead on our heading
   const cityAnnouncedRef=useRef(0);    // last time we announced a city
+  const cityAnnouncedNameRef=useRef(""); // name of the city already announced (announce each once)
   // ---- "Эфирный режиссёр" (broadcast director) state ----
   const dirTopicRef=useRef(null);      // current topic key being covered
   const dirCountRef=useRef(0);         // how many segments spent on current topic
@@ -958,7 +959,10 @@ ${mustClose?`Заверши тему красиво, законченной мы
 
     if(isQ)return`You are the host of "Road Radio", a tour-guide broadcast for a driver. The driver called in and asked about the place they are driving through RIGHT NOW: "${question}".
 
-Answer their question directly and concretely in 2-5 sentences, about THIS exact area (${ld.city||"this area"}${ld.state?`, ${ld.state}`:""}, ${c.lat.toFixed(4)}, ${Math.abs(c.lng).toFixed(4)}W). Real, documented facts only. If you don't know, say plainly you're not certain rather than inventing. Warm, clear, like a guide answering a passenger. Then add one short friendly line handing back to the broadcast. Answer entirely in ${al}.
+Answer their question directly and concretely in 2-5 sentences, about THIS exact area (${ld.city||"this area"}${ld.state?`, ${ld.state}`:""}, ${c.lat.toFixed(4)}, ${Math.abs(c.lng).toFixed(4)}W). Real, documented facts only. If you don't know, say plainly you're not certain rather than inventing. Warm, clear, like a guide answering a passenger. Then add one short friendly line handing back to the broadcast.
+‼ Do NOT greet ("здравствуйте", "привет", "добро пожаловать") — the show is already on air, just answer. Do NOT write meta-comments or questions to an operator.
+Current context (use it, don't contradict): ${timeCtx}.
+Answer entirely in ${al}.
 Reply ONLY valid JSON: {"story":"your spoken answer in ${al}","location":"current place in English"}`;
 
     const prefs=listenerPrefsRef.current;
@@ -1013,9 +1017,9 @@ Reply ONLY valid JSON: {"story":"your spoken answer in ${al}","location":"curren
     // Major city / state capital ahead — mandatory short announce regardless of selected topics.
     let cityApproach="";
     const ca=cityAheadRef.current;
-    if(ca&&ca.miles<=20&&Date.now()-cityAnnouncedRef.current>240000){
-      cityApproach=`\n‼ ВАЖНО — ВПЕРЕДИ КРУПНЫЙ ГОРОД ‼: примерно через ${Math.round(ca.miles)} миль будет ${ca.name}. НЕЗАВИСИМО от выбранных тем, обязательно коротко (1-2 фразы) предупреди слушателя: назови город, и пару фактов (население/основан/чем известен, если знаешь). Добавь лёгкую подводку вроде "извините, не мог не сказать". Потом продолжай обычный эфир.`;
-      cityAnnouncedRef.current=Date.now();
+    if(ca&&ca.miles<=20&&ca.name!==cityAnnouncedNameRef.current){
+      cityApproach=`\n‼ ВПЕРЕДИ КРУПНЫЙ ГОРОД: примерно через ${Math.round(ca.miles)} миль будет ${ca.name}. Один раз, коротко (1-2 фразы), предупреди: назови город и один-два факта, если знаешь. НЕ используй шаблонную подводку, просто органично вставь. Больше про этот город заранее не напоминай.`;
+      cityAnnouncedNameRef.current=ca.name;
     }
     const VOICE={
       wiki:`YOU ARE "ВИКИ-ГИД" — a Wikipedia-based factual guide.
@@ -1090,10 +1094,17 @@ Reply ONLY valid JSON: {"story":"your segment in ${al}, 3-5 sentences, in the ${
     // Language guard: if the UI language is Russian/Ukrainian but the answer came back mostly Latin, regenerate once.
     const wantCyr=["ru","uk"].includes(langRef.current);
     if(wantCyr&&res.story){
-      const cyr=(res.story.match(/[а-яёіїєґ]/gi)||[]).length;
-      const lat=(res.story.match(/[a-z]/gi)||[]).length;
-      // Retry if the answer is not overwhelmingly Cyrillic (catches partial/!full English slips).
-      if(cyr<20||lat>cyr*0.25){ try{const retry=await doCall("\n\nIMPORTANT: Your previous answer was not fully in "+(L[langRef.current]?.ai||"Russian")+". Rewrite ENTIRELY in "+(L[langRef.current]?.ai||"Russian")+" — every single word, no English at all (proper names may stay)."); if(retry.res.story){res=retry.res;txt=retry.txt;}}catch{} }
+      // Retry (up to twice) if the answer is not overwhelmingly Cyrillic.
+      let tries=0;
+      while(tries<2){
+        const cyr=(res.story.match(/[а-яёіїєґ]/gi)||[]).length;
+        const lat=(res.story.match(/[a-z]/gi)||[]).length;
+        if(cyr>=20&&lat<=cyr*0.25)break;
+        try{const retry=await doCall("\n\nIMPORTANT: Your previous answer contained English. Rewrite ENTIRELY in "+(L[langRef.current]?.ai||"Russian")+" — every single word in "+(L[langRef.current]?.ai||"Russian")+", no English sentences at all (only proper names may stay). Output ONLY the JSON.");
+          if(retry.res.story){res=retry.res;txt=retry.txt;}else break;
+        }catch{break;}
+        tries++;
+      }
     }
     if(!forNext){
       histRef.current=[...msgs,{role:"assistant",content:txt}];
@@ -1228,7 +1239,8 @@ Reply ONLY valid JSON: {"story":"your segment in ${al}, 3-5 sentences, in the ${
           try{
             const w=await fetchWiki(c.lat,c.lng,langRef.current);
             if(gen!==loopGenRef.current||!runRef.current)return;
-            if(w){wikiBlock=`\n\n=== РЕАЛЬНАЯ СТАТЬЯ ВИКИПЕДИИ (перескажи СВОИМИ словами, ничего не добавляя от себя) ===\nЗаголовок: ${w.title} (примерно в ${(w.dist/1609).toFixed(1)} миль)\n${w.extract}\n========================`;}
+            const alLoop=L[langRef.current]?.ai||"Russian";
+            if(w){wikiBlock=`\n\n=== РЕАЛЬНАЯ СТАТЬЯ ВИКИПЕДИИ (источник фактов) ===\nЗаголовок: ${w.title} (примерно в ${(w.dist/1609).toFixed(1)} миль)\n${w.extract}\n========================\n‼ Статья может быть на английском — ВСЁ РАВНО перескажи её ТОЛЬКО на ${alLoop}, своими словами, ничего не добавляя. НЕ копируй английский текст. НЕ задавай вопросов оператору, НЕ пиши служебных фраз — сразу выдай готовый рассказ в JSON.`;}
             else{wikiBlock=`\n\nДля этой точки статьи Википедии рядом нет — расскажи в общем про этот регion/округ/штат из того, что ты достоверно знаешь, без выдумок про конкретные мелкие объекты.`;}
           }catch{}
         }
@@ -1450,21 +1462,22 @@ Reply ONLY valid JSON: {"story":"your segment in ${al}, 3-5 sentences, in the ${
       if(!SR){setCallPhase("type");callPhaseRef.current="type";return;}   // fall back to typing
       const rec=new SR();
       rec.lang=L[langRef.current]?.tts||"en-US";
-      rec.continuous=true;rec.interimResults=true;   // stay in ONE session to avoid the repeated start/stop chime
-      let sessionFinal="";
+      rec.continuous=true;rec.interimResults=true;   // one session (no repeated chime)
+      let committed="";  // finals accepted this session
       rec.onresult=e=>{
-        sessionFinal="";let interim="";
-        for(let i=0;i<e.results.length;i++){
-          if(e.results[i].isFinal)sessionFinal+=e.results[i][0].transcript+" ";
-          else interim+=e.results[i][0].transcript;
+        let finals="",interim="";
+        for(let i=e.resultIndex;i<e.results.length;i++){
+          if(e.results[i].isFinal)finals+=e.results[i][0].transcript+" ";
+          else interim=e.results[i][0].transcript;
         }
-        setMicTranscript(cleanTranscript(callTextRef.current+" "+sessionFinal+" "+interim));
+        if(finals)committed=cleanTranscript(committed+" "+finals);
+        setMicTranscript(cleanTranscript(callTextRef.current+" "+committed+" "+interim));
       };
       rec.onerror=()=>{};
       rec.onend=()=>{
-        if(sessionFinal)callTextRef.current=cleanTranscript(callTextRef.current+" "+sessionFinal);
+        if(committed)callTextRef.current=cleanTranscript(callTextRef.current+" "+committed);
+        committed="";
         setMicTranscript(callTextRef.current);
-        // Only restart if it dropped unexpectedly while still listening (continuous usually keeps going).
         if(callPhaseRef.current==="listening"&&!userDoneRef.current){
           setTimeout(()=>{ if(callPhaseRef.current==="listening"&&!userDoneRef.current)callListen(); },400);
         }
