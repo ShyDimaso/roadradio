@@ -286,7 +286,7 @@ body{font-family:'Inter',sans-serif;color:#fff;}
 const {useState,useRef,useEffect}=React;
 const PROXY="https://corsproxy.io/?https://api.anthropic.com/v1/messages";
 const KEY_STORE="rr_key_v3";
-const VER="v33";
+const VER="v34";
 
 const OPENERS_RU=["На этой земле...","Да, кстати...","Мало кто знает, но...","Справа от вас...","История этого края...","Сто лет назад здесь...","Тишина здесь обманчива...","Когда-то давно здесь...","Через пару миль...","Вот что примечательно..."];
 const OPENERS_EN=["On this land...","Here's something few know...","Just to your right...","The history here...","A hundred years ago...","Locals know that...","In a few miles...","What's remarkable is...","This stretch of highway...","Worth knowing..."];
@@ -1017,8 +1017,20 @@ Reply ONLY valid JSON: {"story":"your spoken answer in ${al}","location":"curren
       cityApproach=`\n‼ ВАЖНО — ВПЕРЕДИ КРУПНЫЙ ГОРОД ‼: примерно через ${Math.round(ca.miles)} миль будет ${ca.name}. НЕЗАВИСИМО от выбранных тем, обязательно коротко (1-2 фразы) предупреди слушателя: назови город, и пару фактов (население/основан/чем известен, если знаешь). Добавь лёгкую подводку вроде "извините, не мог не сказать". Потом продолжай обычный эфир.`;
       cityAnnouncedRef.current=Date.now();
     }
-    const styleBlock=`========================\n‼ DELIVERY STYLE — THIS IS A HARD REQUIREMENT, NOT A SUGGESTION ‼\nYou MUST speak in this exact persona for EVERY sentence. It must be obvious within the first few words which persona you are:\n${bm.prompt}\nIf this persona is "trucker", talk like a CB-radio trucker (blunt, gravelly, "driver", road talk). If "funny", be genuinely witty and light. If "discovery/science", be an authoritative documentary narrator. If "night", be a hushed late-night poet. Do NOT fall back into a generic neutral guide voice.
-NOTE: the director block below decides only the TOPIC and structure — it NEVER changes this persona/voice. Whatever topic you're given, deliver it in THIS persona's distinct voice.${bm.id==="teacher"?`\nTARGET LANGUAGE to teach (echo key phrases in it): ${L[learnLangRef.current]?.ai||"English"}.`:""}\n========================`;
+    const VOICE={
+      wiki:`YOU ARE "ВИКИ-ГИД" — a Wikipedia-based factual guide.
+VOICE: clear, factual, well-read, like an encyclopedic friend reading out what is really here. Calm and informative.
+RULES OF THIS PERSONA: retell ONLY the real Wikipedia material handed to you below. No jokes, no awe, no sunsets, no invented scenery. Plain true facts, in your own words. If there's no article for the spot, summarize the wider region factually.`,
+      normal:`YOU ARE "УМНЫЙ ДИКТОР" — a warm, charismatic living tour-guide.
+VOICE: friendly, vivid, flowing — like a smart companion in the passenger seat who makes the drive fascinating. You weave history, nature, people and the feel of the moment (light, weather, time of day) into ONE continuous story. Warm and human, never a dry list, never a lecture.
+EXAMPLE FEEL: "Этот невысокий хребет слева когда-то был дном древнего моря — потому фермеры до сих пор находят тут окаменелые ракушки..."`,
+      funny:`YOU ARE "ВЕСЁЛЫЙ" — a hilarious, upbeat road-trip comedian.
+VOICE: big energy, playful, genuinely funny. Crack jokes, tease, exaggerate, drop anecdotes about THIS area and about driving life, do light trolling and absurd tall-tales told dead-straight then dissolved with another absurd flourish (never a flat "just kidding"). Make the driver actually laugh.
+EXAMPLE FEEL: "Добро пожаловать в город, где, я уверен, главное развлечение — смотреть, как сосед красит забор. Хотя нет — вон, по легенде, тут приземлялись инопланетяне... ладно, это были просто ребята с фейерверком, но согласитесь, версия с инопланетянами куда веселее."
+HARD: real facts under the fun stay TRUE; NEVER joke about road directions, turns, exits or hazards — the driving info is always dead serious.`,
+    };
+    const voiceHeader=VOICE[bm.id]||VOICE.normal;
+    const styleBlock=`========================\n‼ WHO YOU ARE — THIS DEFINES YOUR ENTIRE VOICE (non-negotiable) ‼\n${voiceHeader}\nIt must be unmistakable within the first few words which of the three hosts you are. If your text would read the same in another host's voice, you FAILED.\n========================`;
 
     return`${styleBlock}
 
@@ -1153,7 +1165,8 @@ Reply ONLY valid JSON: {"story":"your segment in ${al}, 3-5 sentences, in the ${
       let res=null;
       // Fuel warning: occasionally check ahead; if the next station is far, the DJ warns instead of a normal segment.
       const cfgF=topicsCfgRef.current||{};
-      const canFuel=cfgF.fuel!==false&&travelRef.current==="car"&&!tourist&&!useNext;
+      const inTown=!!(locDataRef.current.city);
+      const canFuel=cfgF.fuel!==false&&travelRef.current==="car"&&!tourist&&!useNext&&!inTown;
       const fuelDue=Date.now()-fuelWarnedRef.current>420000; // at most ~ every 7 min
       if(canFuel&&fuelDue){
         try{
@@ -1196,12 +1209,17 @@ Reply ONLY valid JSON: {"story":"your segment in ${al}, 3-5 sentences, in the ${
         fetchCityAhead(c.lat,c.lng,c.heading??90); // fire-and-forget, updates cityAheadRef for next prompts
         if(gen!==loopGenRef.current||!runRef.current)return;   // aborted while loading
         const director=directNextBlock();
+        let directorText=director.text;
+        // In Wiki mode the article IS the content — don't let topic-rotation rules fight it.
+        if(bcastRef.current==="wiki"){
+          directorText=`=== ЗАДАЧА ВИКИ-ГИДА ===\nПерескажи приведённую ниже статью Википедии своими словами, коротко и по делу (3-5 предложений). Каждый блок — НОВЫЙ кусок фактов, не повторяй уже сказанное. Если статьи нет — кратко о регионе. Без выдумок.\n========================`;
+        }
         const sys=buildSys(false,null,tourist||false);
         // Short, punchy per-persona reminder injected LAST so the model can't drift to neutral.
         const REMIND={
-          wiki:"ВИКИ-ГИД: пересказывай ТОЛЬКО реальные факты из приведённой статьи Википедии про это место/зону. Ничего не выдумывай. Если про точку пусто — расскажи про регион в целом из статьи. Понятно и интересно, без шуток и закатов.",
-          normal:"УМНЫЙ ДИКТОР: тёплый живой гид, единый интересный рассказ — история, природа, люди, что вокруг, с учётом времени суток и погоды. Ярко, но правдиво.",
-          funny:"ВЕСЁЛЫЙ: шути, байки и анекдоты про эту местность и про дорогу, лёгкий троллинг и абсурдные небылицы на серьёзе, потом разряжай их ещё одним абсурдом (не 'это шутка'). Факты под шуткой правдивы. Про дорогу/повороты НИКОГДА не шути.",
+          wiki:"ТЫ ВИКИ-ГИД: только реальные факты из приведённой статьи, своими словами. Без шуток, без восторгов, без закатов. Не повторяй одни и те же названия и факты.",
+          normal:"ТЫ УМНЫЙ ДИКТОР: тёплый живой гид, единый увлекательный рассказ с историей, природой, людьми и ощущением момента. Ярко, по-человечески, не сухой список.",
+          funny:"ТЫ ВЕСЁЛЫЙ КОМИК: РЕАЛЬНО шути в каждом блоке — шутка, подколка, анекдот про эту местность или про дорогу, абсурдная небылица. Заставь водителя засмеяться. Если не смешно — ты провалился. Но про повороты и дорогу НЕ шути.",
         };
         const bmReminder=REMIND[bcastRef.current]||REMIND.normal;
         // Wiki guide: pull a real nearby Wikipedia article and hand its text to the model to retell.
@@ -1222,7 +1240,7 @@ Reply ONLY valid JSON: {"story":"your segment in ${al}, 3-5 sentences, in the ${
         if(noGeo.length)poiLine+=`\nKnown in the general area (mention only generally, NO distance, NO side): ${noGeo.join(", ")}.`;
         poiLine+=`\nIf an object is not in the list above, you MUST NOT say how far it is or which side it's on. No "через 2 мили", no "слева/справа" unless it came from the confirmed list.`;
         const styleReminder=`\n\n‼ FINAL AND MOST IMPORTANT — VOICE/PERSONA ‼\nWhatever the topic above, you MUST deliver it in this exact persona, and it must be unmistakable from the very first words:\n${bmReminder}\nIf your answer would read the same in any other persona, you FAILED. Make the persona obvious.`;
-        try{res=await callClaude(sys+"\n\n"+director.text+poiLine+wikiBlock+styleReminder,"Produce ONLY the director's assigned block, IN PERSONA.",false);res._dirTopic=director.topicKey;}
+        try{res=await callClaude(sys+"\n\n"+directorText+poiLine+wikiBlock+styleReminder,"Produce ONLY the director's assigned block, IN PERSONA.",false);res._dirTopic=director.topicKey;}
         catch(e){
           // Likely a dead zone / no signal. Use a buffered segment if we have one, instead of stopping.
           if(bufferRef.current.length>0){res=bufferRef.current.shift();}
