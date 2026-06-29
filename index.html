@@ -286,7 +286,7 @@ body{font-family:'Inter',sans-serif;color:#fff;}
 const {useState,useRef,useEffect}=React;
 const PROXY="https://corsproxy.io/?https://api.anthropic.com/v1/messages";
 const KEY_STORE="rr_key_v3";
-const VER="v35";
+const VER="v36";
 
 const OPENERS_RU=["На этой земле...","Да, кстати...","Мало кто знает, но...","Справа от вас...","История этого края...","Сто лет назад здесь...","Тишина здесь обманчива...","Когда-то давно здесь...","Через пару миль...","Вот что примечательно..."];
 const OPENERS_EN=["On this land...","Here's something few know...","Just to your right...","The history here...","A hundred years ago...","Locals know that...","In a few miles...","What's remarkable is...","This stretch of highway...","Worth knowing..."];
@@ -962,6 +962,7 @@ ${mustClose?`Заверши тему красиво, законченной мы
 Answer their question directly and concretely in 2-5 sentences, about THIS exact area (${ld.city||"this area"}${ld.state?`, ${ld.state}`:""}, ${c.lat.toFixed(4)}, ${Math.abs(c.lng).toFixed(4)}W). Real, documented facts only. If you don't know, say plainly you're not certain rather than inventing. Warm, clear, like a guide answering a passenger. Then add one short friendly line handing back to the broadcast.
 ‼ Do NOT greet ("здравствуйте", "привет", "добро пожаловать") — the show is already on air, just answer. Do NOT write meta-comments or questions to an operator.
 Current context (use it, don't contradict): ${timeCtx}.
+What you were JUST talking about on air (the driver's question may refer to THIS — e.g. "that park", "this bar", "tell me more"): "${(recentStoriesRef.current.slice(-1)[0]||"").slice(0,400)||"(just started)"}". If their question is vague, assume it refers to this or to the current place.
 Answer entirely in ${al}.
 Reply ONLY valid JSON: {"story":"your spoken answer in ${al}","location":"current place in English"}`;
 
@@ -1437,8 +1438,8 @@ Reply ONLY valid JSON: {"story":"your segment in ${al}, 3-5 sentences, in the ${
     setCallMode(true);setCallPhase("greeting");callPhaseRef.current="greeting";
     const isRu=langRef.current==="ru";
     const greet=isRu
-      ?"Слушаю вас. Задавайте вопрос, и нажмите «Я сказал всё», когда закончите."
-      :"I'm listening. Ask your question, then tap I'm done.";
+      ?"Слушаю."
+      :"I'm listening.";
     await speak(greet);
     if(callPhaseRef.current!=="greeting")return;   // user cancelled
     setCallPhase("listening");callPhaseRef.current="listening";
@@ -1478,9 +1479,8 @@ Reply ONLY valid JSON: {"story":"your segment in ${al}, 3-5 sentences, in the ${
         if(committed)callTextRef.current=cleanTranscript(callTextRef.current+" "+committed);
         committed="";
         setMicTranscript(callTextRef.current);
-        if(callPhaseRef.current==="listening"&&!userDoneRef.current){
-          setTimeout(()=>{ if(callPhaseRef.current==="listening"&&!userDoneRef.current)callListen(); },400);
-        }
+        // No auto-restart (restart = the repeated chime + duplicated words). The mic simply stops;
+        // whatever was captured stays on screen, and the user taps "I'm done" to send.
       };
       callRecRef.current=rec;
       rec.start();
