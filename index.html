@@ -102,6 +102,7 @@ body{font-family:'Inter',sans-serif;color:#fff;}
 .mode-btn.sel .mode-lbl{color:#ff6b35;}
 .voice-sel{width:100%;background:#0d1525;border:2px solid #4a9eff;border-radius:10px;padding:12px 14px;color:#4a9eff;font-size:14px;outline:none;margin-top:4px;}
 .tts-btn{width:100%;padding:14px;background:#0d1828;border:2px solid #4a9eff;border-radius:10px;color:#4a9eff;font-size:14px;font-weight:700;cursor:pointer;margin-top:8px;display:flex;align-items:center;justify-content:center;gap:8px;}
+.tts-btn.rec{border-color:#ff5a5a;color:#ff8a8a;background:#1c0d0d;}
 .voice-list{display:flex;flex-direction:column;gap:6px;margin-bottom:6px;max-height:300px;overflow-y:auto;}
 .voice-collapse{display:flex;justify-content:space-between;align-items:center;background:#0d1525;border:2px solid #2a4a80;border-radius:10px;padding:14px 14px;color:#cfe0f0;font-size:15px;cursor:pointer;margin-bottom:6px;}
 .voice-row{display:flex;align-items:center;gap:8px;background:#0d1525;border:2px solid #1e2d45;border-radius:10px;padding:2px 4px 2px 0;}
@@ -286,7 +287,7 @@ body{font-family:'Inter',sans-serif;color:#fff;}
 const {useState,useRef,useEffect}=React;
 const PROXY="https://corsproxy.io/?https://api.anthropic.com/v1/messages";
 const KEY_STORE="rr_key_v3";
-const VER="v36";
+const VER="v38";
 
 const OPENERS_RU=["На этой земле...","Да, кстати...","Мало кто знает, но...","Справа от вас...","История этого края...","Сто лет назад здесь...","Тишина здесь обманчива...","Когда-то давно здесь...","Через пару миль...","Вот что примечательно..."];
 const OPENERS_EN=["On this land...","Here's something few know...","Just to your right...","The history here...","A hundred years ago...","Locals know that...","In a few miles...","What's remarkable is...","This stretch of highway...","Worth knowing..."];
@@ -475,6 +476,16 @@ function App(){
   const listenerPrefsRef=useRef(localStorage.getItem("rr_listener_prefs")||"");
   const saidFactsRef=useRef([]);      // longer memory of what was actually said (anti-repeat)
   const recentStoriesRef=useRef([]);  // last few full segments, to catch repeated wording
+  const qaHistRef=useRef([]);          // running question→answer turns within the current call (multi-turn memory)
+  const lastIntroBcastRef=useRef("");  // which host last introduced itself (announce once on switch)
+  const [favs,setFavs]=useState(()=>{try{return JSON.parse(localStorage.getItem("rr_favs")||"[]");}catch{return[];}});
+  const favsRef=useRef(favs);
+  useEffect(()=>{favsRef.current=favs;try{localStorage.setItem("rr_favs",JSON.stringify(favs));}catch{}},[favs]);
+  const addFav=t=>{const v=(t||"").trim();if(v)setFavs(f=>[...f,v].slice(0,20));};
+  const removeFav=i=>setFavs(f=>f.filter((_,j)=>j!==i));
+  const clearFavs=()=>setFavs([]);
+  const [favText,setFavText]=useState("");
+  const [favRec,setFavRec]=useState(false);
   const roadReminderRef=useRef(0);     // last time we reminded which highway we're on
   const cityAheadRef=useRef(null);     // {name,miles} of a big city ahead on our heading
   const cityAnnouncedRef=useRef(0);    // last time we announced a city
@@ -963,7 +974,8 @@ Answer their question directly and concretely in 2-5 sentences, about THIS exact
 ‼ Do NOT greet ("здравствуйте", "привет", "добро пожаловать") — the show is already on air, just answer. Do NOT write meta-comments or questions to an operator.
 Current context (use it, don't contradict): ${timeCtx}.
 What you were JUST talking about on air (the driver's question may refer to THIS — e.g. "that park", "this bar", "tell me more"): "${(recentStoriesRef.current.slice(-1)[0]||"").slice(0,400)||"(just started)"}". If their question is vague, assume it refers to this or to the current place.
-Answer entirely in ${al}.
+${qaHistRef.current.length?`EARLIER IN THIS CALL (this is a CONTINUING conversation — remember it, do NOT say "you never asked me that"):\n${qaHistRef.current.slice(-3).map((t,i)=>`Driver asked: "${t.q}" → You answered: "${(t.a||"").slice(0,200)}"`).join("\n")}\nThe new question may be a follow-up to the above. Answer in context.`:""}
+Answer entirely in ${al}.${favsRef.current.length?`\nListener's standing preferences (honor them): ${favsRef.current.join("; ")}.`:""}
 Reply ONLY valid JSON: {"story":"your spoken answer in ${al}","location":"current place in English"}`;
 
     const prefs=listenerPrefsRef.current;
@@ -1067,9 +1079,9 @@ CURRENT POSITION (ground truth):
 - Travelling ${toDirWord(hdg,"en")} (${toDir(hdg)}). Left window faces ${toLeft(hdg)}, right faces ${toRight(hdg)}.
 - ${timeCtx}
 - Temperature now: ${weatherRef.current?weatherRef.current.temp+"°F":"unknown"}${destCtx}${exCtx}${terrainCtx}
-- SEE THROUGH THE DRIVER'S EYES: react to what is actually visible RIGHT NOW from the road — the light of the sky for this time of day, big nearby landmarks ahead, the kind of terrain. Make the listener feel you can see what they see.
+- DO NOT describe what is visible out the window. You CANNOT see the road, terrain, forks, turns, fields, forests or scenery — never say "видите развилку", "дорога в полях", "впереди поворот", "вокруг леса". Talk only about facts of the PLACE (history, people, nature of the region, etc.), never about the live view.
 
-${nightCtx}${roadReminder}${cityApproach}
+${nightCtx}${roadReminder}${cityApproach}${favsRef.current.length?`\n\n=== ЛИЧНЫЕ ПОЖЕЛАНИЯ СЛУШАТЕЛЯ (учитывай ОБЯЗАТЕЛЬНО, это его правила для эфира) ===\n${favsRef.current.map((f,i)=>`${i+1}. ${f}`).join("\n")}\n========================`:""}
 
 ALREADY SAID THIS DRIVE (never repeat): ${recentFacts||"nothing yet — first segment"}
 
@@ -1106,6 +1118,23 @@ Reply ONLY valid JSON: {"story":"your segment in ${al}, 3-5 sentences, in the ${
         }catch{break;}
         tries++;
       }
+    }
+    // VALIDATOR: an answer must be a real spoken story, never a leak of the role/prompt/director instructions.
+    // If it leaks, regenerate (up to twice) with a corrective nudge; if still bad, mark for suppression.
+    const isLeak=story=>{
+      if(!story||story.trim().length<8)return true;
+      const st=story.toLowerCase();
+      return /режисс[её]р|директив|сегмент эфира|следующ(его|ей) сегмент|предоставьте|persona|разрешённ\w* список|список тем|блок темы|provide (the|a)|next segment|system prompt|as an ai|i (did|do) not|не получил|инструкци[яю] от/.test(st);
+    };
+    if(res&&isLeak(res.story)){
+      let vtries=0;
+      while(vtries<2&&isLeak(res.story)){
+        try{const retry=await doCall("\n\nВАЖНО: твой прошлый ответ был НЕ рассказом, а служебным текстом (упоминал режиссёра/директиву/список тем или просил тему). НИКОГДА так не делай. Выдай ТОЛЬКО готовый короткий рассказ в эфир, в JSON, без единого служебного слова. Если тему дать не можешь — просто расскажи любой правдивый интересный факт об этом районе.");
+          if(retry.res&&retry.res.story){res=retry.res;txt=retry.txt;}else break;
+        }catch{break;}
+        vtries++;
+      }
+      if(isLeak(res.story))res._suppress=true;
     }
     if(!forNext){
       histRef.current=[...msgs,{role:"assistant",content:txt}];
@@ -1241,7 +1270,7 @@ Reply ONLY valid JSON: {"story":"your segment in ${al}, 3-5 sentences, in the ${
             const w=await fetchWiki(c.lat,c.lng,langRef.current);
             if(gen!==loopGenRef.current||!runRef.current)return;
             const alLoop=L[langRef.current]?.ai||"Russian";
-            if(w){wikiBlock=`\n\n=== РЕАЛЬНАЯ СТАТЬЯ ВИКИПЕДИИ (источник фактов) ===\nЗаголовок: ${w.title} (примерно в ${(w.dist/1609).toFixed(1)} миль)\n${w.extract}\n========================\n‼ Статья может быть на английском — ВСЁ РАВНО перескажи её ТОЛЬКО на ${alLoop}, своими словами, ничего не добавляя. НЕ копируй английский текст. НЕ задавай вопросов оператору, НЕ пиши служебных фраз — сразу выдай готовый рассказ в JSON.`;}
+            if(w){wikiBlock=`\n\n=== РЕАЛЬНАЯ СТАТЬЯ ВИКИПЕДИИ (источник фактов) ===\nЗаголовок: ${w.title} (примерно в ${(w.dist/1609).toFixed(1)} миль)\n${w.extract}\n========================\n‼ Статья может быть на английском — ВСЁ РАВНО перескажи её ТОЛЬКО на ${alLoop}, своими словами, ничего не добавляя. НЕ копируй английский текст. НЕ задавай вопросов оператору, НЕ пиши служебных фраз — сразу выдай готовый рассказ в JSON. Давай КОНКРЕТИКУ из статьи: если упоминаешь человека/событие — назови ИМЯ, ГОД и что именно сделано, не оставляй загадок без ответа. НЕ выдумывай погоду и не описывай небо/грозу/закат — этого в статье нет.`;}
             else{wikiBlock=`\n\nДля этой точки статьи Википедии рядом нет — расскажи в общем про этот регion/округ/штат из того, что ты достоверно знаешь, без выдумок про конкретные мелкие объекты.`;}
           }catch{}
         }
@@ -1261,7 +1290,22 @@ Reply ONLY valid JSON: {"story":"your segment in ${al}, 3-5 sentences, in the ${
         }
       }
       if(gen!==loopGenRef.current||!runRef.current)return;
+      // If the model leaked its instructions (thin data / confusion), don't read that aloud — skip and retry soon.
+      if(res._suppress){
+        setStatus("loading");
+        if(gen===loopGenRef.current&&runRef.current&&!parkedRef.current)scheduleNext(gen,3000);
+        return;
+      }
       storyText=res.story||"";
+      // When the host (style) changed, introduce the new persona ONCE before the story (also helps it stay in character).
+      if(bcastRef.current!==lastIntroBcastRef.current){
+        lastIntroBcastRef.current=bcastRef.current;
+        const isRu=langRef.current==="ru";
+        const intro=bcastRef.current==="wiki"?(isRu?"С вами Вики-гид. ":"This is your Wiki guide. ")
+          :bcastRef.current==="funny"?(isRu?"С вами Весёлый гид! ":"This is your Fun host! ")
+          :(isRu?"С вами Умный диктор. ":"This is your Smart guide. ");
+        if(storyText)storyText=intro+storyText;
+      }
       setStory(storyText);
       if(res.location)setLocData(p=>({...p,name:res.location}));
       prevPlaceRef.current=locDataRef.current.city||"";   // for "here" continuity next time
@@ -1366,7 +1410,7 @@ Reply ONLY valid JSON: {"story":"your segment in ${al}, 3-5 sentences, in the ${
     if(!c){setErr(lang==="ru"?"Нажмите автоопределение или введите координаты":"Tap auto-detect or enter coordinates");return;}
     coordsRef.current=c;setCoords(c);destRef.current=destination;
     runRef.current=true;histRef.current=[];nextRef.current=null;topicsUsedRef.current=[];saidFactsRef.current=[];bufferRef.current=[];recentStoriesRef.current=[];
-    dirTopicRef.current=null;dirCountRef.current=0;dirTargetRef.current=2;dirRecentTopicsRef.current=[];dirSummariesRef.current=[];dirTopicStartRef.current=0;dirForceSwitchRef.current=false;
+    dirTopicRef.current=null;dirCountRef.current=0;dirTargetRef.current=2;dirRecentTopicsRef.current=[];dirSummariesRef.current=[];dirTopicStartRef.current=0;dirForceSwitchRef.current=false;lastIntroBcastRef.current=bcastRef.current;qaHistRef.current=[];
     openerIdx.current=0;stoppedSince.current=null;fuelWarnedRef.current=0;tourAckRef.current=false;
     loopBusyRef.current=false;loopGenRef.current++;        // fresh single generation
     parkedRef.current=false;pausedRef.current=false;setPaused(false);
@@ -1502,6 +1546,7 @@ Reply ONLY valid JSON: {"story":"your segment in ${al}, 3-5 sentences, in the ${
       try{
         const res=await callClaude(buildSys(true,spoken,false),spoken,false);
         answer=(res&&res.story)?res.story:"";
+        qaHistRef.current=[...qaHistRef.current,{q:spoken,a:answer}].slice(-5);
       }catch{}
     }
     setCallMode(false);setCallPhase("idle");callPhaseRef.current="idle";
@@ -1765,8 +1810,34 @@ Reply ONLY valid JSON: {"story":"your segment in ${al}, 3-5 sentences, in the ${
             )}
             <div className="set-sect">{isRu?"На остановках":"At stops"}</div>
             <div className={`topic-item${neverPark?" on2":""}`} style={{marginBottom:"8px"}} onClick={()=>setNeverPark(v=>!v)}><div className="topic-check on">{neverPark?"✓":""}</div><div className="topic-lbl">{isRu?"Не спрашивать — рассказывать даже стоя":"Don't ask — keep talking when stopped"}</div></div>
-            <div className="set-sect">{isRu?"Замечания диктору":"Host feedback"}</div>
-            <button className="tts-btn" onClick={()=>{listenerPrefsRef.current="";try{localStorage.removeItem("rr_listener_prefs");}catch{}alert(isRu?"✓ Замечания сброшены":"✓ Feedback cleared");}}>🧹 {isRu?"Сбросить мои замечания":"Clear my saved feedback"}</button>
+            <div className="set-sect">{isRu?"Мои пожелания диктору":"My requests to the host"}</div>
+            <div style={{fontSize:"13px",color:"#9aabbf",margin:"0 2px 8px"}}>{isRu?"Скажите голосом или впишите, как вести эфир: «реже говори впереди вас», «больше про опасных животных». Диктор будет это учитывать.":"Say or type how to run the show: 'mention forks less', 'more about dangerous animals'. The host will follow these."}</div>
+            {favs.length>0&&(
+              <div style={{margin:"0 2px 10px"}}>
+                {favs.map((f,i)=>(
+                  <div key={i} style={{display:"flex",alignItems:"center",gap:"8px",background:"#0d1828",border:"1px solid #24364f",borderRadius:"10px",padding:"10px 12px",marginBottom:"6px"}}>
+                    <div style={{flex:1,fontSize:"14px",color:"#dce8f5"}}>{i+1}. {f}</div>
+                    <button onClick={()=>removeFav(i)} style={{background:"#3a1414",color:"#ff8a8a",border:"1px solid #5a2222",borderRadius:"8px",padding:"6px 10px",fontSize:"14px",cursor:"pointer"}}>✕</button>
+                  </div>
+                ))}
+                <button className="tts-btn" style={{marginTop:"4px"}} onClick={clearFavs}>🧹 {isRu?"Очистить все пожелания":"Clear all requests"}</button>
+              </div>
+            )}
+            <div style={{display:"flex",gap:"8px",margin:"0 2px 8px"}}>
+              <input value={favText} onChange={e=>setFavText(e.target.value)} placeholder={isRu?"Впишите пожелание…":"Type a request…"} style={{flex:1,padding:"12px",fontSize:"14px",background:"#0a1422",border:"1px solid #24364f",borderRadius:"10px",color:"#fff"}}/>
+              <button onClick={()=>{addFav(favText);setFavText("");}} style={{background:"#13351f",color:"#7ef0a8",border:"1px solid #1e5a34",borderRadius:"10px",padding:"0 16px",fontSize:"15px",fontWeight:700,cursor:"pointer"}}>+</button>
+            </div>
+            <button className={`tts-btn${favRec?" rec":""}`} onClick={()=>{
+              try{
+                const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+                if(!SR){alert(isRu?"Голосовой ввод не поддерживается — впишите текстом.":"Voice input unsupported — type instead.");return;}
+                const rec=new SR();rec.lang=L[langRef.current]?.tts||"en-US";rec.interimResults=false;rec.continuous=false;
+                setFavRec(true);
+                rec.onresult=e=>{const t=e.results[0][0].transcript;addFav(t);};
+                rec.onend=()=>setFavRec(false);rec.onerror=()=>setFavRec(false);
+                rec.start();
+              }catch{setFavRec(false);}
+            }}>🎙 {favRec?(isRu?"Говорите…":"Speak…"):(isRu?"Наговорить пожелание":"Say a request")}</button>
             <div className="set-sect">{isRu?"Установка":"Install"}</div>
             <button className="tts-btn" onClick={installApp}>📱 {isRu?"Добавить на главный экран":"Add to Home Screen"}</button>
             <button className="bigbtn green" style={{marginTop:"18px"}} onClick={()=>setSettingsOpen(false)}>✓ {isRu?"Сохранить":"Save"}</button>
