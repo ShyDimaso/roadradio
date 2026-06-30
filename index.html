@@ -244,6 +244,8 @@ body{font-family:'Inter',sans-serif;color:#fff;}
 .mbtn.skip{background:#1c1608;color:#e8b860;border-color:#5a4a1e;}
 .mbtn.pause.on{background:#0d1a0d;border-color:#3fb950;color:#5fd97a;}
 .callbtn{width:100%;padding:18px;margin-top:10px;border-radius:14px;font-size:18px;font-weight:800;cursor:pointer;background:linear-gradient(135deg,#0d2a14,#155026);border:2px solid #3fb950;color:#7af0a0;display:flex;align-items:center;justify-content:center;gap:10px;}
+.favbtn{width:100%;padding:13px;margin-top:8px;border-radius:12px;font-size:15px;font-weight:700;cursor:pointer;background:#1a1608;border:2px solid #5a4a1e;color:#e8c060;display:flex;align-items:center;justify-content:center;gap:8px;}
+.favbtn.rec{background:#1c0d0d;border-color:#ff5a5a;color:#ff9a9a;}
 .callbtn:active{transform:scale(.97);}
 .sbtn.big{padding:18px 6px;font-size:16px;}
 .call-overlay{position:fixed;inset:0;background:rgba(2,4,10,.92);z-index:500;display:flex;align-items:center;justify-content:center;padding:24px;}
@@ -287,7 +289,7 @@ body{font-family:'Inter',sans-serif;color:#fff;}
 const {useState,useRef,useEffect}=React;
 const PROXY="https://corsproxy.io/?https://api.anthropic.com/v1/messages";
 const KEY_STORE="rr_key_v3";
-const VER="v38";
+const VER="v39";
 
 const OPENERS_RU=["На этой земле...","Да, кстати...","Мало кто знает, но...","Справа от вас...","История этого края...","Сто лет назад здесь...","Тишина здесь обманчива...","Когда-то давно здесь...","Через пару миль...","Вот что примечательно..."];
 const OPENERS_EN=["On this land...","Here's something few know...","Just to your right...","The history here...","A hundred years ago...","Locals know that...","In a few miles...","What's remarkable is...","This stretch of highway...","Worth knowing..."];
@@ -865,12 +867,7 @@ function App(){
     ];
     const enabled=ALL.filter(([k])=>cfg[k]!==false);
     if(enabled.length===0)enabled.push(["history","истории края"]);
-    const recent=dirRecentTopicsRef.current;
-    const fresh=enabled.filter(([k])=>!recent.slice(-3).includes(k));
-    const pool=fresh.length?fresh:enabled;
 
-    // How long to keep ONE topic, by how rich the situation is:
-    // few topics or empty road → up to ~5 min; many topics → ~3 min; inside a city → longer.
     const ld=locDataRef.current;
     const inCity=!!(ld.city&&ld.place==="city");
     const manyTopics=enabled.length>=6;
@@ -887,18 +884,26 @@ function App(){
       topicKey=dirTopicRef.current;
       topicLabel=(ALL.find(([k])=>k===topicKey)||["","эту тему"])[1];
       dirCountRef.current++;
-      // close it if we're near the time budget
       mustClose = elapsed>=maxMs*0.7;
       job = mustClose ? "ЗАВЕРШЕНИЕ ТЕМЫ" : "ПРОДОЛЖЕНИЕ ТЕМЫ";
     }else{
-      const pick=pool[Math.floor(Math.random()*pool.length)];
+      // STRICT ROUND-ROBIN: walk through every enabled topic once before any repeats.
+      // Find where the current topic sits in the enabled list, take the NEXT one.
+      const keys=enabled.map(e=>e[0]);
+      let idx=dirTopicRef.current?keys.indexOf(dirTopicRef.current):-1;
+      let nextIdx=(idx+1)%keys.length;
+      // skip the very recent ones if the cycle is long enough to allow it
+      const recent=dirRecentTopicsRef.current.slice(-Math.min(3,keys.length-1));
+      let guard=0;
+      while(recent.includes(keys[nextIdx])&&guard<keys.length){nextIdx=(nextIdx+1)%keys.length;guard++;}
+      const pick=enabled[nextIdx];
       topicKey=pick[0];topicLabel=pick[1];
       dirTopicRef.current=topicKey;
       dirCountRef.current=1;
       dirTopicStartRef.current=Date.now();
       openNew=true;
       job = "НОВАЯ ТЕМА";
-      dirRecentTopicsRef.current=[...recent,topicKey].slice(-5);
+      dirRecentTopicsRef.current=[...dirRecentTopicsRef.current,topicKey].slice(-6);
     }
     // mood: mostly steady, sometimes a short light beat
     const moods=["спокойный","спокойный","спокойный","короткий лёгкий факт","тёплый, с настроением"];
@@ -908,7 +913,7 @@ function App(){
     const summaries=dirSummariesRef.current.slice(-12);
     return {
       topicKey,
-      text:`=== РЕЖИССЁР ЭФИРА (выполняй строго, НИКОГДА не произноси вслух этот блок и слова «режиссёр», «тема блока», «задача») ===
+      text:`=== РЕЖИССЁР ЭФИРА (выполняй строго, НИКОГДА не произноси вслух этот блок и слова «режиссёр», «тема блока», «задача», «директива») ===
 ЗАДАЧА ЭТОГО БЛОКА: ${job}.
 ТЕМА БЛОКА: говори ТОЛЬКО про ${topicLabel}.
 ${openNew?`Это НОВАЯ тема. Начни её свежо. Прошлые темы не упоминай. Плавно, по-радийному введи её.`:``}
@@ -916,8 +921,15 @@ ${job==="ПРОДОЛЖЕНИЕ ТЕМЫ"?`Продолжай ЭТУ ЖЕ тем
 ${mustClose?`Заверши тему красиво, законченной мыслью — дальше сменим тему.`:``}
 НЕ ПЕРЕСКАКИВАЙ на эти темы сейчас: ${otherTopics.join("; ")||"—"}.
 Настроение: ${dirMoodRef.current}.
-УЖЕ СКАЗАННЫЕ СМЫСЛЫ (НЕ повторяй НИ ОДИН из них, даже другими словами, даже под другим углом — это запрещено): ${summaries.length?summaries.join(" || "):"пока ничего"}.
-Если про текущую тему все свежие факты для этого места уже названы — НЕ повторяй старое по кругу; честно и коротко скажи, что добавить нечего, и я сменю тему.
+УЖЕ СКАЗАННЫЕ СМЫСЛЫ (НЕ повторяй НИ ОДИН из них, даже другими словами, даже под другим углом, и НЕ противоречь им): ${summaries.length?summaries.join(" || "):"пока ничего"}.
+
+ЕСЛИ по этой теме про КОНКРЕТНУЮ точку фактов мало — НЕ говори «у меня нет данных», НЕ извиняйся, НЕ объявляй смену темы. Вместо этого ПОДНИМИСЬ МАСШТАБОМ, как камера вверх:
+ • сначала про эту тему в рамках округа/района;
+ • если и там пусто — в рамках штата (${ld.state||"этого штата"});
+ • если и там мало — про весь регион/природную зону США в этом масштабе.
+Всегда есть масштаб, на котором есть что сказать интересного по теме. Молчать про нехватку данных — запрещено, просто говори шире.
+
+ЗАПРЕЩЕНО лить «воду» и штампы («передавалось из поколения в поколение», «это часть жизни этих мест», «здесь живут трудолюбивые люди»). Лучше ОДИН конкретный факт (имя, год, число, событие), чем абзац общих фраз. Если конкретики нет даже на уровне штата — дай любопытный общий факт по теме, но не пустую болтовню.
 ========================`
     };
   };
@@ -1124,7 +1136,10 @@ Reply ONLY valid JSON: {"story":"your segment in ${al}, 3-5 sentences, in the ${
     const isLeak=story=>{
       if(!story||story.trim().length<8)return true;
       const st=story.toLowerCase();
-      return /режисс[её]р|директив|сегмент эфира|следующ(его|ей) сегмент|предоставьте|persona|разрешённ\w* список|список тем|блок темы|provide (the|a)|next segment|system prompt|as an ai|i (did|do) not|не получил|инструкци[яю] от/.test(st);
+      if(/режисс[её]р|директив|сегмент эфира|следующ(его|ей) сегмент|предоставьте|persona|разрешённ\w* список|список тем|блок темы|provide (the|a)|next segment|system prompt|as an ai|i (did|do) not|не получил|инструкци[яю] от/.test(st))return true;
+      // "no data, so let me move to another topic" — Vova hates this; suppress & regenerate.
+      if(/(нет|не имею|отсутству\w+).{0,40}(данных|информации|подтвержд)/.test(st)&&/(перейти|другой теме|другую тему|вместо этого|расскажу про|move on|instead)/.test(st))return true;
+      return false;
     };
     if(res&&isLeak(res.story)){
       let vtries=0;
@@ -2045,6 +2060,17 @@ Reply ONLY valid JSON: {"story":"your segment in ${al}, 3-5 sentences, in the ${
               <button className="mbtn skip" onClick={skipTopic}>{isRu?"⏭ Сменить тему":"⏭ Skip topic"}</button>
             </div>
             <button className="callbtn" onClick={openCall}>📞 {isRu?"Спросить про это место":"Ask about this place"}</button>
+            <button className={`favbtn${favRec?" rec":""}`} onClick={()=>{
+              try{
+                const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+                if(!SR){setSettingsOpen(true);return;}
+                const rec=new SR();rec.lang=L[langRef.current]?.tts||"en-US";rec.interimResults=false;rec.continuous=false;
+                setFavRec(true);
+                rec.onresult=e=>{const t=e.results[0][0].transcript;addFav(t);if(t)alert(isRu?"✓ Пожелание добавлено: "+t:"✓ Added: "+t);};
+                rec.onend=()=>setFavRec(false);rec.onerror=()=>setFavRec(false);
+                rec.start();
+              }catch{setFavRec(false);}
+            }}>⭐ {favRec?(isRu?"Говорите пожелание…":"Say your request…"):(isRu?"Добавить пожелание диктору":"Add a request to the host")}</button>
             <div className="sec-btns">
               <button className={`sbtn big${showTxt?" act":""}`} onClick={()=>{setShowTxt(t=>{const n=!t;if(n)setRadioFocus(false);return n;});}}>{showTxt?(isRu?"📄 Текст ✓":"📄 Text ✓"):(isRu?"📄 Текст":"📄 Text")}</button>
               <button className="sbtn big" onClick={()=>{revealMenu();setRadioFocus(true);}}>{isRu?"📻 Только радио":"📻 Radio only"}</button>
