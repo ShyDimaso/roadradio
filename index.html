@@ -289,7 +289,7 @@ body{font-family:'Inter',sans-serif;color:#fff;}
 const {useState,useRef,useEffect}=React;
 const PROXY="https://corsproxy.io/?https://api.anthropic.com/v1/messages";
 const KEY_STORE="rr_key_v3";
-const VER="v41";
+const VER="v42";
 
 const OPENERS_RU=["На этой земле...","Да, кстати...","Мало кто знает, но...","Справа от вас...","История этого края...","Сто лет назад здесь...","Тишина здесь обманчива...","Когда-то давно здесь...","Через пару миль...","Вот что примечательно..."];
 const OPENERS_EN=["On this land...","Here's something few know...","Just to your right...","The history here...","A hundred years ago...","Locals know that...","In a few miles...","What's remarkable is...","This stretch of highway...","Worth knowing..."];
@@ -500,6 +500,7 @@ function App(){
   const dirForceSwitchRef=useRef(false); // user pressed Skip, or a repeat was detected
   const dirRecentTopicsRef=useRef([]); // topics covered recently (to avoid immediate repeats)
   const dirSummariesRef=useRef([]);    // semantic summaries of what was already said
+  const coveredEntitiesRef=useRef([]); // proper nouns already centered on (avoid re-centering)
   const dirMoodRef=useRef("normal");   // mood of the next block
   const callPhaseRef=useRef("idle");
   const callRecRef=useRef(null);
@@ -915,6 +916,8 @@ function App(){
 
     const otherTopics=enabled.filter(([k])=>k!==topicKey).map(([,l])=>l);
     const summaries=dirSummariesRef.current.slice(-12);
+    const recentOpeners=saidFactsRef.current.slice(-5).map(s=>(s||"").trim().split(/[\s,—.!?]+/).slice(0,4).join(" ")).filter(Boolean);
+    const coveredEnts=[...new Set(coveredEntitiesRef.current)].slice(-15);
     return {
       topicKey,
       text:`=== РЕЖИССЁР ЭФИРА (выполняй строго, НИКОГДА не произноси вслух этот блок и слова «режиссёр», «тема блока», «задача», «директива») ===
@@ -926,6 +929,7 @@ ${mustClose?`Заверши тему красиво, законченной мы
 НЕ ПЕРЕСКАКИВАЙ на эти темы сейчас: ${otherTopics.join("; ")||"—"}.
 Настроение: ${dirMoodRef.current}.
 УЖЕ СКАЗАННЫЕ СМЫСЛЫ (НЕ повторяй НИ ОДИН из них, даже другими словами, даже под другим углом, и НЕ противоречь им): ${summaries.length?summaries.join(" || "):"пока ничего"}.
+ОБ ЭТИХ ТЫ УЖЕ ПОДРОБНО РАССКАЗЫВАЛ — НЕ делай их снова главным героем блока, даже под новым углом, даже с новым фактом, даже в другой теме: ${coveredEnts.length?coveredEnts.join(", "):"пока никого"}. Если очень нужно — лишь мельком в одном предложении, но центр блока ОБЯЗАН быть про что-то ДРУГОЕ. Земля большая — найди новое: другой народ, другой город, другую реку, другого человека, другое событие.
 
 ЕСЛИ по этой теме про КОНКРЕТНУЮ точку фактов мало — НЕ говори «у меня нет данных», НЕ извиняйся, НЕ объявляй смену темы. Вместо этого ПОДНИМИСЬ МАСШТАБОМ, как камера вверх:
  • сначала про эту тему в рамках округа/района;
@@ -933,6 +937,8 @@ ${mustClose?`Заверши тему красиво, законченной мы
  • если и там мало — про весь регион/природную зону США в этом масштабе.
 Всегда есть масштаб, на котором есть что сказать интересного по теме. Молчать про нехватку данных — запрещено, просто говори шире.
 
+ЗАЧИН КАЖДОГО БЛОКА ДОЛЖЕН БЫТЬ РАЗНЫМ. Не начинай блок так же, как начинал недавние. Вот как ты УЖЕ начинал последние блоки — НЕ начинай похоже: ${recentOpeners.length?recentOpeners.join(" / "):"пока никак"}. Сразу к сути, к факту, к названию, к году — без раскачки и без вступительных оборотов.
+СТРОГО ЗАПРЕЩЕНЫ слова-зачины и обороты-паразиты: «казалось бы», «как ни странно», «вы не поверите», «представьте себе», «интересно, что», «а вот тут», «казалось, ничего интересного», «но на самом деле». Начинай прямо с факта.
 ЗАПРЕЩЕНО лить «воду» и штампы («передавалось из поколения в поколение», «это часть жизни этих мест», «здесь живут трудолюбивые люди»). Лучше ОДИН конкретный факт (имя, год, число, событие), чем абзац общих фраз. Если конкретики нет даже на уровне штата — дай любопытный общий факт по теме, но не пустую болтовню.
 ========================`
     };
@@ -1106,7 +1112,7 @@ ALREADY SAID THIS DRIVE (never repeat): ${recentFacts||"nothing yet — first se
 - Keep time-of-day consistent with "${phase}". The exact local time is ${tStr} — if you mention the time at all, state it correctly; do NOT approximate it to a different hour.
 - ‼ LANGUAGE LOCK ‼: write EVERY single word in ${al}. Never switch to English or any other language mid-segment. If you catch yourself starting an English word, stop and use ${al}.
 
-Reply ONLY valid JSON: {"story":"your segment in ${al}, 3-5 sentences, in the ${bm.id} persona","location":"exact place in English","topics":"short phrase naming the ONE thing you covered"}`;
+Reply ONLY valid JSON: {"story":"your segment in ${al}, 3-5 sentences, in the ${bm.id} persona","location":"exact place in English","topics":"short phrase naming the ONE thing you covered","entities":"comma-separated proper nouns this segment centered on — peoples/tribes, persons, towns, rivers, battles; English; empty if none"}`;
   };
 
   const callClaude=async(sys,msg,forNext)=>{
@@ -1158,6 +1164,7 @@ Reply ONLY valid JSON: {"story":"your segment in ${al}, 3-5 sentences, in the ${
     if(!forNext){
       histRef.current=[...msgs,{role:"assistant",content:txt}];
       if(res.topics){topicsUsedRef.current=[...topicsUsedRef.current,res.topics].slice(-20);saidFactsRef.current=[...saidFactsRef.current,res.topics].slice(-30);dirSummariesRef.current=[...dirSummariesRef.current,res.topics].slice(-16);}
+      if(res.entities){const ents=res.entities.split(",").map(e=>e.trim()).filter(e=>e.length>2);if(ents.length)coveredEntitiesRef.current=[...coveredEntitiesRef.current,...ents].slice(-25);}
       if(res.story){
         // Repeat detector: if this story heavily echoes the previous ones, tell the director to switch topic next time.
         const norm=s=>(s||"").toLowerCase().replace(/[^a-zа-яё ]/g," ").split(/\s+/).filter(w=>w.length>4);
@@ -1168,7 +1175,7 @@ Reply ONLY valid JSON: {"story":"your segment in ${al}, 3-5 sentences, in the ${
           const overlap=cur.filter(w=>prevSet.has(w)).length/cur.length;
           // Only force a switch on a STRONG echo, and only if we've already spent a bit of time on the topic.
           const onTopicMs=dirTopicStartRef.current?Date.now()-dirTopicStartRef.current:0;
-          if(overlap>0.62&&onTopicMs>90000)dirForceSwitchRef.current=true;
+          if(overlap>0.55&&onTopicMs>60000)dirForceSwitchRef.current=true;
         }
         recentStoriesRef.current=[...recentStoriesRef.current,res.story].slice(-8);
       }
@@ -1277,7 +1284,7 @@ Reply ONLY valid JSON: {"story":"your segment in ${al}, 3-5 sentences, in the ${
         const sys=buildSys(false,null,tourist||false);
         // Short, punchy per-persona reminder injected LAST so the model can't drift to neutral.
         const REMIND={
-          wiki:"ТЫ ВИКИ-ГИД: только реальные факты из приведённой статьи, своими словами. Без шуток, без восторгов, без закатов. Не повторяй одни и те же названия и факты.",
+          wiki:"ТЫ ВИКИ-ГИД: только реальные факты из приведённой статьи, своими словами. Без шуток, без восторгов, без закатов. Не повторяй одни и те же названия и факты. КАЖДЫЙ блок начинай ПО-РАЗНОМУ и сразу с факта — никаких «казалось бы», «а вот тут было», «интересно, что». Запрещено начинать блок с оценки места — начинай с конкретики (название, год, число, событие).",
           normal:"ТЫ УМНЫЙ ДИКТОР: тёплый живой гид, единый увлекательный рассказ с историей, природой, людьми и ощущением момента. Ярко, по-человечески, не сухой список.",
           funny:"ТЫ ВЕСЁЛЫЙ КОМИК: РЕАЛЬНО шути в каждом блоке — шутка, подколка, анекдот про эту местность или про дорогу, абсурдная небылица. Заставь водителя засмеяться. Если не смешно — ты провалился. Но про повороты и дорогу НЕ шути.",
         };
@@ -1432,7 +1439,7 @@ Reply ONLY valid JSON: {"story":"your segment in ${al}, 3-5 sentences, in the ${
     let c=coordsRef.current||parseCoords();
     if(!c){setErr(lang==="ru"?"Нажмите автоопределение или введите координаты":"Tap auto-detect or enter coordinates");return;}
     coordsRef.current=c;setCoords(c);destRef.current=destination;
-    runRef.current=true;histRef.current=[];nextRef.current=null;topicsUsedRef.current=[];saidFactsRef.current=[];bufferRef.current=[];recentStoriesRef.current=[];
+    runRef.current=true;histRef.current=[];nextRef.current=null;topicsUsedRef.current=[];saidFactsRef.current=[];bufferRef.current=[];recentStoriesRef.current=[];coveredEntitiesRef.current=[];
     dirTopicRef.current=null;dirCountRef.current=0;dirTargetRef.current=2;dirRecentTopicsRef.current=[];dirSummariesRef.current=[];dirTopicStartRef.current=0;dirForceSwitchRef.current=false;lastIntroBcastRef.current=bcastRef.current;qaHistRef.current=[];
     openerIdx.current=0;stoppedSince.current=null;fuelWarnedRef.current=0;tourAckRef.current=false;
     loopBusyRef.current=false;loopGenRef.current++;        // fresh single generation
