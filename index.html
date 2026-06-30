@@ -45,7 +45,7 @@ body{font-family:'Inter',sans-serif;color:#fff;}
 .logo-wrap{display:flex;flex-direction:column;}
 .logo{font-family:'Orbitron',monospace;font-size:17px;font-weight:900;letter-spacing:2px;color:#ff6b35;}
 .logo em{color:#4a9eff;font-style:normal;}
-.logo-ver{font-family:'Orbitron',monospace;font-size:13px;color:#e8b860;letter-spacing:3px;margin-top:2px;opacity:.95;}
+.logo-ver{font-family:'Orbitron',monospace;font-size:15px;color:#ffffff;letter-spacing:3px;margin-top:2px;opacity:1;font-weight:700;}
 .hdr-r{display:flex;align-items:center;gap:8px;}
 .langsel{background:#0d1525;border:2px solid #4a9eff;border-radius:8px;padding:6px 9px;color:#4a9eff;font-family:'Orbitron',monospace;font-size:10px;font-weight:700;cursor:pointer;outline:none;}
 .setbtn{background:#0d1525;border:2px solid #1e2d45;border-radius:8px;padding:6px 12px;color:#aabbcc;font-size:18px;cursor:pointer;outline:none;}
@@ -289,7 +289,7 @@ body{font-family:'Inter',sans-serif;color:#fff;}
 const {useState,useRef,useEffect}=React;
 const PROXY="https://corsproxy.io/?https://api.anthropic.com/v1/messages";
 const KEY_STORE="rr_key_v3";
-const VER="v39";
+const VER="v40";
 
 const OPENERS_RU=["На этой земле...","Да, кстати...","Мало кто знает, но...","Справа от вас...","История этого края...","Сто лет назад здесь...","Тишина здесь обманчива...","Когда-то давно здесь...","Через пару миль...","Вот что примечательно..."];
 const OPENERS_EN=["On this land...","Here's something few know...","Just to your right...","The history here...","A hundred years ago...","Locals know that...","In a few miles...","What's remarkable is...","This stretch of highway...","Worth knowing..."];
@@ -847,53 +847,49 @@ function App(){
   const directNextBlock=()=>{
     const cfg=topicsCfgRef.current||{};
     const ALL=[
-      ["history","истории края (основание, события, старые маршруты, железные дороги)"],
-      ["wildlife","животных — нынешних и древних (вымерших, ледниковых)"],
-      ["geology","геологии и форме земли, горам, рекам, пещерам"],
-      ["culture","культуре, быту, традициям, как тут живут"],
-      ["films","фильмам/сериалам, снятым здесь (только если реально)"],
-      ["famous","знаменитостям, связанным с этим местом"],
-      ["photo","живописным точкам и видам впереди"],
-      ["music","музыке, связанной с этим местом"],
-      ["sports","спорту — командам, атлетам, играм"],
-      ["politics","политикам и политической истории места"],
-      ["crime","детективным и криминальным историям, разбойникам"],
-      ["war","битвам, военной истории, фортам"],
-      ["native","истории и наследию коренных народов"],
-      ["architecture","архитектуре, мостам, ориентирам"],
-      ["economy","промышленности, фермерству, добыче"],
-      ["legends","легендам, фольклору, городам-призракам"],
-      ["food","местной еде и напиткам"],
+      ["history","КОНКРЕТНОМ историческом событии или дате этого места (не общая 'история края', а один факт: год, имя, что случилось)"],
+      ["wildlife","ЖИВЫХ животных, птицах, рыбе, насекомых этих мест СЕГОДНЯ — повадки, чем интересны (не история, не люди)"],
+      ["geology","камнях, почве, реках, формах рельефа, древних морях, ископаемых (про природу земли, НЕ про людей)"],
+      ["culture","том, как тут живут СЕЙЧАС — праздники, говор, привычки, ярмарки (современный быт, не прошлое)"],
+      ["films","фильмах/сериалах/клипах, снятых здесь (только если реально снимали)"],
+      ["famous","ОДНОМ конкретном человеке, связанном с местом — кто, чем знаменит (личность, не общая история)"],
+      ["photo","на что красиво посмотреть, природные виды, необычные пейзажи зоны"],
+      ["music","музыке и музыкантах этих мест — жанры, песни, исполнители"],
+      ["sports","спорте — командах, атлетах, гонках, рыбалке/охоте как спорте"],
+      ["politics","политике и власти — выборы, законы, чем штат известен политически"],
+      ["crime","ОДНОЙ детективной/криминальной истории — ограбление, банда, загадка"],
+      ["war","ОДНОМ военном эпизоде — бой, форт, ветераны (конкретика, не общий обзор)"],
+      ["native","коренных народах — племя, язык, обычаи, что осталось"],
+      ["architecture","зданиях, мостах, необычных постройках — как выглядят, кто построил"],
+      ["economy","чем тут зарабатывают — заводы, фермы, шахты, что производят СЕЙЧАС"],
+      ["legends","ОДНОЙ легенде, байке, городе-призраке, мистике этих мест"],
+      ["food","местной еде и напитках — блюда, фермерские продукты, что попробовать"],
     ];
     const enabled=ALL.filter(([k])=>cfg[k]!==false);
     if(enabled.length===0)enabled.push(["history","истории края"]);
 
     const ld=locDataRef.current;
     const inCity=!!(ld.city&&ld.place==="city");
-    const manyTopics=enabled.length>=6;
-    const maxMs=inCity?300000:(manyTopics?180000:300000);
-    const minMs=90000; // keep a topic at least ~1.5 min before any switch
-    const elapsed=dirTopicStartRef.current?Date.now()-dirTopicStartRef.current:1e9;
-    const timeUp=elapsed>=maxMs;
-    const forced=dirForceSwitchRef.current&&elapsed>=minMs;
+    // Rotate FAST: one segment per topic (sometimes two), so in a few minutes the listener
+    // hears many different topics instead of 3-5 minutes locked on one (which felt like all-history).
+    const segShouldClose = dirCountRef.current>=1+(Math.random()<0.3?1:0); // 1 segment, occasionally 2
+    const forced=dirForceSwitchRef.current;
     dirForceSwitchRef.current=false;
 
     let job,topicKey,topicLabel,mustClose=false,openNew=false;
-    const stayOnTopic = dirTopicRef.current && !timeUp && !forced;
+    const stayOnTopic = dirTopicRef.current && !segShouldClose && !forced;
     if(stayOnTopic){
       topicKey=dirTopicRef.current;
       topicLabel=(ALL.find(([k])=>k===topicKey)||["","эту тему"])[1];
       dirCountRef.current++;
-      mustClose = elapsed>=maxMs*0.7;
-      job = mustClose ? "ЗАВЕРШЕНИЕ ТЕМЫ" : "ПРОДОЛЖЕНИЕ ТЕМЫ";
+      mustClose=true;
+      job = "ЗАВЕРШЕНИЕ ТЕМЫ";
     }else{
       // STRICT ROUND-ROBIN: walk through every enabled topic once before any repeats.
-      // Find where the current topic sits in the enabled list, take the NEXT one.
       const keys=enabled.map(e=>e[0]);
       let idx=dirTopicRef.current?keys.indexOf(dirTopicRef.current):-1;
       let nextIdx=(idx+1)%keys.length;
-      // skip the very recent ones if the cycle is long enough to allow it
-      const recent=dirRecentTopicsRef.current.slice(-Math.min(3,keys.length-1));
+      const recent=dirRecentTopicsRef.current.slice(-Math.min(4,keys.length-1));
       let guard=0;
       while(recent.includes(keys[nextIdx])&&guard<keys.length){nextIdx=(nextIdx+1)%keys.length;guard++;}
       const pick=enabled[nextIdx];
@@ -903,7 +899,7 @@ function App(){
       dirTopicStartRef.current=Date.now();
       openNew=true;
       job = "НОВАЯ ТЕМА";
-      dirRecentTopicsRef.current=[...dirRecentTopicsRef.current,topicKey].slice(-6);
+      dirRecentTopicsRef.current=[...dirRecentTopicsRef.current,topicKey].slice(-8);
     }
     // mood: mostly steady, sometimes a short light beat
     const moods=["спокойный","спокойный","спокойный","короткий лёгкий факт","тёплый, с настроением"];
