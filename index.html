@@ -874,9 +874,10 @@ function App(){
 
   const extract=txt=>{
     try{return JSON.parse(txt);}catch{}
-    const sm=txt.match(/"story"\s*:\s*"((?:[^"\\]|\\.)*)"/);
-    const lm=txt.match(/"location"\s*:\s*"((?:[^"\\]|\\.)*)"/);
-    if(sm)return{story:sm[1].replace(/\\"/g,'"').replace(/\\n/g,' '),location:lm?lm[1]:""};
+    // Tolerant fallback: pull each field by regex so a malformed JSON never stalls the broadcast.
+    const g=k=>{const m=txt.match(new RegExp('"'+k+'"\\s*:\\s*"((?:[^"\\\\]|\\\\.)*)"'));return m?m[1].replace(/\\"/g,'"').replace(/\\n/g,' '):"";};
+    const sm=g("story");
+    if(sm)return{story:sm,location:g("location"),topics:g("topics"),entities:g("entities"),storyline:g("storyline"),exhausted:/"exhausted"\s*:\s*true/.test(txt)};
     const clean=txt.replace(/\{[^}]*\}/gs,'').replace(/"[^"]*"\s*:\s*"[^"]*"/g,'').replace(/^\s*[,{}\s]+/,'').trim();
     return{story:clean||txt,location:""};
   };
@@ -1227,7 +1228,8 @@ ALREADY SAID THIS DRIVE (never repeat): ${recentFacts||"nothing yet — first se
 - Keep time-of-day consistent with "${phase}". The exact local time is ${tStr} — if you mention the time at all, state it correctly; do NOT approximate it to a different hour.
 - ‼ LANGUAGE LOCK ‼: write EVERY single word in ${al}. Never switch to English or any other language mid-segment. If you catch yourself starting an English word, stop and use ${al}.
 
-Reply ONLY valid JSON: {"story":"your segment in ${al}, 3-5 sentences, in the ${bm.id} persona","location":"exact place in English","topics":"short phrase naming the ONE thing you covered","entities":"comma-separated proper nouns this segment centered on — peoples/tribes, persons, towns, rivers, battles; English; empty if none","storyline":"2-4 word LABEL of the underlying STORY-THEME, so it isn't retold via another object later — e.g. 'indian wars','railroad building','bison herds','civil war','pioneer settlers','dust bowl','route 66'; English; empty if none","exhausted":true_or_false — true if this topic is nearly used up for THIS area and you'd be scraping/repeating to continue, false if there's still genuinely fresh material}`;
+Reply ONLY valid JSON (no comments, no extra text): {"story":"your segment in ${al}, 3-5 sentences, in the ${bm.id} persona","location":"exact place in English","topics":"short phrase naming the ONE thing you covered","entities":"comma-separated proper nouns this segment centered on — peoples/tribes, persons, towns, rivers, battles; English; empty if none","storyline":"2-4 word English label of the underlying story-theme (e.g. indian wars, railroad building, bison herds, civil war, pioneer settlers, dust bowl, route 66); empty if none","exhausted":false}
+Set "exhausted" to true ONLY if this topic is nearly used up for THIS area and continuing would mean scraping or repeating; otherwise false.`;
   };
 
   const callClaude=async(sys,msg,forNext)=>{
