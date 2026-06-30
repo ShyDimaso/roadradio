@@ -289,15 +289,14 @@ body{font-family:'Inter',sans-serif;color:#fff;}
 const {useState,useRef,useEffect}=React;
 const PROXY="https://corsproxy.io/?https://api.anthropic.com/v1/messages";
 const KEY_STORE="rr_key_v3";
-const VER="v42";
+const VER="v44";
 
 const OPENERS_RU=["На этой земле...","Да, кстати...","Мало кто знает, но...","Справа от вас...","История этого края...","Сто лет назад здесь...","Тишина здесь обманчива...","Когда-то давно здесь...","Через пару миль...","Вот что примечательно..."];
 const OPENERS_EN=["On this land...","Here's something few know...","Just to your right...","The history here...","A hundred years ago...","Locals know that...","In a few miles...","What's remarkable is...","This stretch of highway...","Worth knowing..."];
 
 const TRAVEL=[{id:"car",icon:"🚗",en:"Car",ru:"Машина"},{id:"bus",icon:"🚌",en:"Bus/Train",ru:"Автобус"},{id:"bike",icon:"🚲",en:"Bike",ru:"Велосипед"},{id:"walk",icon:"🚶",en:"Walk",ru:"Пешком"}];
 const BCASTS=[
-  {id:"wiki",icon:"📚",en:"Wiki guide",ru:"Вики-гид",desc:"Real facts",descRu:"Факты",prompt:"WIKIPEDIA GUIDE — you retell, in your own warm spoken words, the REAL Wikipedia facts about exactly where the driver is. You are given real article text below; base EVERYTHING on it. Never invent facts, places, distances or sides not in the provided material. If the spot itself is empty, zoom out and tell about the whole region/desert/county from the provided articles. Clear, factual, genuinely interesting — like a well-read friend retelling what's truly here. No jokes, no fake scenery, no sunsets unless in the facts."},
-  {id:"normal",icon:"📻",en:"Smart guide",ru:"Умный диктор",desc:"Classic",descRu:"Обычный",prompt:"SMART ROAD GUIDE — a warm, knowledgeable companion who turns the drive into one flowing, interesting story: history, nature, people, what's around, with a feel for the time of day, the light, the weather, fuel stops. Vivid but truthful. Never dry. The full living tour-guide."},
+  {id:"normal",icon:"📻",en:"Guide",ru:"Гид",desc:"Facts + story",descRu:"Факты + рассказ",prompt:"ROAD GUIDE — a warm, knowledgeable companion who turns the drive into one flowing, genuinely interesting story built on REAL facts about exactly where the driver is. You are handed real Wikipedia article text below — base your facts on it, never invent places, distances, sides, people, dates or events not supported by it. But deliver those facts vividly and humanly: history, nature, people, the present and future of the region, the feel of the moment. Factual like an encyclopedia, alive like a great radio host. Never dry, never a flat list, never fabricated."},
   {id:"funny",icon:"😂",en:"Fun & tall tales",ru:"Весёлый",desc:"Jokes",descRu:"Шутки и троллинг",prompt:"FUN HOST — relaxed, funny radio: jokes, light banter, jokes/anecdotes about this area and about the road itself, gentle trolling and gloriously absurd tall tales told straight-faced then dissolved with another absurd flourish (never a flat 'just kidding'). Big charisma, makes the driver grin. Real facts under the fun stay TRUE. SAFETY: never give false road directions, turns or hazards — joke about the world, never about the wheel."},
 ];
 const TOPICS=[{id:"geology",en:"Geology",ru:"Геология"},{id:"weather",en:"Weather",ru:"Погода"},{id:"wildlife",en:"Wildlife",ru:"Животные"},{id:"plants",en:"Plants",ru:"Растения"},{id:"history",en:"History",ru:"История"},{id:"towns",en:"Towns",ru:"Города"},{id:"road",en:"Roads",ru:"Дороги"},{id:"humor",en:"Humor",ru:"Юмор"}];
@@ -492,6 +491,12 @@ function App(){
   const cityAheadRef=useRef(null);     // {name,miles} of a big city ahead on our heading
   const cityAnnouncedRef=useRef(0);    // last time we announced a city
   const cityAnnouncedNameRef=useRef(""); // name of the city already announced (announce each once)
+  const landmarksRef=useRef([]);       // notable places nearby (ahead AND to the sides) for advance announcements
+  const announcedLandmarksRef=useRef([]); // names of landmarks already announced (announce each once)
+  const toldPlacesRef=useRef([]);      // proper-name places ALREADY narrated in full (never re-open them)
+  const toldStorylinesRef=useRef([]);  // semantic STORYLINES already told (cavalry, railroad, bison...) — never revisit, even via a new object
+  const topicExhaustedRef=useRef(false); // model signalled the current topic is used up for this area → switch next
+  const transitionsUsedRef=useRef([]); // recent intro/bridge styles, to avoid repeating them too often
   // ---- "Эфирный режиссёр" (broadcast director) state ----
   const dirTopicRef=useRef(null);      // current topic key being covered
   const dirCountRef=useRef(0);         // how many segments spent on current topic
@@ -506,6 +511,7 @@ function App(){
   const callRecRef=useRef(null);
   const cdTotalRef=useRef(55);
   const prevPlaceRef=useRef("");
+  const lastCountyRef=useRef("");      // current county — when it changes, storyline/place memory resets (new area, fair to retell)
   const callTextRef=useRef("");
   const userDoneRef=useRef(false);
   const lastSpokeRef=useRef(Date.now());
@@ -759,6 +765,39 @@ function App(){
     }catch{cityAheadRef.current=null;}
   };
 
+  // Notable landmarks within ~30 miles — AHEAD on our course OR off to the sides.
+  // Famous things off-route (e.g. Cape Canaveral 25mi away) should be announced early so the
+  // driver can decide to detour. Uses Wikipedia geosearch (an article ≈ notable) + distance/side.
+  const fetchLandmarks=async(lat,lng,hdg,langCode)=>{
+    try{
+      const wl=(["ru","uk","es","de","fr","pt"].includes(langCode))?langCode:"en";
+      const base=`https://${wl}.wikipedia.org/w/api.php`;
+      const u=`${base}?action=query&list=geosearch&gscoord=${lat}%7C${lng}&gsradius=48000&gslimit=40&format=json&origin=*`;
+      const r=await fetch(u);const d=await r.json();
+      const got=(d.query&&d.query.geosearch)||[];
+      if(!got.length){landmarksRef.current=[];return;}
+      const R=3958.8,rad=x=>x*Math.PI/180;
+      const bear=(la,lo)=>{const y=Math.sin(rad(lo-lng))*Math.cos(rad(la));const x=Math.cos(rad(lat))*Math.sin(rad(la))-Math.sin(rad(lat))*Math.cos(rad(la))*Math.cos(rad(lo-lng));return (Math.atan2(y,x)*180/Math.PI+360)%360;};
+      const dirWord=langRef.current==="ru"||langRef.current==="uk";
+      const out=[];
+      for(const p of got){
+        const miles=p.dist/1609.34;
+        if(miles<0.5)continue;
+        let rel=hdg!=null?(bear(p.lat,p.lon)-hdg+360)%360:0;
+        let side;
+        if(hdg==null)side="nearby";
+        else if(rel<35||rel>325)side=dirWord?"прямо по курсу":"straight ahead";
+        else if(rel<=135)side=dirWord?"справа по ходу":"to the right";
+        else if(rel<225)side=dirWord?"позади":"behind";
+        else side=dirWord?"слева по ходу":"to the left";
+        const ahead=(rel<90||rel>270);
+        out.push({name:p.title,miles:Math.round(miles*10)/10,side,ahead});
+      }
+      out.sort((a,b)=>a.miles-b.miles);
+      landmarksRef.current=out.slice(0,16);
+    }catch{landmarksRef.current=[];}
+  };
+
   // Look ahead along the heading for fuel stations; return miles to nearest one ahead, or null.
   const fetchFuelAhead=async(lat,lng,hdg)=>{
     try{
@@ -877,15 +916,47 @@ function App(){
     const enabled=ALL.filter(([k])=>cfg[k]!==false);
     if(enabled.length===0)enabled.push(["history","истории края"]);
 
+    // Topic adjacency: which topics flow naturally into which (for smooth "да, кстати" bridges).
+    // If the next topic is a neighbour of the last one, we ask for a bridge; if far, a clean switch.
+    const ADJ={
+      history:["war","native","famous","architecture","legends"],
+      war:["history","famous","native","politics"],
+      native:["history","culture","legends","food"],
+      culture:["food","music","native","famous"],
+      food:["culture","economy","wildlife","plants"],
+      music:["culture","famous","legends"],
+      famous:["history","music","films","sports"],
+      films:["famous","photo","music"],
+      photo:["geology","wildlife","films","architecture"],
+      geology:["photo","wildlife","economy"],
+      wildlife:["geology","food","photo","plants"],
+      plants:["wildlife","food","geology"],
+      economy:["food","geology","politics","architecture"],
+      politics:["economy","war","history"],
+      crime:["legends","history","famous"],
+      legends:["crime","native","history","music"],
+      architecture:["history","economy","photo"],
+    };
+
     const ld=locDataRef.current;
+    // New county = new local area. Fair to revisit storylines (other tribes, other forts) here.
+    // Clear the "already told" memory so the host can speak freely about THIS county's own stories.
+    const curCounty=(ld.county||"")+"|"+(ld.state||"");
+    if(curCounty.trim()!=="|"&&lastCountyRef.current&&curCounty!==lastCountyRef.current){
+      toldStorylinesRef.current=[];toldPlacesRef.current=[];coveredEntitiesRef.current=[];announcedLandmarksRef.current=[];
+    }
+    if(curCounty.trim()!=="|")lastCountyRef.current=curCounty;
     const inCity=!!(ld.city&&ld.place==="city");
-    // Rotate FAST: one segment per topic (sometimes two), so in a few minutes the listener
-    // hears many different topics instead of 3-5 minutes locked on one (which felt like all-history).
-    const segShouldClose = dirCountRef.current>=1+(Math.random()<0.3?1:0); // 1 segment, occasionally 2
+    // Switch when the topic has MATURED, not on a fixed timer: either the model said it's used up
+    // for this area, or we've given it a healthy run (cap at 3 segments so nothing overstays).
+    const matured = topicExhaustedRef.current || dirCountRef.current>=3;
+    topicExhaustedRef.current=false;
+    const segShouldClose = matured;
     const forced=dirForceSwitchRef.current;
     dirForceSwitchRef.current=false;
 
-    let job,topicKey,topicLabel,mustClose=false,openNew=false;
+    let job,topicKey,topicLabel,mustClose=false,openNew=false,bridgeFrom=null,cleanSwitch=false;
+    const prevTopic=dirTopicRef.current;
     const stayOnTopic = dirTopicRef.current && !segShouldClose && !forced;
     if(stayOnTopic){
       topicKey=dirTopicRef.current;
@@ -894,14 +965,23 @@ function App(){
       mustClose=true;
       job = "ЗАВЕРШЕНИЕ ТЕМЫ";
     }else{
-      // STRICT ROUND-ROBIN: walk through every enabled topic once before any repeats.
       const keys=enabled.map(e=>e[0]);
-      let idx=dirTopicRef.current?keys.indexOf(dirTopicRef.current):-1;
-      let nextIdx=(idx+1)%keys.length;
       const recent=dirRecentTopicsRef.current.slice(-Math.min(4,keys.length-1));
-      let guard=0;
-      while(recent.includes(keys[nextIdx])&&guard<keys.length){nextIdx=(nextIdx+1)%keys.length;guard++;}
-      const pick=enabled[nextIdx];
+      // Prefer a natural NEIGHBOUR of the previous topic that we haven't touched recently.
+      const neighbours=(ADJ[prevTopic]||[]).filter(k=>keys.includes(k)&&!recent.includes(k)&&k!==prevTopic);
+      let pick;
+      if(neighbours.length&&Math.random()<0.7){
+        const nk=neighbours[Math.floor(Math.random()*neighbours.length)];
+        pick=enabled.find(e=>e[0]===nk);
+        bridgeFrom=(ALL.find(([k])=>k===prevTopic)||["",""])[1]; // we will ask for a smooth bridge
+      }else{
+        // Fall back to round-robin; this is a "far" jump → clean switch, no forced bridge.
+        let idx=prevTopic?keys.indexOf(prevTopic):-1;
+        let nextIdx=(idx+1)%keys.length;let guard=0;
+        while(recent.includes(keys[nextIdx])&&guard<keys.length){nextIdx=(nextIdx+1)%keys.length;guard++;}
+        pick=enabled[nextIdx];
+        cleanSwitch=!!prevTopic;
+      }
       topicKey=pick[0];topicLabel=pick[1];
       dirTopicRef.current=topicKey;
       dirCountRef.current=1;
@@ -914,28 +994,64 @@ function App(){
     const moods=["спокойный","спокойный","спокойный","короткий лёгкий факт","тёплый, с настроением"];
     dirMoodRef.current=moods[Math.floor(Math.random()*moods.length)];
 
+    // ── RHYTHM: vary the FORM of the block so it isn't "a mini-lecture every time" ──
+    // Mix full stories with short beats and light one-liners; bridges/finales handled separately.
+    let blockForm;
+    if(job==="ЗАВЕРШЕНИЕ ТЕМЫ")blockForm="ФИНАЛ ТЕМЫ: красиво, законченной мыслью заверши — буквально 2-3 предложения, не начинай ничего нового.";
+    else{
+      const forms=[
+        "ПОЛНАЯ ИСТОРИЯ: 4-5 предложений, маленькая дуга — зацепка, факт, поворот, вывод.",
+        "ПОЛНАЯ ИСТОРИЯ: 4-5 предложений, веди как уверенный рассказчик.",
+        "КОРОТКАЯ РЕПЛИКА: всего 2 предложения, один яркий факт — лёгкая вставка, чтобы сменить ритм.",
+        "ЛЁГКИЙ ФАКТ: 2-3 предложения, что-то любопытное и нетяжёлое, передышка для уха.",
+      ];
+      blockForm=forms[Math.floor(Math.random()*forms.length)];
+    }
+
+    // ── HUMAN MICRO-TRANSITIONS: when a topic closes, hand over like a real radio host. ──
+    // Big varied pool so it never feels canned; only when we're actually switching topics.
+    const MICRO=[
+      "Хороший момент сменить тему.","Эту историю оставим здесь — дорога идёт дальше.",
+      "Ну, об этом, пожалуй, всё. А вот что ещё любопытно в этих краях…","Давайте не застревать в прошлом — посмотрим, чем эти места живут сейчас.",
+      "Перевернём страницу.","А теперь — короткий поворот в сторону.","Закроем эту тему на хорошей ноте.",
+      "Едем дальше — и мысль тоже едет дальше.","Это мы выяснили. Что у нас ещё по курсу интересного…",
+      "Сменим пластинку.","Оставим это здесь, и вот о чём стоит сказать…","Хватит об этом, иначе я вас заговорю.",
+      "Колёса крутятся — крутится и рассказ.","Ладно, с этим разобрались.","А знаете, что тут ещё было…",
+      "Отложим это в сторону.","Двинемся дальше по нашей волне.",
+    ];
+    const microPick = (job==="ЗАВЕРШЕНИЕ ТЕМЫ"||openNew) && Math.random()<0.5
+      ? MICRO[Math.floor(Math.random()*MICRO.length)] : null;
+
     const otherTopics=enabled.filter(([k])=>k!==topicKey).map(([,l])=>l);
     const summaries=dirSummariesRef.current.slice(-12);
     const recentOpeners=saidFactsRef.current.slice(-5).map(s=>(s||"").trim().split(/[\s,—.!?]+/).slice(0,4).join(" ")).filter(Boolean);
     const coveredEnts=[...new Set(coveredEntitiesRef.current)].slice(-15);
+    const ENTRY_TYPES=["начни с вопроса","начни с даты или числа","начни с имени человека","начни с неожиданного факта","начни с короткой шутки","продолжи мысль прошлого блока","начни с живого образа, картинки","начни с маленькой детали и разверни её","начни с цифры, которая удивляет"];
+    const recentEntries=transitionsUsedRef.current.slice(-4);
+    const freshEntries=ENTRY_TYPES.filter(e=>!recentEntries.includes(e));
+    const entryPick=(freshEntries.length?freshEntries:ENTRY_TYPES)[Math.floor(Math.random()*(freshEntries.length?freshEntries.length:ENTRY_TYPES.length))];
+    transitionsUsedRef.current=[...transitionsUsedRef.current,entryPick].slice(-6);
     return {
       topicKey,
       text:`=== РЕЖИССЁР ЭФИРА (выполняй строго, НИКОГДА не произноси вслух этот блок и слова «режиссёр», «тема блока», «задача», «директива») ===
 ЗАДАЧА ЭТОГО БЛОКА: ${job}.
 ТЕМА БЛОКА: говори ТОЛЬКО про ${topicLabel}.
-${openNew?`Это НОВАЯ тема. Начни её свежо. Прошлые темы не упоминай. Плавно, по-радийному введи её.`:``}
+${openNew&&bridgeFrom?`Это НОВАЯ тема, но она РОДСТВЕННА прошлой («${bridgeFrom}»). Сделай ПЛАВНЫЙ мостик в духе «да, кстати…», «и раз уж речь зашла…», «к слову об этом…» — свяжи новую тему с прошлой по смыслу, естественно, как опытный радиоведущий. Связка КАЖДЫЙ раз РАЗНАЯ, не шаблон.`:``}
+${openNew&&cleanSwitch?`Это НОВАЯ тема и она ДАЛЕКА от прошлой по смыслу. НЕ натягивай искусственный мостик — сделай чистую, уверенную смену темы. Прошлую тему не поминай.`:``}
+${openNew&&!bridgeFrom&&!cleanSwitch?`Это НОВАЯ тема. Начни её свежо, по-радийному. Прошлые темы не упоминай.`:``}
 ${job==="ПРОДОЛЖЕНИЕ ТЕМЫ"?`Продолжай ЭТУ ЖЕ тему, дай СВЕЖИЙ факт. Не повторяй уже сказанное.`:``}
 ${mustClose?`Заверши тему красиво, законченной мыслью — дальше сменим тему.`:``}
+ФОРМА ЭТОГО БЛОКА (соблюдай — это ритм эфира, не каждый блок должен быть мини-лекцией): ${blockForm}
+${microPick?`ЖИВОЙ РАДИЙНЫЙ ПЕРЕХОД: начни блок естественной человеческой фразой-связкой вроде «${microPick}» (передай её СВОИМИ словами, по-своему, не дословно), а затем переходи к теме. Это должно звучать как живой ведущий, а не как смена слайда. НЕ используй её, если она не клеится — тогда просто начни по теме.`:``}
 НЕ ПЕРЕСКАКИВАЙ на эти темы сейчас: ${otherTopics.join("; ")||"—"}.
 Настроение: ${dirMoodRef.current}.
 УЖЕ СКАЗАННЫЕ СМЫСЛЫ (НЕ повторяй НИ ОДИН из них, даже другими словами, даже под другим углом, и НЕ противоречь им): ${summaries.length?summaries.join(" || "):"пока ничего"}.
 ОБ ЭТИХ ТЫ УЖЕ ПОДРОБНО РАССКАЗЫВАЛ — НЕ делай их снова главным героем блока, даже под новым углом, даже с новым фактом, даже в другой теме: ${coveredEnts.length?coveredEnts.join(", "):"пока никого"}. Если очень нужно — лишь мельком в одном предложении, но центр блока ОБЯЗАН быть про что-то ДРУГОЕ. Земля большая — найди новое: другой народ, другой город, другую реку, другого человека, другое событие.
 
-ЕСЛИ по этой теме про КОНКРЕТНУЮ точку фактов мало — НЕ говори «у меня нет данных», НЕ извиняйся, НЕ объявляй смену темы. Вместо этого ПОДНИМИСЬ МАСШТАБОМ, как камера вверх:
- • сначала про эту тему в рамках округа/района;
- • если и там пусто — в рамках штата (${ld.state||"этого штата"});
- • если и там мало — про весь регион/природную зону США в этом масштабе.
-Всегда есть масштаб, на котором есть что сказать интересного по теме. Молчать про нехватку данных — запрещено, просто говори шире.
+ЕСЛИ по этой теме про КОНКРЕТНУЮ точку фактов мало — НЕ говори «у меня нет данных», НЕ извиняйся, НЕ объявляй смену темы. Два честных живых хода на выбор:
+ 1) Спокойно и по-человечески признай и поверни: «Громких историй прямо тут немного, но вот что любопытно в этих краях…» — и дай реальный факт пошире.
+ 2) ПОДНИМИСЬ МАСШТАБОМ, как камера вверх (это приём, используй его осознанно и по-разному): точка → округ/район → штат (${ld.state||"этого штата"}) → регион/природная зона США. Иногда наоборот — с большого масштаба спустись к маленькой детали.
+Всегда есть масштаб, на котором есть что сказать. Молчать про нехватку данных и сыпать служебными фразами — запрещено.
 
 ЗАЧИН КАЖДОГО БЛОКА ДОЛЖЕН БЫТЬ РАЗНЫМ. Не начинай блок так же, как начинал недавние. Вот как ты УЖЕ начинал последние блоки — НЕ начинай похоже: ${recentOpeners.length?recentOpeners.join(" / "):"пока никак"}. Сразу к сути, к факту, к названию, к году — без раскачки и без вступительных оборотов.
 СТРОГО ЗАПРЕЩЕНЫ слова-зачины и обороты-паразиты: «казалось бы», «как ни странно», «вы не поверите», «представьте себе», «интересно, что», «а вот тут», «казалось, ничего интересного», «но на самом деле». Начинай прямо с факта.
@@ -1057,11 +1173,8 @@ Reply ONLY valid JSON: {"story":"your spoken answer in ${al}","location":"curren
       cityAnnouncedNameRef.current=ca.name;
     }
     const VOICE={
-      wiki:`YOU ARE "ВИКИ-ГИД" — a Wikipedia-based factual guide.
-VOICE: clear, factual, well-read, like an encyclopedic friend reading out what is really here. Calm and informative.
-RULES OF THIS PERSONA: retell ONLY the real Wikipedia material handed to you below. No jokes, no awe, no sunsets, no invented scenery. Plain true facts, in your own words. If there's no article for the spot, summarize the wider region factually.`,
-      normal:`YOU ARE "УМНЫЙ ДИКТОР" — a warm, charismatic living tour-guide.
-VOICE: friendly, vivid, flowing — like a smart companion in the passenger seat who makes the drive fascinating. You weave history, nature, people and the feel of the moment (light, weather, time of day) into ONE continuous story. Warm and human, never a dry list, never a lecture.
+      normal:`YOU ARE "ГИД" — a warm, charismatic living tour-guide grounded in REAL facts.
+VOICE: friendly, vivid, flowing — like a smart, well-read companion in the passenger seat who makes the drive fascinating. You build on the real Wikipedia facts handed to you, naming people, years and events accurately, but you weave them into ONE continuous human story — history, nature, people, the present and the future of the region, the feel of the moment. Encyclopedia-accurate, but never dry, never a list, never a lecture, never invented.
 EXAMPLE FEEL: "Этот невысокий хребет слева когда-то был дном древнего моря — потому фермеры до сих пор находят тут окаменелые ракушки..."`,
       funny:`YOU ARE "ВЕСЁЛЫЙ" — a hilarious, upbeat road-trip comedian.
 VOICE: big energy, playful, genuinely funny. Crack jokes, tease, exaggerate, drop anecdotes about THIS area and about driving life, do light trolling and absurd tall-tales told dead-straight then dissolved with another absurd flourish (never a flat "just kidding"). Make the driver actually laugh.
@@ -1089,10 +1202,12 @@ CORE RULES:
 6. SPATIAL HONESTY: Distances and sides (слева/справа/впереди/через N миль) may ONLY come from the code-confirmed list provided below the prompt. NEVER invent "через 2 мили", "озеро слева" etc. If you have no confirmed object, speak generally ("в этих краях", "в этой части штата") with no distance and no side.
 7. ANTI-REPEAT — CRITICAL. You repeat yourself badly, even within 3 minutes. Do NOT restate a fact you've already given, even reworded, even from a new angle. Each segment must contain genuinely NEW information.${overused?` You OVERUSED these words — BANNED this segment: ${overused}.`:``}
 8. MOVEMENT AWARENESS: The listener is travelling by: ${tmCtx}. ${ (toMph(c.speed)||0) < 3 ? `The driver is currently STOPPED/parked. Do NOT say "you're speeding along", "as you drive", "rushing past". Speak as to someone standing still here: "здесь, где вы остановились...", "в этом месте...".` : tm==="bike"?`On a bicycle — slower pace, closer to nature, mention things a cyclist would notice.`:tm==="walk"?`On foot — intimate pace, immediate surroundings.`:`Moving at about ${Math.round(toMph(c.speed)||0)} mph.` }
-9. ENTRY TYPE for this segment (vary every time, never repeat the last one): ${["начни с вопроса","начни с даты или числа","начни с имени человека","начни с контраста ('Казалось бы... но')","начни с короткой шутки","продолжи мысль прошлого блока","начни с 'а теперь о другом'","начни прямо с яркого факта","начни с образа, картинки"][Math.floor(Math.random()*9)]}. ABSOLUTELY BANNED as openers (and as filler anywhere): "Знаешь", "Знаете", "Слушай", "Слушайте", "Впереди", "Дальше", "А вот интересно", "посмотрите вокруг". Do not start segments with these. Just begin with the substance.
+9. ENTRY TYPE for this segment (do NOT repeat how you opened the last few segments): ${entryPick}. ABSOLUTELY BANNED as openers (and as filler anywhere): "Знаешь", "Знаете", "Слушай", "Слушайте", "Впереди", "Дальше", "А вот интересно", "посмотрите вокруг", "Казалось бы", "Как ни странно", "Представьте себе". Do not start segments with these. Just begin with the substance.
 10. UNITS: this is the USA — ALWAYS use miles, never kilometers. Distances in miles only.
 11. WEATHER MUST MATCH REALITY: current sky is "${weatherRef.current?(weatherRef.current.desc||""):"unknown"}". Do NOT describe sunsets, golden light, clear skies, or scenery you can "see" if the weather doesn't support it. If it's raining/cloudy/snowing, either skip visual-scenery talk or frame it as "будь сейчас ясно, вы бы увидели...". Never claim a visible sunset/sunrise that contradicts the real weather.
 12. SUN / TIME-OF-DAY: mention time of day or the sun AT MOST once in a long while — not every segment. Never guess which side the sun is on. Use the real phase "${phase}" only; never say "закат"/"sunset" in the morning or "рассвет"/"sunrise" in the evening.
+13. BE UNPREDICTABLE — this is the soul of the show. The listener must NEVER be able to guess your next move. Vary everything: the way you open, the rhythm, the angle, the kind of fact, whether you ask or tell, short punch vs slow build. A predictable host is a boring host. Never fall into a formula the listener could finish for you.
+14. HISTORY IS NOT EVERYTHING: don't drown the drive in "100 years ago". For maybe every two looks at the past, give one about the PRESENT (how people live here now, what the town makes, who works here) or the FUTURE (where the region is heading, what's being built, what's changing). Past, present and future should breathe together.
 
 CURRENT POSITION (ground truth):
 - Road: ${ld.highway||"this road"} (when you say the road or direction OUT LOUD, say the highway number and the direction as a FULL WORD — "на ${toDirWord(hdg,langRef.current)}", "по трассе ${ld.highway||""}". NEVER read compass letters like "СВ", "С", "N".)
@@ -1112,7 +1227,7 @@ ALREADY SAID THIS DRIVE (never repeat): ${recentFacts||"nothing yet — first se
 - Keep time-of-day consistent with "${phase}". The exact local time is ${tStr} — if you mention the time at all, state it correctly; do NOT approximate it to a different hour.
 - ‼ LANGUAGE LOCK ‼: write EVERY single word in ${al}. Never switch to English or any other language mid-segment. If you catch yourself starting an English word, stop and use ${al}.
 
-Reply ONLY valid JSON: {"story":"your segment in ${al}, 3-5 sentences, in the ${bm.id} persona","location":"exact place in English","topics":"short phrase naming the ONE thing you covered","entities":"comma-separated proper nouns this segment centered on — peoples/tribes, persons, towns, rivers, battles; English; empty if none"}`;
+Reply ONLY valid JSON: {"story":"your segment in ${al}, 3-5 sentences, in the ${bm.id} persona","location":"exact place in English","topics":"short phrase naming the ONE thing you covered","entities":"comma-separated proper nouns this segment centered on — peoples/tribes, persons, towns, rivers, battles; English; empty if none","storyline":"2-4 word LABEL of the underlying STORY-THEME, so it isn't retold via another object later — e.g. 'indian wars','railroad building','bison herds','civil war','pioneer settlers','dust bowl','route 66'; English; empty if none","exhausted":true_or_false — true if this topic is nearly used up for THIS area and you'd be scraping/repeating to continue, false if there's still genuinely fresh material}`;
   };
 
   const callClaude=async(sys,msg,forNext)=>{
@@ -1164,7 +1279,9 @@ Reply ONLY valid JSON: {"story":"your segment in ${al}, 3-5 sentences, in the ${
     if(!forNext){
       histRef.current=[...msgs,{role:"assistant",content:txt}];
       if(res.topics){topicsUsedRef.current=[...topicsUsedRef.current,res.topics].slice(-20);saidFactsRef.current=[...saidFactsRef.current,res.topics].slice(-30);dirSummariesRef.current=[...dirSummariesRef.current,res.topics].slice(-16);}
-      if(res.entities){const ents=res.entities.split(",").map(e=>e.trim()).filter(e=>e.length>2);if(ents.length)coveredEntitiesRef.current=[...coveredEntitiesRef.current,...ents].slice(-25);}
+      if(res.entities){const ents=res.entities.split(",").map(e=>e.trim()).filter(e=>e.length>2);if(ents.length){coveredEntitiesRef.current=[...coveredEntitiesRef.current,...ents].slice(-25);toldPlacesRef.current=[...toldPlacesRef.current,...ents].slice(-40);}}
+      if(res.storyline){const sl=res.storyline.trim().toLowerCase();if(sl.length>2&&!toldStorylinesRef.current.includes(sl))toldStorylinesRef.current=[...toldStorylinesRef.current,sl].slice(-30);}
+      topicExhaustedRef.current=(res.exhausted===true||res.exhausted==="true");
       if(res.story){
         // Repeat detector: if this story heavily echoes the previous ones, tell the director to switch topic next time.
         const norm=s=>(s||"").toLowerCase().replace(/[^a-zа-яё ]/g," ").split(/\s+/).filter(w=>w.length>4);
@@ -1274,24 +1391,25 @@ Reply ONLY valid JSON: {"story":"your segment in ${al}, 3-5 sentences, in the ${
         setStatus("loading");
         const[geo,pois]=await Promise.all([reverseGeocode(c.lat,c.lng),fetchPOI(c.lat,c.lng,c.heading??90)]);
         fetchCityAhead(c.lat,c.lng,c.heading??90); // fire-and-forget, updates cityAheadRef for next prompts
+        fetchLandmarks(c.lat,c.lng,c.heading??90,langRef.current); // notable places ahead/aside for advance announcements
         if(gen!==loopGenRef.current||!runRef.current)return;   // aborted while loading
         const director=directNextBlock();
         let directorText=director.text;
-        // In Wiki mode the article IS the content — don't let topic-rotation rules fight it.
-        if(bcastRef.current==="wiki"){
-          directorText=`=== ЗАДАЧА ВИКИ-ГИДА ===\nПерескажи приведённую ниже статью Википедии своими словами, коротко и по делу (3-5 предложений). Каждый блок — НОВЫЙ кусок фактов, не повторяй уже сказанное. Если статьи нет — кратко о регионе. Без выдумок.\n========================`;
+        // The Guide (normal) is now fact-grounded: it always gets a real Wikipedia article to build on.
+        const usesWiki=(bcastRef.current==="normal");
+        if(usesWiki){
+          directorText=director.text+`\n\n=== ОПОРА НА ФАКТЫ ===\nНиже дана реальная статья Википедии об этих местах. Стройте рассказ на её фактах — имена, годы, события бери оттуда. Но подавай живо, по-человечески, единым рассказом, а не сухим пересказом. Каждый блок — НОВЫЙ кусок, не повторяй сказанное.\n========================`;
         }
         const sys=buildSys(false,null,tourist||false);
         // Short, punchy per-persona reminder injected LAST so the model can't drift to neutral.
         const REMIND={
-          wiki:"ТЫ ВИКИ-ГИД: только реальные факты из приведённой статьи, своими словами. Без шуток, без восторгов, без закатов. Не повторяй одни и те же названия и факты. КАЖДЫЙ блок начинай ПО-РАЗНОМУ и сразу с факта — никаких «казалось бы», «а вот тут было», «интересно, что». Запрещено начинать блок с оценки места — начинай с конкретики (название, год, число, событие).",
-          normal:"ТЫ УМНЫЙ ДИКТОР: тёплый живой гид, единый увлекательный рассказ с историей, природой, людьми и ощущением момента. Ярко, по-человечески, не сухой список.",
+          normal:"ТЫ ГИД: тёплый живой рассказчик на РЕАЛЬНЫХ фактах из статьи. Конкретика (имена, годы, события) — но подана живо, единым рассказом, по-человечески, не сухим списком и без выдумок. Разбавляй историю настоящим и будущим региона.",
           funny:"ТЫ ВЕСЁЛЫЙ КОМИК: РЕАЛЬНО шути в каждом блоке — шутка, подколка, анекдот про эту местность или про дорогу, абсурдная небылица. Заставь водителя засмеяться. Если не смешно — ты провалился. Но про повороты и дорогу НЕ шути.",
         };
         const bmReminder=REMIND[bcastRef.current]||REMIND.normal;
         // Wiki guide: pull a real nearby Wikipedia article and hand its text to the model to retell.
         let wikiBlock="";
-        if(bcastRef.current==="wiki"){
+        if(usesWiki){
           try{
             const w=await fetchWiki(c.lat,c.lng,langRef.current);
             if(gen!==loopGenRef.current||!runRef.current)return;
@@ -1311,8 +1429,28 @@ Reply ONLY valid JSON: {"story":"your segment in ${al}, 3-5 sentences, in the ${
         if(withGeo.length)poiLine+=`\nTHE ONLY confirmed nearby objects WITH distance/side you may state (use these exact distances/sides, never invent others): ${withGeo.join("; ")}.`;
         if(noGeo.length)poiLine+=`\nKnown in the general area (mention only generally, NO distance, NO side): ${noGeo.join(", ")}.`;
         poiLine+=`\nIf an object is not in the list above, you MUST NOT say how far it is or which side it's on. No "через 2 мили", no "слева/справа" unless it came from the confirmed list.`;
+
+        // ── Advance announcements of notable landmarks (ahead on course OR famous off to the side) ──
+        let announceLine="";
+        const allLm=landmarksRef.current||[];
+        const notYet=allLm.filter(l=>!announcedLandmarksRef.current.includes(l.name)&&!toldPlacesRef.current.includes(l.name));
+        // Something we're actively passing right now (close + ahead): narrate it in full, this pass only.
+        const passingNow=notYet.find(l=>l.ahead&&l.miles<=2);
+        // Something notable coming up on our course in the next 3–15 miles: tease it now.
+        const aheadSoon=notYet.find(l=>l.ahead&&l.miles>2&&l.miles<=15);
+        // Something notable but OFF to the side within ~30 mi: worth a heads-up so the driver could detour.
+        const offRoute=notYet.find(l=>!l.ahead&&l.miles<=30)||notYet.find(l=>l.ahead&&l.miles>15&&l.miles<=30);
+        if(passingNow){announceLine+=`\n\nЗНАЧИМЫЙ ОБЪЕКТ ПРЯМО СЕЙЧАС: «${passingNow.name}» (${passingNow.miles} миль, ${passingNow.side}). Сейчас мы его проезжаем — расскажи о нём ПОДРОБНО и ЦЕЛИКОМ за один раз, это твой единственный заход. После этого больше к нему не возвращайся.`;announcedLandmarksRef.current=[...announcedLandmarksRef.current,passingNow.name].slice(-40);toldPlacesRef.current=[...toldPlacesRef.current,passingNow.name].slice(-40);}
+        else if(aheadSoon&&Math.random()<0.55){announceLine+=`\n\nВПЕРЕДИ ПО КУРСУ: «${aheadSoon.name}», примерно через ${aheadSoon.miles} миль (${aheadSoon.side}). Дай КОРОТКИЙ анонс по-разному, не шаблонно: скоро будет интересное место, подробно расскажу, когда подъедем. Не рассказывай всё сейчас — только заинтересуй. (Это анонс, не полный рассказ.)`;announcedLandmarksRef.current=[...announcedLandmarksRef.current,aheadSoon.name].slice(-40);}
+        else if(offRoute&&Math.random()<0.4){announceLine+=`\n\nЗНАМЕНИТОЕ В СТОРОНЕ ОТ ТРАССЫ: «${offRoute.name}», около ${offRoute.miles} миль, ${offRoute.side}. С дороги не увидеть и по пути не будет, НО это стоит того, чтобы рассказать заранее и с интересом — вдруг водитель захочет свернуть и съездить. Объясни, чем знаменито, и что это в стороне (примерно столько-то миль, такая-то сторона), чтобы можно было заранее решить и проложить навигатор. Поднеси по-разному, не шаблонно.`;announcedLandmarksRef.current=[...announcedLandmarksRef.current,offRoute.name].slice(-40);}
+
+        // ── One place, one pass: never re-open a place already fully narrated ──
+        let toldLine="";
+        if(toldPlacesRef.current.length)toldLine=`\n\nОБ ЭТИХ МЕСТАХ ТЫ УЖЕ РАССКАЗАЛ ПОЛНОСТЬЮ — НЕ открывай их заново, не пересказывай, даже под новым углом, даже с новым фактом: ${[...new Set(toldPlacesRef.current)].slice(-20).join(", ")}. Если очень нужно — лишь одно мимолётное упоминание, но НЕ делай их темой блока.`;
+        // ── One storyline, one pass: never re-tell the same STORY-THEME via a different object ──
+        if(toldStorylinesRef.current.length)toldLine+=`\n\n‼ ЭТИ СЮЖЕТЫ УЖЕ ЗВУЧАЛИ В ЭТОЙ МЕСТНОСТИ — пока мы тут, к ним не возвращайся, даже через другой объект или другого человека, иначе для слушателя это «опять то же самое»: ${[...new Set(toldStorylinesRef.current)].slice(-18).join(", ")}. Найди ДРУГОЙ сюжет, свежий угол. (Когда въедем в новые края, прежние сюжеты снова можно — там своя история.)`;
         const styleReminder=`\n\n‼ FINAL AND MOST IMPORTANT — VOICE/PERSONA ‼\nWhatever the topic above, you MUST deliver it in this exact persona, and it must be unmistakable from the very first words:\n${bmReminder}\nIf your answer would read the same in any other persona, you FAILED. Make the persona obvious.`;
-        try{res=await callClaude(sys+"\n\n"+directorText+poiLine+wikiBlock+styleReminder,"Produce ONLY the director's assigned block, IN PERSONA.",false);res._dirTopic=director.topicKey;}
+        try{res=await callClaude(sys+"\n\n"+directorText+poiLine+announceLine+toldLine+wikiBlock+styleReminder,"Produce ONLY the director's assigned block, IN PERSONA.",false);res._dirTopic=director.topicKey;}
         catch(e){
           // Likely a dead zone / no signal. Use a buffered segment if we have one, instead of stopping.
           if(bufferRef.current.length>0){res=bufferRef.current.shift();}
@@ -1331,9 +1469,8 @@ Reply ONLY valid JSON: {"story":"your segment in ${al}, 3-5 sentences, in the ${
       if(bcastRef.current!==lastIntroBcastRef.current){
         lastIntroBcastRef.current=bcastRef.current;
         const isRu=langRef.current==="ru";
-        const intro=bcastRef.current==="wiki"?(isRu?"С вами Вики-гид. ":"This is your Wiki guide. ")
-          :bcastRef.current==="funny"?(isRu?"С вами Весёлый гид! ":"This is your Fun host! ")
-          :(isRu?"С вами Умный диктор. ":"This is your Smart guide. ");
+        const intro=bcastRef.current==="funny"?(isRu?"С вами Весёлый гид! ":"This is your Fun host! ")
+          :(isRu?"С вами Гид. ":"This is your Guide. ");
         if(storyText)storyText=intro+storyText;
       }
       setStory(storyText);
@@ -1439,7 +1576,7 @@ Reply ONLY valid JSON: {"story":"your segment in ${al}, 3-5 sentences, in the ${
     let c=coordsRef.current||parseCoords();
     if(!c){setErr(lang==="ru"?"Нажмите автоопределение или введите координаты":"Tap auto-detect or enter coordinates");return;}
     coordsRef.current=c;setCoords(c);destRef.current=destination;
-    runRef.current=true;histRef.current=[];nextRef.current=null;topicsUsedRef.current=[];saidFactsRef.current=[];bufferRef.current=[];recentStoriesRef.current=[];coveredEntitiesRef.current=[];
+    runRef.current=true;histRef.current=[];nextRef.current=null;topicsUsedRef.current=[];saidFactsRef.current=[];bufferRef.current=[];recentStoriesRef.current=[];coveredEntitiesRef.current=[];landmarksRef.current=[];announcedLandmarksRef.current=[];toldPlacesRef.current=[];toldStorylinesRef.current=[];transitionsUsedRef.current=[];lastCountyRef.current="";
     dirTopicRef.current=null;dirCountRef.current=0;dirTargetRef.current=2;dirRecentTopicsRef.current=[];dirSummariesRef.current=[];dirTopicStartRef.current=0;dirForceSwitchRef.current=false;lastIntroBcastRef.current=bcastRef.current;qaHistRef.current=[];
     openerIdx.current=0;stoppedSince.current=null;fuelWarnedRef.current=0;tourAckRef.current=false;
     loopBusyRef.current=false;loopGenRef.current++;        // fresh single generation
