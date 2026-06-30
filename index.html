@@ -289,7 +289,7 @@ body{font-family:'Inter',sans-serif;color:#fff;}
 const {useState,useRef,useEffect}=React;
 const PROXY="https://corsproxy.io/?https://api.anthropic.com/v1/messages";
 const KEY_STORE="rr_key_v3";
-const VER="v50";
+const VER="v51";
 
 const OPENERS_RU=["На этой земле...","Да, кстати...","Мало кто знает, но...","Справа от вас...","История этого края...","Сто лет назад здесь...","Тишина здесь обманчива...","Когда-то давно здесь...","Через пару миль...","Вот что примечательно..."];
 const OPENERS_EN=["On this land...","Here's something few know...","Just to your right...","The history here...","A hundred years ago...","Locals know that...","In a few miles...","What's remarkable is...","This stretch of highway...","Worth knowing..."];
@@ -499,6 +499,7 @@ function App(){
   const dirForceSwitchRef=useRef(false); // user pressed Skip, or a repeat was detected
   const dirRecentTopicsRef=useRef([]); // topics covered recently (to avoid immediate repeats)
   const dirSummariesRef=useRef([]);    // semantic summaries of what was already said
+  const toldStorylinesRef=useRef([]);  // story-themes already told (river landmark, wagon trains...) — don't retell, even via other words
   const dirMoodRef=useRef("normal");   // mood of the next block
   const callPhaseRef=useRef("idle");
   const callRecRef=useRef(null);
@@ -926,6 +927,7 @@ ${mustClose?`Заверши тему красиво, законченной мы
 НЕ ПЕРЕСКАКИВАЙ на эти темы сейчас: ${otherTopics.join("; ")||"—"}.
 Настроение: ${dirMoodRef.current}.
 УЖЕ СКАЗАННЫЕ СМЫСЛЫ (НЕ повторяй НИ ОДИН из них, даже другими словами, даже под другим углом, и НЕ противоречь им): ${summaries.length?summaries.join(" || "):"пока ничего"}.
+${toldStorylinesRef.current.length?`‼ ЭТИ СЮЖЕТЫ УЖЕ ЗВУЧАЛИ — НЕ рассказывай их снова, даже про другой объект, другими словами или под новым углом (для слушателя это «опять то же самое»): ${[...new Set(toldStorylinesRef.current)].slice(-16).join(", ")}. Возьми ДРУГОЙ сюжет, свежий факт.`:``}
 
 ЕСЛИ по этой теме про КОНКРЕТНУЮ точку фактов мало — НЕ говори «у меня нет данных», НЕ извиняйся, НЕ объявляй смену темы. Вместо этого ПОДНИМИСЬ МАСШТАБОМ, как камера вверх:
  • сначала про эту тему в рамках округа/района;
@@ -1106,7 +1108,7 @@ ALREADY SAID THIS DRIVE (never repeat): ${recentFacts||"nothing yet — first se
 - Keep time-of-day consistent with "${phase}". The exact local time is ${tStr} — if you mention the time at all, state it correctly; do NOT approximate it to a different hour.
 - ‼ LANGUAGE LOCK ‼: write EVERY single word in ${al}. Never switch to English or any other language mid-segment. If you catch yourself starting an English word, stop and use ${al}.
 
-Reply ONLY valid JSON: {"story":"your segment in ${al}, 3-5 sentences, in the ${bm.id} persona","location":"exact place in English","topics":"short phrase naming the ONE thing you covered"}`;
+Reply ONLY valid JSON: {"story":"your segment in ${al}, 3-5 sentences, in the ${bm.id} persona","location":"exact place in English","topics":"short phrase naming the ONE thing you covered","storyline":"2-4 word English label of the underlying story-theme so it is not retold later (e.g. river as landmark, wagon trains, railroad, civil war, bison); empty if none"}`;
   };
 
   const callClaude=async(sys,msg,forNext)=>{
@@ -1158,6 +1160,7 @@ Reply ONLY valid JSON: {"story":"your segment in ${al}, 3-5 sentences, in the ${
     if(!forNext){
       histRef.current=[...msgs,{role:"assistant",content:txt}];
       if(res.topics){topicsUsedRef.current=[...topicsUsedRef.current,res.topics].slice(-20);saidFactsRef.current=[...saidFactsRef.current,res.topics].slice(-30);dirSummariesRef.current=[...dirSummariesRef.current,res.topics].slice(-16);}
+      if(res.storyline){const sl=String(res.storyline).trim().toLowerCase();if(sl.length>2&&!toldStorylinesRef.current.includes(sl))toldStorylinesRef.current=[...toldStorylinesRef.current,sl].slice(-24);}
       if(res.story){
         // Repeat detector: if this story heavily echoes the previous ones, tell the director to switch topic next time.
         const norm=s=>(s||"").toLowerCase().replace(/[^a-zа-яё ]/g," ").split(/\s+/).filter(w=>w.length>4);
@@ -1431,7 +1434,7 @@ Reply ONLY valid JSON: {"story":"your segment in ${al}, 3-5 sentences, in the ${
     if(!c){setErr(lang==="ru"?"Нажмите автоопределение или введите координаты":"Tap auto-detect or enter coordinates");return;}
     coordsRef.current=c;setCoords(c);destRef.current=destination;
     runRef.current=true;histRef.current=[];nextRef.current=null;topicsUsedRef.current=[];saidFactsRef.current=[];bufferRef.current=[];recentStoriesRef.current=[];
-    dirTopicRef.current=null;dirCountRef.current=0;dirTargetRef.current=2;dirRecentTopicsRef.current=[];dirSummariesRef.current=[];dirTopicStartRef.current=0;dirForceSwitchRef.current=false;lastIntroBcastRef.current=bcastRef.current;qaHistRef.current=[];
+    dirTopicRef.current=null;dirCountRef.current=0;dirTargetRef.current=2;dirRecentTopicsRef.current=[];dirSummariesRef.current=[];toldStorylinesRef.current=[];dirTopicStartRef.current=0;dirForceSwitchRef.current=false;lastIntroBcastRef.current=bcastRef.current;qaHistRef.current=[];
     openerIdx.current=0;stoppedSince.current=null;fuelWarnedRef.current=0;tourAckRef.current=false;
     loopBusyRef.current=false;loopGenRef.current++;        // fresh single generation
     parkedRef.current=false;pausedRef.current=false;setPaused(false);
