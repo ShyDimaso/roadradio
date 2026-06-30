@@ -289,7 +289,7 @@ body{font-family:'Inter',sans-serif;color:#fff;}
 const {useState,useRef,useEffect}=React;
 const PROXY="https://corsproxy.io/?https://api.anthropic.com/v1/messages";
 const KEY_STORE="rr_key_v3";
-const VER="v46";
+const VER="v47";
 
 const OPENERS_RU=["На этой земле...","Да, кстати...","Мало кто знает, но...","Справа от вас...","История этого края...","Сто лет назад здесь...","Тишина здесь обманчива...","Когда-то давно здесь...","Через пару миль...","Вот что примечательно..."];
 const OPENERS_EN=["On this land...","Here's something few know...","Just to your right...","The history here...","A hundred years ago...","Locals know that...","In a few miles...","What's remarkable is...","This stretch of highway...","Worth knowing..."];
@@ -536,13 +536,17 @@ function App(){
   useEffect(()=>{
     let alive=true;
     const probe=async()=>{
+      // Lightweight image ping to a fast CDN — does NOT go through the model proxy, so it won't
+      // compete with or throttle the broadcast. Measures real data flow, not signal bars.
       const t0=Date.now();
-      try{
-        await tfetch("https://corsproxy.io/?url=https://www.google.com/generate_204",{cache:"no-store"},6000);
-        if(!alive)return;
-        const dt=Date.now()-t0;
-        setNetState(dt>2500?"slow":"good");
-      }catch{ if(alive)setNetState("down"); }
+      await new Promise(resolve=>{
+        const img=new Image();
+        let done=false;
+        const fin=ok=>{if(done)return;done=true;if(alive)setNetState(ok?(Date.now()-t0>2500?"slow":"good"):"down");resolve();};
+        img.onload=()=>fin(true);img.onerror=()=>fin(false);
+        setTimeout(()=>fin(false),6000);
+        img.src="https://www.google.com/favicon.ico?_="+Date.now();
+      });
     };
     probe();
     const iv=setInterval(probe,15000);
@@ -910,6 +914,9 @@ function App(){
     const g=k=>{const m=txt.match(new RegExp('"'+k+'"\\s*:\\s*"((?:[^"\\\\]|\\\\.)*)"'));return m?m[1].replace(/\\"/g,'"').replace(/\\n/g,' '):"";};
     const sm=g("story");
     if(sm)return{story:sm,location:g("location"),topics:g("topics"),entities:g("entities"),storyline:g("storyline"),exhausted:/"exhausted"\s*:\s*true/.test(txt)};
+    // Truncated JSON (cut off mid-sentence): grab everything after "story":" up to the end.
+    const cut=txt.match(/"story"\s*:\s*"((?:[^"\\]|\\.)+)$/);
+    if(cut){let s=cut[1].replace(/\\"/g,'"').replace(/\\n/g,' ').replace(/[",}\s]+$/,'');if(s.length>15)return{story:s,location:""};}
     const clean=txt.replace(/\{[^}]*\}/gs,'').replace(/"[^"]*"\s*:\s*"[^"]*"/g,'').replace(/^\s*[,{}\s]+/,'').trim();
     return{story:clean||txt,location:""};
   };
@@ -1268,7 +1275,7 @@ Set "exhausted" to true ONLY if this topic is nearly used up for THIS area and c
     const key=localStorage.getItem(KEY_STORE);
     const msgs=forNext?[{role:"user",content:msg}]:[...histRef.current.slice(-4),{role:"user",content:msg}];
     const doCall=async(extra)=>{
-      const r=await fetch(PROXY,{method:"POST",headers:{"Content-Type":"application/json","x-api-key":key,"anthropic-version":"2023-06-01","anthropic-dangerous-direct-browser-access":"true"},body:JSON.stringify({model:"claude-haiku-4-5-20251001",max_tokens:700,system:extra?sys+extra:sys,messages:msgs})});
+      const r=await fetch(PROXY,{method:"POST",headers:{"Content-Type":"application/json","x-api-key":key,"anthropic-version":"2023-06-01","anthropic-dangerous-direct-browser-access":"true"},body:JSON.stringify({model:"claude-haiku-4-5-20251001",max_tokens:1100,system:extra?sys+extra:sys,messages:msgs})});
       if(!r.ok)throw new Error(await r.text());
       const d=await r.json();
       const txt=(d.content?.[0]?.text||"{}").replace(/```json|```/g,"").trim();
@@ -1338,15 +1345,15 @@ Set "exhausted" to true ONLY if this topic is nearly used up for THIS area and c
     if(fetchingNext.current)return;
     fetchingNext.current=true;
     try{
-      // Keep the immediate "next" ready, stamped with WHERE it was made (to detect staleness later)...
+      // Keep ONE immediate "next" ready (stamped with WHERE it was made, to detect staleness later).
       if(!nextRef.current){
         const pc=coordsRef.current;
-        const seg=await callClaude(buildSys(false,null,false),"What's 1-2 miles ahead?",true);
+        const seg=await withTimeout(callClaude(buildSys(false,null,false),"What's 1-2 miles ahead?",true),20000,"prefetch");
         if(seg){seg._lat=pc?pc.lat:null;seg._lng=pc?pc.lng:null;nextRef.current=seg;}
       }
-      // ...and quietly build up a small backup buffer so the show survives a dead zone (no signal).
-      if(bufferRef.current.length<2){
-        const extra=await callClaude(buildSys(false,null,false),"Tell another interesting thing about this general area (a fallback if we lose signal).",true);
+      // A single backup segment, only when we have none at all — keeps proxy calls low to avoid throttling.
+      else if(bufferRef.current.length===0){
+        const extra=await withTimeout(callClaude(buildSys(false,null,false),"Tell another interesting thing about this general area (a fallback if we lose signal).",true),20000,"buffer");
         if(extra&&extra.story)bufferRef.current.push(extra);
       }
     }catch{}
