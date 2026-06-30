@@ -289,7 +289,7 @@ body{font-family:'Inter',sans-serif;color:#fff;}
 const {useState,useRef,useEffect}=React;
 const PROXY="https://corsproxy.io/?https://api.anthropic.com/v1/messages";
 const KEY_STORE="rr_key_v3";
-const VER="v48";
+const VER="v49";
 
 const OPENERS_RU=["На этой земле...","Да, кстати...","Мало кто знает, но...","Справа от вас...","История этого края...","Сто лет назад здесь...","Тишина здесь обманчива...","Когда-то давно здесь...","Через пару миль...","Вот что примечательно..."];
 const OPENERS_EN=["On this land...","Here's something few know...","Just to your right...","The history here...","A hundred years ago...","Locals know that...","In a few miles...","What's remarkable is...","This stretch of highway...","Worth knowing..."];
@@ -1538,7 +1538,14 @@ Set "exhausted" to true ONLY if this topic is nearly used up for THIS area and c
       prevPlaceRef.current=locDataRef.current.city||"";   // for "here" continuity next time
       setStatus("ready");startCd(3);
       prefetch();                       // start preparing the NEXT segment now, while this one is being spoken
-      if(storyText)await speak(storyText);
+      // Wait for any in-flight speech (e.g. the opening greeting) to finish so we don't cut it off —
+      // but cap the wait so a stuck speech engine can't hold the broadcast hostage.
+      if(storyText){
+        let waited=0;
+        while(speakingRef.current&&waited<12000){await new Promise(r=>setTimeout(r,200));waited+=200;}
+        if(gen!==loopGenRef.current||!runRef.current||parkedRef.current)return;
+        await speak(storyText);
+      }
       if(gen!==loopGenRef.current||!runRef.current||parkedRef.current)return;
     }finally{
       loopBusyRef.current=false;
@@ -1656,8 +1663,11 @@ Set "exhausted" to true ONLY if this topic is nearly used up for THIS area and c
     roadReminderRef.current=Date.now();
     localStorage.setItem("rr_started","1");localStorage.setItem("rr_review",String(Date.now()));setNeedsReview(false);
     const g=loopGenRef.current;
-    await speak(greet);
-    if(runRef.current&&loopGenRef.current===g)loopRef.current?.(false,false);
+    // Speak the greeting, but DON'T block the broadcast on it — start generating the first
+    // segment immediately so a slow/stuck speech engine can never leave us stuck on "loading".
+    speak(greet);
+    setStatus("loading");
+    setTimeout(()=>{if(runRef.current&&loopGenRef.current===g)loopRef.current?.(false,false);},400);
   };
 
   const stop=()=>{
