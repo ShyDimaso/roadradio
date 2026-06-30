@@ -289,7 +289,7 @@ body{font-family:'Inter',sans-serif;color:#fff;}
 const {useState,useRef,useEffect}=React;
 const PROXY="https://corsproxy.io/?https://api.anthropic.com/v1/messages";
 const KEY_STORE="rr_key_v3";
-const VER="v47";
+const VER="v48";
 
 const OPENERS_RU=["На этой земле...","Да, кстати...","Мало кто знает, но...","Справа от вас...","История этого края...","Сто лет назад здесь...","Тишина здесь обманчива...","Когда-то давно здесь...","Через пару миль...","Вот что примечательно..."];
 const OPENERS_EN=["On this land...","Here's something few know...","Just to your right...","The history here...","A hundred years ago...","Locals know that...","In a few miles...","What's remarkable is...","This stretch of highway...","Worth knowing..."];
@@ -514,6 +514,7 @@ function App(){
   const prevPlaceRef=useRef("");
   const lastCountyRef=useRef("");      // current county — when it changes, storyline/place memory resets (new area, fair to retell)
   const retryCountRef=useRef(0);       // consecutive failed/timed-out generations, for auto-retry before giving up
+  const wikiAheadRef=useRef(null);     // background-fetched Wikipedia article; mixed in ONLY if ready, never blocks the stream
   const callTextRef=useRef("");
   const userDoneRef=useRef(false);
   const lastSpokeRef=useRef(Date.now());
@@ -1451,20 +1452,22 @@ Set "exhausted" to true ONLY if this topic is nearly used up for THIS area and c
           funny:"ТЫ ВЕСЁЛЫЙ КОМИК: РЕАЛЬНО шути в каждом блоке — шутка, подколка, анекдот про эту местность или про дорогу, абсурдная небылица. Заставь водителя засмеяться. Если не смешно — ты провалился. Но про повороты и дорогу НЕ шути.",
         };
         const bmReminder=REMIND[bcastRef.current]||REMIND.normal;
-        // Wiki guide: pull a real nearby Wikipedia article and hand its text to the model to retell.
+        // Wikipedia is fetched IN THE BACKGROUND and only mixed in if already cached — it must NEVER
+        // block the stream (that was the freeze). Kick off a refresh, then use whatever is ready now.
         let wikiBlock="";
         if(usesWiki){
-          try{
-            const w=await withTimeout(fetchWiki(c.lat,c.lng,langRef.current),8000,"wiki");
-            if(gen!==loopGenRef.current||!runRef.current)return;
-            const alLoop=L[langRef.current]?.ai||"Russian";
-            if(w){wikiBlock=`\n\n=== РЕАЛЬНАЯ СТАТЬЯ ВИКИПЕДИИ (источник фактов) ===\nЗаголовок: ${w.title} (примерно в ${(w.dist/1609).toFixed(1)} миль)\n${w.extract}\n========================\n‼ Статья может быть на английском — ВСЁ РАВНО перескажи её ТОЛЬКО на ${alLoop}, своими словами, ничего не добавляя. НЕ копируй английский текст. НЕ задавай вопросов оператору, НЕ пиши служебных фраз — сразу выдай готовый рассказ в JSON. Давай КОНКРЕТИКУ из статьи: если упоминаешь человека/событие — назови ИМЯ, ГОД и что именно сделано, не оставляй загадок без ответа. НЕ выдумывай погоду и не описывай небо/грозу/закат — этого в статье нет.`;}
-            else{
-              const angles=["природу и ландшафт","экономику и чем тут живут сегодня","коренные народы региона","известных людей штата","климат и погоду региона","флору и фауну","культуру и кухню штата","географию и реки"];
-              const a=angles[Math.floor(Math.random()*angles.length)];
-              wikiBlock=`\n\nРядом нет отдельной статьи. Расскажи коротко про ${a} в масштабе округа/штата (${locDataRef.current.state||"этого штата"}), из достоверно известного. БЕЗ железных дорог и переселенцев, если про них уже было. Без выдумок про конкретные мелкие объекты.`;
-            }
-          }catch{}
+          // background refresh (fire-and-forget): updates the cache for upcoming blocks
+          (async()=>{try{const nw=await withTimeout(fetchWiki(c.lat,c.lng,langRef.current),9000,"wiki");if(nw&&nw.extract)wikiAheadRef.current=nw;}catch{}})();
+          const w=wikiAheadRef.current;
+          const alLoop=L[langRef.current]?.ai||"Russian";
+          if(w&&w.extract){
+            wikiBlock=`\n\n=== РЕАЛЬНАЯ СТАТЬЯ ВИКИПЕДИИ (источник фактов) ===\nЗаголовок: ${w.title} (примерно в ${(w.dist/1609).toFixed(1)} миль)\n${w.extract}\n========================\n‼ Статья может быть на английском — ВСЁ РАВНО перескажи её ТОЛЬКО на ${alLoop}, своими словами, ничего не добавляя. НЕ копируй английский текст. НЕ задавай вопросов оператору, НЕ пиши служебных фраз — сразу выдай готовый рассказ в JSON. Давай КОНКРЕТИКУ из статьи: если упоминаешь человека/событие — назови ИМЯ, ГОД и что именно сделано. НЕ выдумывай погоду и не описывай небо/грозу/закат — этого в статье нет.`;
+            wikiAheadRef.current=null; // consume it, so the next block uses a fresh one
+          }else{
+            const angles=["природу и ландшафт","экономику и чем тут живут сегодня","коренные народы региона","известных людей штата","климат и погоду региона","флору и фауну","культуру и кухню штата","географию и реки"];
+            const a=angles[Math.floor(Math.random()*angles.length)];
+            wikiBlock=`\n\nРасскажи коротко про ${a} в масштабе округа/штата (${locDataRef.current.state||"этого штата"}), из достоверно известного. Без выдумок про конкретные мелкие объекты.`;
+          }
         }
         // Precise spatial facts computed by code — the ONLY distances/sides the host may state.
         const withGeo=pois.filter(p=>p.miles!=null).map(p=>`${p.name} (${p.miles.toFixed(1)} миль, ${p.side})`);
@@ -1633,7 +1636,7 @@ Set "exhausted" to true ONLY if this topic is nearly used up for THIS area and c
     let c=coordsRef.current||parseCoords();
     if(!c){setErr(lang==="ru"?"Нажмите автоопределение или введите координаты":"Tap auto-detect or enter coordinates");return;}
     coordsRef.current=c;setCoords(c);destRef.current=destination;
-    runRef.current=true;histRef.current=[];nextRef.current=null;topicsUsedRef.current=[];saidFactsRef.current=[];bufferRef.current=[];recentStoriesRef.current=[];coveredEntitiesRef.current=[];landmarksRef.current=[];announcedLandmarksRef.current=[];toldPlacesRef.current=[];toldStorylinesRef.current=[];transitionsUsedRef.current=[];lastCountyRef.current="";
+    runRef.current=true;histRef.current=[];nextRef.current=null;topicsUsedRef.current=[];saidFactsRef.current=[];bufferRef.current=[];recentStoriesRef.current=[];coveredEntitiesRef.current=[];landmarksRef.current=[];announcedLandmarksRef.current=[];toldPlacesRef.current=[];toldStorylinesRef.current=[];transitionsUsedRef.current=[];lastCountyRef.current="";wikiAheadRef.current=null;retryCountRef.current=0;
     dirTopicRef.current=null;dirCountRef.current=0;dirTargetRef.current=2;dirRecentTopicsRef.current=[];dirSummariesRef.current=[];dirTopicStartRef.current=0;dirForceSwitchRef.current=false;lastIntroBcastRef.current=bcastRef.current;qaHistRef.current=[];
     openerIdx.current=0;stoppedSince.current=null;fuelWarnedRef.current=0;tourAckRef.current=false;
     loopBusyRef.current=false;loopGenRef.current++;        // fresh single generation
