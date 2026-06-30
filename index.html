@@ -289,7 +289,7 @@ body{font-family:'Inter',sans-serif;color:#fff;}
 const {useState,useRef,useEffect}=React;
 const PROXY="https://corsproxy.io/?https://api.anthropic.com/v1/messages";
 const KEY_STORE="rr_key_v3";
-const VER="v40";
+const VER="v41";
 
 const OPENERS_RU=["На этой земле...","Да, кстати...","Мало кто знает, но...","Справа от вас...","История этого края...","Сто лет назад здесь...","Тишина здесь обманчива...","Когда-то давно здесь...","Через пару миль...","Вот что примечательно..."];
 const OPENERS_EN=["On this land...","Here's something few know...","Just to your right...","The history here...","A hundred years ago...","Locals know that...","In a few miles...","What's remarkable is...","This stretch of highway...","Worth knowing..."];
@@ -685,27 +685,35 @@ function App(){
 
   // Wikipedia: find real articles near the coords and fetch a short extract to retell. Cached per session.
   const wikiCacheRef=useRef({});
+  const wikiRecentTitlesRef=useRef([]);
   const fetchWiki=async(lat,lng,langCode)=>{
     try{
       const wl=(["ru","uk","es","de","fr","pt"].includes(langCode))?langCode:"en";
       const base=`https://${wl}.wikipedia.org/w/api.php`;
-      const geoUrl=`${base}?action=query&list=geosearch&gscoord=${lat}%7C${lng}&gsradius=10000&gslimit=6&format=json&origin=*`;
-      const gr=await fetch(geoUrl);const gd=await gr.json();
-      let pages=(gd.query&&gd.query.geosearch)||[];
-      if(!pages.length){
-        const geo2=`${base}?action=query&list=geosearch&gscoord=${lat}%7C${lng}&gsradius=50000&gslimit=6&format=json&origin=*`;
-        const gr2=await fetch(geo2);const gd2=await gr2.json();pages=(gd2.query&&gd2.query.geosearch)||[];
+      // Gather candidates from progressively wider rings so a sparse area still yields variety.
+      let pages=[];
+      for(const radius of [10000,25000,50000,90000]){
+        const u=`${base}?action=query&list=geosearch&gscoord=${lat}%7C${lng}&gsradius=${radius}&gslimit=20&format=json&origin=*`;
+        try{const r=await fetch(u);const d=await r.json();const got=(d.query&&d.query.geosearch)||[];
+          for(const p of got){if(!pages.find(x=>x.pageid===p.pageid))pages.push(p);}
+        }catch{}
+        if(pages.length>=8)break;
       }
       if(!pages.length)return null;
       const used=wikiCacheRef.current;
-      const fresh=pages.find(p=>!used[p.pageid])||pages[0];
+      // Prefer an article we have NOT used yet this session. If every nearby article is used up,
+      // return null so the host talks about the wider region instead of re-reading the same page.
+      let fresh=pages.find(p=>!used[p.pageid]);
+      if(!fresh)return null;
       used[fresh.pageid]=true;
       const exUrl=`${base}?action=query&prop=extracts&exintro=1&explaintext=1&pageids=${fresh.pageid}&format=json&origin=*`;
       const er=await fetch(exUrl);const ed=await er.json();
       const page=ed.query&&ed.query.pages&&ed.query.pages[fresh.pageid];
       let extract=(page&&page.extract)||"";
       if(extract.length>1500)extract=extract.slice(0,1500);
-      return extract?{title:fresh.title,dist:fresh.dist,extract}:null;
+      if(!extract)return null;
+      wikiRecentTitlesRef.current=[...wikiRecentTitlesRef.current,fresh.title].slice(-12);
+      return {title:fresh.title,dist:fresh.dist,extract};
     }catch{return null;}
   };
 
@@ -1282,7 +1290,11 @@ Reply ONLY valid JSON: {"story":"your segment in ${al}, 3-5 sentences, in the ${
             if(gen!==loopGenRef.current||!runRef.current)return;
             const alLoop=L[langRef.current]?.ai||"Russian";
             if(w){wikiBlock=`\n\n=== РЕАЛЬНАЯ СТАТЬЯ ВИКИПЕДИИ (источник фактов) ===\nЗаголовок: ${w.title} (примерно в ${(w.dist/1609).toFixed(1)} миль)\n${w.extract}\n========================\n‼ Статья может быть на английском — ВСЁ РАВНО перескажи её ТОЛЬКО на ${alLoop}, своими словами, ничего не добавляя. НЕ копируй английский текст. НЕ задавай вопросов оператору, НЕ пиши служебных фраз — сразу выдай готовый рассказ в JSON. Давай КОНКРЕТИКУ из статьи: если упоминаешь человека/событие — назови ИМЯ, ГОД и что именно сделано, не оставляй загадок без ответа. НЕ выдумывай погоду и не описывай небо/грозу/закат — этого в статье нет.`;}
-            else{wikiBlock=`\n\nДля этой точки статьи Википедии рядом нет — расскажи в общем про этот регion/округ/штат из того, что ты достоверно знаешь, без выдумок про конкретные мелкие объекты.`;}
+            else{
+              const angles=["природу и ландшафт","экономику и чем тут живут сегодня","коренные народы региона","известных людей штата","климат и погоду региона","флору и фауну","культуру и кухню штата","географию и реки"];
+              const a=angles[Math.floor(Math.random()*angles.length)];
+              wikiBlock=`\n\nРядом нет отдельной статьи. Расскажи коротко про ${a} в масштабе округа/штата (${locDataRef.current.state||"этого штата"}), из достоверно известного. БЕЗ железных дорог и переселенцев, если про них уже было. Без выдумок про конкретные мелкие объекты.`;
+            }
           }catch{}
         }
         // Precise spatial facts computed by code — the ONLY distances/sides the host may state.
