@@ -289,7 +289,7 @@ body{font-family:'Inter',sans-serif;color:#fff;}
 const {useState,useRef,useEffect}=React;
 const PROXY="https://corsproxy.io/?https://api.anthropic.com/v1/messages";
 const KEY_STORE="rr_key_v3";
-const VER="v44";
+const VER="v45";
 
 const OPENERS_RU=["На этой земле...","Да, кстати...","Мало кто знает, но...","Справа от вас...","История этого края...","Сто лет назад здесь...","Тишина здесь обманчива...","Когда-то давно здесь...","Через пару миль...","Вот что примечательно..."];
 const OPENERS_EN=["On this land...","Here's something few know...","Just to your right...","The history here...","A hundred years ago...","Locals know that...","In a few miles...","What's remarkable is...","This stretch of highway...","Worth knowing..."];
@@ -371,6 +371,7 @@ function App(){
   const [geoOk,setGeoOk]=useState(false);
   const [coords,setCoords]=useState(null);
   const [status,setStatus]=useState("idle");
+  const [netState,setNetState]=useState("unknown"); // 'good' | 'slow' | 'down' — real DATA reachability, not signal bars
   const [story,setStory]=useState("");
   const [locData,setLocData]=useState({name:"",highway:"",county:"",state:"",city:""});
   const [nearbyPOI,setNearbyPOI]=useState([]);
@@ -512,6 +513,7 @@ function App(){
   const cdTotalRef=useRef(55);
   const prevPlaceRef=useRef("");
   const lastCountyRef=useRef("");      // current county — when it changes, storyline/place memory resets (new area, fair to retell)
+  const retryCountRef=useRef(0);       // consecutive failed/timed-out generations, for auto-retry before giving up
   const callTextRef=useRef("");
   const userDoneRef=useRef(false);
   const lastSpokeRef=useRef(Date.now());
@@ -528,6 +530,24 @@ function App(){
   useEffect(()=>{if(coords)coordsRef.current=coords;},[coords]);
   useEffect(()=>{excludedRef.current=excluded;localStorage.setItem("rr_excl_v2",JSON.stringify(excluded));},[excluded]);
   useEffect(()=>{locDataRef.current=locData;},[locData]);
+
+  // Real DATA connectivity probe — measures whether bytes actually flow, not just signal bars.
+  // Signal can show full while data is dead; this pings a tiny resource and times it.
+  useEffect(()=>{
+    let alive=true;
+    const probe=async()=>{
+      const t0=Date.now();
+      try{
+        await withTimeout(fetch("https://www.gstatic.com/generate_204",{mode:"no-cors",cache:"no-store"}),6000,"probe");
+        if(!alive)return;
+        const dt=Date.now()-t0;
+        setNetState(dt>2500?"slow":"good");
+      }catch{ if(alive)setNetState("down"); }
+    };
+    probe();
+    const iv=setInterval(probe,15000);
+    return()=>{alive=false;clearInterval(iv);};
+  },[]);
   useEffect(()=>{speakingRef.current=speaking;},[speaking]);
   useEffect(()=>{parkedRef.current=parked;},[parked]);
   useEffect(()=>{weatherRef.current=weather;},[weather]);
@@ -871,6 +891,12 @@ function App(){
   });
 
   const stopSpeak=()=>hardStop();
+
+  // Wrap any promise with a timeout so a hung network request can NEVER freeze the broadcast on "загрузка".
+  const withTimeout=(promise,ms,label)=>Promise.race([
+    promise,
+    new Promise((_,rej)=>setTimeout(()=>rej(new Error("timeout:"+(label||"net"))),ms))
+  ]);
 
   const extract=txt=>{
     try{return JSON.parse(txt);}catch{}
@@ -1391,9 +1417,12 @@ Set "exhausted" to true ONLY if this topic is nearly used up for THIS area and c
       }
       if(!res){
         setStatus("loading");
-        const[geo,pois]=await Promise.all([reverseGeocode(c.lat,c.lng),fetchPOI(c.lat,c.lng,c.heading??90)]);
-        fetchCityAhead(c.lat,c.lng,c.heading??90); // fire-and-forget, updates cityAheadRef for next prompts
-        fetchLandmarks(c.lat,c.lng,c.heading??90,langRef.current); // notable places ahead/aside for advance announcements
+        let geo=null,pois=[];
+        try{
+          [geo,pois]=await withTimeout(Promise.all([reverseGeocode(c.lat,c.lng),fetchPOI(c.lat,c.lng,c.heading??90)]),8000,"geo");
+        }catch(e){geo=null;pois=[];} // geo servers slow/down — proceed without them, don't freeze
+        try{fetchCityAhead(c.lat,c.lng,c.heading??90);}catch{} // fire-and-forget
+        try{fetchLandmarks(c.lat,c.lng,c.heading??90,langRef.current);}catch{} // fire-and-forget
         if(gen!==loopGenRef.current||!runRef.current)return;   // aborted while loading
         const director=directNextBlock();
         let directorText=director.text;
@@ -1413,7 +1442,7 @@ Set "exhausted" to true ONLY if this topic is nearly used up for THIS area and c
         let wikiBlock="";
         if(usesWiki){
           try{
-            const w=await fetchWiki(c.lat,c.lng,langRef.current);
+            const w=await withTimeout(fetchWiki(c.lat,c.lng,langRef.current),8000,"wiki");
             if(gen!==loopGenRef.current||!runRef.current)return;
             const alLoop=L[langRef.current]?.ai||"Russian";
             if(w){wikiBlock=`\n\n=== РЕАЛЬНАЯ СТАТЬЯ ВИКИПЕДИИ (источник фактов) ===\nЗаголовок: ${w.title} (примерно в ${(w.dist/1609).toFixed(1)} миль)\n${w.extract}\n========================\n‼ Статья может быть на английском — ВСЁ РАВНО перескажи её ТОЛЬКО на ${alLoop}, своими словами, ничего не добавляя. НЕ копируй английский текст. НЕ задавай вопросов оператору, НЕ пиши служебных фраз — сразу выдай готовый рассказ в JSON. Давай КОНКРЕТИКУ из статьи: если упоминаешь человека/событие — назови ИМЯ, ГОД и что именно сделано, не оставляй загадок без ответа. НЕ выдумывай погоду и не описывай небо/грозу/закат — этого в статье нет.`;}
@@ -1452,12 +1481,25 @@ Set "exhausted" to true ONLY if this topic is nearly used up for THIS area and c
         // ── One storyline, one pass: never re-tell the same STORY-THEME via a different object ──
         if(toldStorylinesRef.current.length)toldLine+=`\n\n‼ ЭТИ СЮЖЕТЫ УЖЕ ЗВУЧАЛИ В ЭТОЙ МЕСТНОСТИ — пока мы тут, к ним не возвращайся, даже через другой объект или другого человека, иначе для слушателя это «опять то же самое»: ${[...new Set(toldStorylinesRef.current)].slice(-18).join(", ")}. Найди ДРУГОЙ сюжет, свежий угол. (Когда въедем в новые края, прежние сюжеты снова можно — там своя история.)`;
         const styleReminder=`\n\n‼ FINAL AND MOST IMPORTANT — VOICE/PERSONA ‼\nWhatever the topic above, you MUST deliver it in this exact persona, and it must be unmistakable from the very first words:\n${bmReminder}\nIf your answer would read the same in any other persona, you FAILED. Make the persona obvious.`;
-        try{res=await callClaude(sys+"\n\n"+directorText+poiLine+announceLine+toldLine+wikiBlock+styleReminder,"Produce ONLY the director's assigned block, IN PERSONA.",false);res._dirTopic=director.topicKey;}
+        try{res=await withTimeout(callClaude(sys+"\n\n"+directorText+poiLine+announceLine+toldLine+wikiBlock+styleReminder,"Produce ONLY the director's assigned block, IN PERSONA.",false),22000,"model");res._dirTopic=director.topicKey;}
         catch(e){
-          // Likely a dead zone / no signal. Use a buffered segment if we have one, instead of stopping.
+          // Buffered segment first (dead zone). Otherwise: a hung/slow request should RETRY, not freeze.
           if(bufferRef.current.length>0){res=bufferRef.current.shift();}
-          else{setErr((e.message||"Error").slice(0,100));runRef.current=false;setStatus("idle");return;}
+          else{
+            const isTimeout=/timeout/.test(e.message||"");
+            retryCountRef.current=(retryCountRef.current||0)+1;
+            if(retryCountRef.current<=4){
+              // brief wait, then try again — keeps the show alive through slow data / weak signal
+              setStatus("loading");
+              if(gen===loopGenRef.current&&runRef.current&&!parkedRef.current)scheduleNext(gen,isTimeout?1500:4000);
+              return;
+            }
+            retryCountRef.current=0;
+            setErr((isTimeout?"Сеть медленная — данные не дошли. Повторяю…":(e.message||"Error")).slice(0,120));
+            runRef.current=false;setStatus("idle");return;
+          }
         }
+        retryCountRef.current=0; // success — reset the retry counter
       }
       if(gen!==loopGenRef.current||!runRef.current)return;
       // If the model leaked its instructions (thin data / confusion), don't read that aloud — skip and retry soon.
@@ -2138,6 +2180,7 @@ Set "exhausted" to true ONLY if this topic is nearly used up for THIS area and c
             <div className="gauge"><div className="gv">{toMph(coords?.speed)||parseInt(speedVal)||"—"}</div><div className="gl">MPH</div></div>
             <div className="gauge"><div className="gv d">{toDir(coords?.heading)}</div><div className="gl">DIR</div></div>
             <div className="gauge"><div className="gv t">{weather?`${weather.temp}°`:"—"}</div><div className="gl">°F</div></div>
+            <div className="gauge"><div className="gv" style={{color:netState==="good"?"#3fb950":netState==="slow"?"#f0a030":netState==="down"?"#f04030":"#888",fontSize:"0.5em",lineHeight:"1.9em"}}>{netState==="good"?"●●●":netState==="slow"?"●●○":netState==="down"?"○○○":"···"}</div><div className="gl">{isRu?"ДАННЫЕ":"DATA"}</div></div>
           </div>
 
           <div className="sa">
