@@ -289,7 +289,7 @@ body{font-family:'Inter',sans-serif;color:#fff;}
 const {useState,useRef,useEffect}=React;
 const PROXY="https://corsproxy.io/?https://api.anthropic.com/v1/messages";
 const KEY_STORE="rr_key_v3";
-const VER="v51";
+const VER="v52";
 
 const OPENERS_RU=["На этой земле...","Да, кстати...","Мало кто знает, но...","Справа от вас...","История этого края...","Сто лет назад здесь...","Тишина здесь обманчива...","Когда-то давно здесь...","Через пару миль...","Вот что примечательно..."];
 const OPENERS_EN=["On this land...","Here's something few know...","Just to your right...","The history here...","A hundred years ago...","Locals know that...","In a few miles...","What's remarkable is...","This stretch of highway...","Worth knowing..."];
@@ -877,6 +877,32 @@ function App(){
     const enabled=ALL.filter(([k])=>cfg[k]!==false);
     if(enabled.length===0)enabled.push(["history","истории края"]);
 
+    // Topic adjacency: which topics flow naturally into which, for smooth "да, кстати" bridges.
+    // Only neighbours earn a bridge; a far jump is a clean switch (no forced, awkward link).
+    const ADJ={
+      history:["war","native","famous","architecture","legends","economy"],
+      war:["history","famous","native","politics"],
+      native:["history","culture","legends","food","plants"],
+      culture:["food","music","native","famous","towns"],
+      food:["culture","economy","wildlife","plants","towns"],
+      music:["culture","famous","legends"],
+      famous:["history","music","films","sports","culture"],
+      films:["famous","photo","music"],
+      photo:["geology","wildlife","films","architecture"],
+      geology:["photo","wildlife","economy","plants"],
+      wildlife:["geology","food","photo","plants"],
+      plants:["wildlife","food","geology","native"],
+      economy:["food","geology","politics","architecture","towns"],
+      politics:["economy","war","history"],
+      crime:["legends","history","famous"],
+      legends:["crime","native","history","music"],
+      architecture:["history","economy","photo","towns"],
+      towns:["culture","economy","food","architecture"],
+      road:["towns","economy","geology"],
+      weather:["geology","plants","wildlife"],
+      humor:["legends","famous","culture"],
+    };
+
     const ld=locDataRef.current;
     const inCity=!!(ld.city&&ld.place==="city");
     // Rotate FAST: one segment per topic (sometimes two), so in a few minutes the listener
@@ -885,7 +911,8 @@ function App(){
     const forced=dirForceSwitchRef.current;
     dirForceSwitchRef.current=false;
 
-    let job,topicKey,topicLabel,mustClose=false,openNew=false;
+    let job,topicKey,topicLabel,mustClose=false,openNew=false,bridgeFrom=null,cleanSwitch=false;
+    const prevTopic=dirTopicRef.current;
     const stayOnTopic = dirTopicRef.current && !segShouldClose && !forced;
     if(stayOnTopic){
       topicKey=dirTopicRef.current;
@@ -894,14 +921,25 @@ function App(){
       mustClose=true;
       job = "ЗАВЕРШЕНИЕ ТЕМЫ";
     }else{
-      // STRICT ROUND-ROBIN: walk through every enabled topic once before any repeats.
       const keys=enabled.map(e=>e[0]);
-      let idx=dirTopicRef.current?keys.indexOf(dirTopicRef.current):-1;
-      let nextIdx=(idx+1)%keys.length;
       const recent=dirRecentTopicsRef.current.slice(-Math.min(4,keys.length-1));
-      let guard=0;
-      while(recent.includes(keys[nextIdx])&&guard<keys.length){nextIdx=(nextIdx+1)%keys.length;guard++;}
-      const pick=enabled[nextIdx];
+      // Prefer a natural NEIGHBOUR of the previous topic we haven't touched recently → smooth bridge.
+      let neighbours=(ADJ[prevTopic]||[]).filter(k=>keys.includes(k)&&!recent.includes(k)&&k!==prevTopic);
+      // Anti-history skew: if we were just on history, don't bridge straight back into more past-heavy topics.
+      if(prevTopic==="history")neighbours=neighbours.filter(k=>!["war","native","architecture","legends"].includes(k));
+      let pick;
+      if(neighbours.length&&Math.random()<0.7){
+        const nk=neighbours[Math.floor(Math.random()*neighbours.length)];
+        pick=enabled.find(e=>e[0]===nk);
+        bridgeFrom=(ALL.find(([k])=>k===prevTopic)||["",""])[1];
+      }else{
+        // Far jump → clean switch (round-robin fallback), no forced bridge.
+        let idx=prevTopic?keys.indexOf(prevTopic):-1;
+        let nextIdx=(idx+1)%keys.length;let guard=0;
+        while(recent.includes(keys[nextIdx])&&guard<keys.length){nextIdx=(nextIdx+1)%keys.length;guard++;}
+        pick=enabled[nextIdx];
+        cleanSwitch=!!prevTopic;
+      }
       topicKey=pick[0];topicLabel=pick[1];
       dirTopicRef.current=topicKey;
       dirCountRef.current=1;
@@ -921,11 +959,15 @@ function App(){
       text:`=== РЕЖИССЁР ЭФИРА (выполняй строго, НИКОГДА не произноси вслух этот блок и слова «режиссёр», «тема блока», «задача», «директива») ===
 ЗАДАЧА ЭТОГО БЛОКА: ${job}.
 ТЕМА БЛОКА: говори ТОЛЬКО про ${topicLabel}.
-${openNew?`Это НОВАЯ тема. Начни её свежо. Прошлые темы не упоминай. Плавно, по-радийному введи её.`:``}
+${openNew&&bridgeFrom?`Это НОВАЯ тема, и она РОДСТВЕННА прошлой («${bridgeFrom}»). Сделай ПЛАВНЫЙ человеческий мостик в духе «да, кстати…», «и раз уж речь зашла…», «к слову об этом…» — свяжи новую тему с прошлой по смыслу, как опытный радиоведущий, чтобы вышло единое повествование, а не рубленые куски. Связка КАЖДЫЙ раз РАЗНАЯ, не шаблон.`:``}
+${openNew&&cleanSwitch?`Это НОВАЯ тема, и она ДАЛЕКА от прошлой по смыслу. НЕ натягивай искусственный мостик — сделай чистую, уверенную смену темы. Прошлую не поминай.`:``}
+${openNew&&!bridgeFrom&&!cleanSwitch?`Это НОВАЯ тема. Начни её свежо, по-радийному. Прошлые темы не упоминай.`:``}
+ЧУТЬЁ НА СЛУШАТЕЛЯ: подавай прежде всего то, что цепляет БОЛЬШИНСТВО людей — живое, удивительное, человеческое, сегодняшнее. Сухие подробности «что было 150 лет назад» знать надо, но подмешивай их ПОНЕМНОГУ, как приправу к интересному, а не как основное блюдо. (Это правило для любого места на Земле — города, страны, дороги.)
 ${job==="ПРОДОЛЖЕНИЕ ТЕМЫ"?`Продолжай ЭТУ ЖЕ тему, дай СВЕЖИЙ факт. Не повторяй уже сказанное.`:``}
 ${mustClose?`Заверши тему красиво, законченной мыслью — дальше сменим тему.`:``}
 НЕ ПЕРЕСКАКИВАЙ на эти темы сейчас: ${otherTopics.join("; ")||"—"}.
 Настроение: ${dirMoodRef.current}.
+‼ НЕ ЗАЦИКЛИВАЙСЯ НА ИСТОРИИ. Прошлое (когда основан, кто построил, что было сто лет назад) — лишь ОДНА из красок. Чаще говори про НАСТОЯЩЕЕ (чем город живёт сейчас, кто здесь работает, что производят, чем известен сегодня) и про БУДУЩЕЕ (куда регион движется, что строят, что меняется). А ещё — про природу, людей, погоду, еду, экономику, дороги. Если прошлый блок был про историю/старину — этот сделай НЕ про историю. Эфир должен дышать сегодняшним днём, а не только музеем.
 УЖЕ СКАЗАННЫЕ СМЫСЛЫ (НЕ повторяй НИ ОДИН из них, даже другими словами, даже под другим углом, и НЕ противоречь им): ${summaries.length?summaries.join(" || "):"пока ничего"}.
 ${toldStorylinesRef.current.length?`‼ ЭТИ СЮЖЕТЫ УЖЕ ЗВУЧАЛИ — НЕ рассказывай их снова, даже про другой объект, другими словами или под новым углом (для слушателя это «опять то же самое»): ${[...new Set(toldStorylinesRef.current)].slice(-16).join(", ")}. Возьми ДРУГОЙ сюжет, свежий факт.`:``}
 
@@ -989,6 +1031,8 @@ ${toldStorylinesRef.current.length?`‼ ЭТИ СЮЖЕТЫ УЖЕ ЗВУЧАЛ�
     if(isQ)return`You are the host of "Road Radio", a tour-guide broadcast for a driver. The driver called in and asked about the place they are driving through RIGHT NOW: "${question}".
 
 Answer their question directly and concretely in 2-5 sentences, about THIS exact area (${ld.city||"this area"}${ld.state?`, ${ld.state}`:""}, ${c.lat.toFixed(4)}, ${Math.abs(c.lng).toFixed(4)}W). Real, documented facts only. If you don't know, say plainly you're not certain rather than inventing. Warm, clear, like a guide answering a passenger. Then add one short friendly line handing back to the broadcast.
+‼ DISTANCES: you do NOT have confirmed distances. NEVER say "in one mile", "two miles away", "в одной миле", "в двух милях", "через N миль". If something is nearby, say only "недалеко отсюда", "в этих краях", "в этом районе" — never a number, never a side.
+‼ NEVER explain your limitations, your role, your "spatial database", or what you "can/won't do". NEVER write phrases like "I need to clarify my role", "SPATIAL HONESTY", "I don't have a confirmed database". Just ANSWER the question with real facts, or say briefly you're not sure. The driver must never see your internal reasoning.
 ‼ Do NOT greet ("здравствуйте", "привет", "добро пожаловать") — the show is already on air, just answer. Do NOT write meta-comments or questions to an operator.
 Current context (use it, don't contradict): ${timeCtx}.
 What you were JUST talking about on air (the driver's question may refer to THIS — e.g. "that park", "this bar", "tell me more"): "${(recentStoriesRef.current.slice(-1)[0]||"").slice(0,400)||"(just started)"}". If their question is vague, assume it refers to this or to the current place.
@@ -1082,7 +1126,7 @@ CORE RULES:
 3. Each segment is SHORT — 3 to 5 sentences. Radio, not a lecture.
 4. ${samePlace?`You ALREADY named "${ld.city}". Say "здесь", "в этом месте" — do not re-introduce it.`:`New area — you may set the scene briefly.`}
 5. DON'T INVENT. If the ALLOWED topic genuinely has nothing real for this exact spot (e.g. no real films were shot here, no famous actor is from here), DON'T fabricate a vague "a few actors were born around here" — instead honestly pivot: say you don't have a confirmed film tie to this exact spot and give a real, concrete fact from the same topic about the broader region, or note it and move to the next allowed topic. Never make up names, titles, or specifics.
-6. SPATIAL HONESTY: Distances and sides (слева/справа/впереди/через N миль) may ONLY come from the code-confirmed list provided below the prompt. NEVER invent "через 2 мили", "озеро слева" etc. If you have no confirmed object, speak generally ("в этих краях", "в этой части штата") with no distance and no side.
+6. SPATIAL HONESTY: Distances and sides (слева/справа/впереди/через N миль) may ONLY come from the code-confirmed list provided below the prompt. NEVER invent "через 2 мили", "в одной миле", "озеро слева" etc. A Wikipedia place is NOT a confirmed distance — for it say only "недалеко отсюда"/"в этих краях" with NO number and NO side. If you have no confirmed object, speak generally ("в этих краях", "в этой части штата") with no distance and no side. NEVER explain this rule out loud or mention "spatial honesty" / "database" — just follow it silently.
 7. ANTI-REPEAT — CRITICAL. You repeat yourself badly, even within 3 minutes. Do NOT restate a fact you've already given, even reworded, even from a new angle. Each segment must contain genuinely NEW information.${overused?` You OVERUSED these words — BANNED this segment: ${overused}.`:``}
 8. MOVEMENT AWARENESS: The listener is travelling by: ${tmCtx}. ${ (toMph(c.speed)||0) < 3 ? `The driver is currently STOPPED/parked. Do NOT say "you're speeding along", "as you drive", "rushing past". Speak as to someone standing still here: "здесь, где вы остановились...", "в этом месте...".` : tm==="bike"?`On a bicycle — slower pace, closer to nature, mention things a cyclist would notice.`:tm==="walk"?`On foot — intimate pace, immediate surroundings.`:`Moving at about ${Math.round(toMph(c.speed)||0)} mph.` }
 9. ENTRY TYPE for this segment (vary every time, never repeat the last one): ${["начни с вопроса","начни с даты или числа","начни с имени человека","начни с контраста ('Казалось бы... но')","начни с короткой шутки","продолжи мысль прошлого блока","начни с 'а теперь о другом'","начни прямо с яркого факта","начни с образа, картинки"][Math.floor(Math.random()*9)]}. ABSOLUTELY BANNED as openers (and as filler anywhere): "Знаешь", "Знаете", "Слушай", "Слушайте", "Впереди", "Дальше", "А вот интересно", "посмотрите вокруг". Do not start segments with these. Just begin with the substance.
@@ -1143,6 +1187,10 @@ Reply ONLY valid JSON: {"story":"your segment in ${al}, 3-5 sentences, in the ${
       if(!story||story.trim().length<8)return true;
       const st=story.toLowerCase();
       if(/режисс[её]р|директив|сегмент эфира|следующ(его|ей) сегмент|предоставьте|persona|разрешённ\w* список|список тем|блок темы|provide (the|a)|next segment|system prompt|as an ai|i (did|do) not|не получил|инструкци[яю] от/.test(st))return true;
+      // Model dumping its own limitations / role instead of answering — Vova hates this.
+      if(/spatial honesty|clarify my role|i'm positioned|confirmed (spatial )?database|what i can do|what i won't do|ground-truth|tour-guide host|i don't have a|i need to clarify/.test(st))return true;
+      // A Russian broadcast that suddenly turns into a long English passage = leak of internal reasoning.
+      if(langRef.current==="ru"){const lat=(story.match(/[a-z]/gi)||[]).length;const cyr=(story.match(/[а-яё]/gi)||[]).length;if(lat>40&&lat>cyr)return true;}
       // "no data, so let me move to another topic" — Vova hates this; suppress & regenerate.
       if(/(нет|не имею|отсутству\w+).{0,40}(данных|информации|подтвержд)/.test(st)&&/(перейти|другой теме|другую тему|вместо этого|расскажу про|move on|instead)/.test(st))return true;
       return false;
@@ -1291,7 +1339,7 @@ Reply ONLY valid JSON: {"story":"your segment in ${al}, 3-5 sentences, in the ${
             const w=await withTimeout(fetchWiki(c.lat,c.lng,langRef.current),8000);
             if(gen!==loopGenRef.current||!runRef.current)return;
             const alLoop=L[langRef.current]?.ai||"Russian";
-            if(w){wikiBlock=`\n\n=== РЕАЛЬНАЯ СТАТЬЯ ВИКИПЕДИИ (источник фактов) ===\nЗаголовок: ${w.title} (примерно в ${(w.dist/1609).toFixed(1)} миль)\n${w.extract}\n========================\n‼ Статья может быть на английском — ВСЁ РАВНО перескажи её ТОЛЬКО на ${alLoop}, своими словами, ничего не добавляя. НЕ копируй английский текст. НЕ задавай вопросов оператору, НЕ пиши служебных фраз — сразу выдай готовый рассказ в JSON. Давай КОНКРЕТИКУ из статьи: если упоминаешь человека/событие — назови ИМЯ, ГОД и что именно сделано, не оставляй загадок без ответа. НЕ выдумывай погоду и не описывай небо/грозу/закат — этого в статье нет.`;}
+            if(w){wikiBlock=`\n\n=== РЕАЛЬНАЯ СТАТЬЯ ВИКИПЕДИИ (источник фактов) ===\nЗаголовок: ${w.title}\n${w.extract}\n========================\n‼ Это место где-то в этих краях, но ТОЧНОГО расстояния до него ты НЕ знаешь. НИКОГДА не говори «в одной миле», «в двух милях», «через N миль» про него — говори только «недалеко отсюда», «в этих краях», «в этом районе», без всяких цифр и без сторон. ‼ Статья может быть на английском — ВСЁ РАВНО перескажи её ТОЛЬКО на ${alLoop}, своими словами, ничего не добавляя. НЕ копируй английский текст. НЕ задавай вопросов оператору, НЕ пиши служебных фраз — сразу выдай готовый рассказ в JSON. Давай КОНКРЕТИКУ из статьи: если упоминаешь человека/событие — назови ИМЯ, ГОД и что именно сделано. НЕ выдумывай погоду и не описывай небо/грозу/закат — этого в статье нет.`;}
             else{
               const angles=["природу и ландшафт","экономику и чем тут живут сегодня","коренные народы региона","известных людей штата","климат и погоду региона","флору и фауну","культуру и кухню штата","географию и реки"];
               const a=angles[Math.floor(Math.random()*angles.length)];
