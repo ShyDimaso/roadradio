@@ -289,7 +289,7 @@ body{font-family:'Inter',sans-serif;color:#fff;}
 const {useState,useRef,useEffect}=React;
 const PROXY="https://corsproxy.io/?https://api.anthropic.com/v1/messages";
 const KEY_STORE="rr_key_v3";
-const VER="v54";
+const VER="v55";
 
 const OPENERS_RU=["На этой земле...","Да, кстати...","Мало кто знает, но...","Справа от вас...","История этого края...","Сто лет назад здесь...","Тишина здесь обманчива...","Когда-то давно здесь...","Через пару миль...","Вот что примечательно..."];
 const OPENERS_EN=["On this land...","Here's something few know...","Just to your right...","The history here...","A hundred years ago...","Locals know that...","In a few miles...","What's remarkable is...","This stretch of highway...","Worth knowing..."];
@@ -502,6 +502,9 @@ function App(){
   const toldStorylinesRef=useRef([]);  // story-themes already told (river landmark, wagon trains...) — don't retell, even via other words
   const lastOpenerIdxRef=useRef(-1);   // index of last dictated opener pattern, to rotate them
   const scopeIdxRef=useRef(-1);        // rotating focus "lens" (present / nature / future) per Gemini
+  const dirPlaylistRef=useRef([]);     // exhaustion queue: every enabled topic airs once before repeats
+  const toldStoryIdsRef=useRef([]);    // semantic story-id slugs already aired (anti-paraphrase)
+  const dirActiveTagsRef=useRef([]);   // subject+angle tags already aired recently
   const toldFactsByPlaceRef=useRef({});// {placeKey: [core facts already told HERE]} — say big facts once per place
   const placeBlockCountRef=useRef({}); // {placeKey: how many blocks we've done at this place}
   const dirMoodRef=useRef("normal");   // mood of the next block
@@ -927,23 +930,28 @@ function App(){
     }else{
       const keys=enabled.map(e=>e[0]);
       const recent=dirRecentTopicsRef.current.slice(-Math.min(4,keys.length-1));
-      // Prefer a natural NEIGHBOUR of the previous topic we haven't touched recently → smooth bridge.
-      let neighbours=(ADJ[prevTopic]||[]).filter(k=>keys.includes(k)&&!recent.includes(k)&&k!==prevTopic);
-      // Anti-history skew: if we were just on history, don't bridge straight back into more past-heavy topics.
+      // ── PLAYLIST (Gemini's Exhaustion Queue): guarantee EVERY enabled topic airs before any repeats.
+      // Refill & shuffle when empty or when the enabled set changed. This kills "half the topics never played".
+      let pl=dirPlaylistRef.current.filter(k=>keys.includes(k));
+      if(pl.length===0){
+        pl=[...keys];
+        for(let i=pl.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[pl[i],pl[j]]=[pl[j],pl[i]];}
+      }
+      // Prefer a natural NEIGHBOUR of the previous topic — but ONLY if that neighbour is still in the playlist
+      // (i.e. not yet aired this cycle). This keeps smooth bridges without breaking full coverage.
+      let neighbours=(ADJ[prevTopic]||[]).filter(k=>pl.includes(k)&&!recent.includes(k)&&k!==prevTopic);
       if(prevTopic==="history")neighbours=neighbours.filter(k=>!["war","native","architecture","legends"].includes(k));
-      let pick;
-      if(neighbours.length&&Math.random()<0.7){
-        const nk=neighbours[Math.floor(Math.random()*neighbours.length)];
-        pick=enabled.find(e=>e[0]===nk);
+      let chosen;
+      if(neighbours.length&&Math.random()<0.6){
+        chosen=neighbours[Math.floor(Math.random()*neighbours.length)];
         bridgeFrom=(ALL.find(([k])=>k===prevTopic)||["",""])[1];
       }else{
-        // Far jump → clean switch (round-robin fallback), no forced bridge.
-        let idx=prevTopic?keys.indexOf(prevTopic):-1;
-        let nextIdx=(idx+1)%keys.length;let guard=0;
-        while(recent.includes(keys[nextIdx])&&guard<keys.length){nextIdx=(nextIdx+1)%keys.length;guard++;}
-        pick=enabled[nextIdx];
+        // Take the next from the playlist that we haven't aired very recently.
+        chosen=pl.find(k=>!recent.includes(k))||pl[0];
         cleanSwitch=!!prevTopic;
       }
+      dirPlaylistRef.current=pl.filter(k=>k!==chosen); // remove aired topic; cycle refills when empty
+      const pick=enabled.find(e=>e[0]===chosen)||enabled[0];
       topicKey=pick[0];topicLabel=pick[1];
       dirTopicRef.current=topicKey;
       dirCountRef.current=1;
@@ -1093,12 +1101,24 @@ Reply ONLY valid JSON: {"story":"your spoken answer in ${al}","location":"curren
     // POSITIVE opener control (per Gemini): don't ban words — DICTATE the start. Haiku obeys a hard
     // instruction far better than a "don't". Rotate the pattern each block, never same as last.
     const OPENERS=[
-      "Начни СТРОГО с конкретного ГОДА или даты (например «В 1887 году…», «К 1930-м…»).",
+      "Начни СТРОГО с конкретного ГОДА или эпохи (например «В 1887 году…», «К началу сороковых…»).",
       "Начни СТРОГО с ИМЕНИ человека — назови конкретную личность и сразу к делу.",
-      "Начни СТРОГО с ЧИСЛА или размера (например «Сорок тысяч голов…», «Три мили этих полей…»).",
-      "Начни СТРОГО с ПРИРОДНОГО или географического объекта (например «Эта река…», «Вот эти холмы…»).",
-      "Начни СТРОГО с того, что здесь ПРОИСХОДИТ или делают СЕГОДНЯ (завод, ферма, люди, их работа сейчас).",
-      "Начни СТРОГО с действия или сценки (кто-то что-то делает: пашет, строит, едет, готовит).",
+      "Начни СТРОГО с ЧИСЛА или размера (например «Сорок тысяч голов…», «Всего один человек…»).",
+      "Начни СТРОГО с ПРИРОДНОГО или географического объекта (река, холм, долина, улица).",
+      "Начни СТРОГО с того, что ПРОИСХОДИТ здесь ПРЯМО СЕЙЧАС (например «Пока мы стоим здесь…», «Прямо сейчас на элеваторах…»).",
+      "Начни СТРОГО с действия или бытовой сценки (кто-то пашет, строит, готовит, заходит в кафе).",
+      "Начни СТРОГО с короткого ВОПРОСА водителю (например «Как думаете, сколько…», «Знаете, что тут самое странное…»).",
+      "Начни СТРОГО с разрушения мифа — со слова «Напрасно…» или «Ошибочно…» (например «Напрасно этот край считают скучным…»).",
+      "Начни СТРОГО с противопоставления — со слова «Пока…» или «В то время как…» (например «Пока город спит…»).",
+      "Начни СТРОГО со звука или тишины (например «Если прислушаться, здесь слышно только…»).",
+      "Начни СТРОГО с цвета или визуального образа (например «Красный кирпич старых складов…»).",
+      "Начни СТРОГО с местного фольклора — «Здешние старожилы…» или «В округе говорят…».",
+      "Начни СТРОГО со сравнения масштабов — со слова «Если…» (например «Если собрать всё зерно этого округа…»).",
+      "Начни СТРОГО с киношной атмосферы (например «Этот пейзаж будто из вестерна…»).",
+      "Начни СТРОГО со взгляда сверху/из космоса (например «Если глянуть на эти земли со спутника…»).",
+      "Начни СТРОГО с личного признания ведущего — «Меня всегда поражало…» или «Я давно заметил…».",
+      "Начни СТРОГО с вывески, девиза или цитаты места (например «На старом элеваторе до сих пор читается…»).",
+      "Начни СТРОГО с координаты/точки на карте (например «Здесь, на этой широте…», «Эта точка на карте…»).",
     ];
     let oIdx=Math.floor(Math.random()*OPENERS.length);
     if(oIdx===lastOpenerIdxRef.current)oIdx=(oIdx+1)%OPENERS.length;
@@ -1146,6 +1166,13 @@ HARD: real facts under the fun stay TRUE; NEVER joke about road directions, turn
     let toldHere="";
     if(factsHere.length){
       toldHere=`\n\n‼ ОБ ЭТОМ В «${(ld.city||"этом месте").toUpperCase()}» ТЫ УЖЕ РАССКАЗАЛ — НЕ повторяй, даже другими словами, даже под другим углом:\n— ${factsHere.slice(-8).join("\n— ")}\nЭто уже прозвучало и хватит. Возьми НОВОЕ, о чём здесь ещё не говорил.`;
+    }
+    // Semantic anti-repeat (Gemini): forbid the story-IDs and subject+angle tags already used recently,
+    // so "farmers up at 4am" can't return as "farmers up at 5am".
+    const usedIds=[...new Set(toldStoryIdsRef.current)].slice(-14);
+    const usedTags=[...new Set(dirActiveTagsRef.current)].slice(-16);
+    if(usedIds.length||usedTags.length){
+      toldHere+=`\n\n‼ СМЫСЛОВОЙ АНТИ-ПОВТОР: НЕ повторяй эти уже раскрытые сюжеты и их СУТЬ, даже с другими цифрами/словами:\n— сюжеты: ${usedIds.join(", ")||"—"}\n— темы-суть: ${usedTags.join(", ")||"—"}\nНапример, если уже был «фермеры рано встают» — не давай снова «фермеры встают в другое время». Возьми принципиально другую мысль.`;
     }
     // Parking fan (Gemini): standing still & the local article is drying up → free monologue from Haiku's
     // own knowledge, no Wikipedia, no dates — culture, people, sports, the road, the future.
@@ -1195,7 +1222,7 @@ ALREADY SAID THIS DRIVE (never repeat): ${recentFacts||"nothing yet — first se
 - Keep time-of-day consistent with "${phase}". The exact local time is ${tStr} — if you mention the time at all, state it correctly; do NOT approximate it to a different hour.
 - ‼ LANGUAGE LOCK ‼: write EVERY single word in ${al}. Never switch to English or any other language mid-segment. If you catch yourself starting an English word, stop and use ${al}.${scopeRule}${toldHere}${parkFan}
 
-Reply ONLY valid JSON: {"story":"your segment in ${al}, 3-5 sentences, in the ${bm.id} persona","location":"exact place in English","topics":"short phrase naming the ONE thing you covered","storyline":"the ONE core fact of this segment in a short English sentence, concrete not abstract (e.g. 'the Oregon Trail crossed the Platte here in the 1840s' not 'pioneers'); empty if none"}`;
+Reply ONLY valid JSON: {"story":"your segment in ${al}, 3-5 sentences, in the ${bm.id} persona","location":"exact place in English","topics":"short phrase naming the ONE thing you covered","storyline":"the ONE core fact of this segment in a short English sentence, concrete not abstract; empty if none","storyline_id":"a short english slug of the core idea, e.g. 'farmers-early-routine','railroad-made-capital','platte-river-ford'","tags":"2-3 english slugs: subject+angle, e.g. farmers,daily-life,agriculture"}`;
   };
 
   const callClaude=async(sys,msg,forNext)=>{
@@ -1256,6 +1283,8 @@ Reply ONLY valid JSON: {"story":"your segment in ${al}, 3-5 sentences, in the ${
         const pk=(locDataRef.current.city||locDataRef.current.county||`${(coordsRef.current?.lat||0).toFixed(2)},${(coordsRef.current?.lng||0).toFixed(2)}`).toLowerCase();
         const arr=toldFactsByPlaceRef.current[pk]||[];if(!arr.some(f=>f.toLowerCase()===sll))toldFactsByPlaceRef.current[pk]=[...arr,sl].slice(-12);
       }}
+      if(res.storyline_id){const id=String(res.storyline_id).trim().toLowerCase();if(id.length>1&&!toldStoryIdsRef.current.includes(id))toldStoryIdsRef.current=[...toldStoryIdsRef.current,id].slice(-20);}
+      if(res.tags){const tg=String(res.tags).split(",").map(t=>t.trim().toLowerCase()).filter(t=>t.length>1);if(tg.length)dirActiveTagsRef.current=[...dirActiveTagsRef.current,...tg].slice(-24);}
       if(res.story){
         // Repeat detector: if this story heavily echoes the previous ones, tell the director to switch topic next time.
         const norm=s=>(s||"").toLowerCase().replace(/[^a-zа-яё ]/g," ").split(/\s+/).filter(w=>w.length>4);
@@ -1402,7 +1431,15 @@ Reply ONLY valid JSON: {"story":"your segment in ${al}, 3-5 sentences, in the ${
         if(noGeo.length)poiLine+=`\nKnown in the general area (mention only generally, NO distance, NO side): ${noGeo.join(", ")}.`;
         poiLine+=`\nIf an object is not in the list above, you MUST NOT say how far it is or which side it's on. No "через 2 мили", no "слева/справа" unless it came from the confirmed list.`;
         const styleReminder=`\n\n‼ FINAL AND MOST IMPORTANT — VOICE/PERSONA ‼\nWhatever the topic above, you MUST deliver it in this exact persona, and it must be unmistakable from the very first words:\n${bmReminder}\nIf your answer would read the same in any other persona, you FAILED. Make the persona obvious.`;
-        try{res=await callClaude(sys+"\n\n"+directorText+poiLine+wikiBlock+styleReminder,"Produce ONLY the director's assigned block, IN PERSONA.",false);res._dirTopic=director.topicKey;}
+        try{res=await callClaude(sys+"\n\n"+directorText+poiLine+wikiBlock+styleReminder,"Produce ONLY the director's assigned block, IN PERSONA.",false);res._dirTopic=director.topicKey;
+          // Semantic dedupe (Gemini): if this block's story-id repeats one we aired, retry ONCE with it banned.
+          // Capped at a single retry so it never burns the balance on a stubborn model.
+          const rid=res&&res.storyline_id?String(res.storyline_id).trim().toLowerCase():"";
+          if(rid&&toldStoryIdsRef.current.includes(rid)){
+            const retry=await callClaude(sys+"\n\n"+directorText+poiLine+wikiBlock+`\n\n‼ Твой прошлый вариант повторял уже раскрытый сюжет «${rid}». Дай ПРИНЦИПИАЛЬНО ДРУГУЮ мысль, другой сюжет, другую суть.`+styleReminder,"Produce ONLY the director's assigned block, IN PERSONA.",false);
+            if(retry&&retry.story){retry._dirTopic=director.topicKey;res=retry;}
+          }
+        }
         catch(e){
           // Likely a dead zone / no signal. Use a buffered segment if we have one, instead of stopping.
           if(bufferRef.current.length>0){res=bufferRef.current.shift();}
@@ -1533,7 +1570,7 @@ Reply ONLY valid JSON: {"story":"your segment in ${al}, 3-5 sentences, in the ${
     if(!c){setErr(lang==="ru"?"Нажмите автоопределение или введите координаты":"Tap auto-detect or enter coordinates");return;}
     coordsRef.current=c;setCoords(c);destRef.current=destination;
     runRef.current=true;histRef.current=[];nextRef.current=null;topicsUsedRef.current=[];saidFactsRef.current=[];bufferRef.current=[];recentStoriesRef.current=[];
-    dirTopicRef.current=null;dirCountRef.current=0;dirTargetRef.current=2;dirRecentTopicsRef.current=[];dirSummariesRef.current=[];toldStorylinesRef.current=[];toldFactsByPlaceRef.current={};placeBlockCountRef.current={};scopeIdxRef.current=-1;dirTopicStartRef.current=0;dirForceSwitchRef.current=false;lastIntroBcastRef.current=bcastRef.current;qaHistRef.current=[];
+    dirTopicRef.current=null;dirCountRef.current=0;dirTargetRef.current=2;dirRecentTopicsRef.current=[];dirSummariesRef.current=[];toldStorylinesRef.current=[];toldFactsByPlaceRef.current={};placeBlockCountRef.current={};scopeIdxRef.current=-1;dirPlaylistRef.current=[];toldStoryIdsRef.current=[];dirActiveTagsRef.current=[];dirTopicStartRef.current=0;dirForceSwitchRef.current=false;lastIntroBcastRef.current=bcastRef.current;qaHistRef.current=[];
     openerIdx.current=0;stoppedSince.current=null;fuelWarnedRef.current=0;tourAckRef.current=false;
     loopBusyRef.current=false;loopGenRef.current++;        // fresh single generation
     parkedRef.current=false;pausedRef.current=false;setPaused(false);
