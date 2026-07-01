@@ -289,7 +289,7 @@ body{font-family:'Inter',sans-serif;color:#fff;}
 const {useState,useRef,useEffect}=React;
 const PROXY="https://corsproxy.io/?https://api.anthropic.com/v1/messages";
 const KEY_STORE="rr_key_v3";
-const VER="v52";
+const VER="v53";
 
 const OPENERS_RU=["На этой земле...","Да, кстати...","Мало кто знает, но...","Справа от вас...","История этого края...","Сто лет назад здесь...","Тишина здесь обманчива...","Когда-то давно здесь...","Через пару миль...","Вот что примечательно..."];
 const OPENERS_EN=["On this land...","Here's something few know...","Just to your right...","The history here...","A hundred years ago...","Locals know that...","In a few miles...","What's remarkable is...","This stretch of highway...","Worth knowing..."];
@@ -500,6 +500,7 @@ function App(){
   const dirRecentTopicsRef=useRef([]); // topics covered recently (to avoid immediate repeats)
   const dirSummariesRef=useRef([]);    // semantic summaries of what was already said
   const toldStorylinesRef=useRef([]);  // story-themes already told (river landmark, wagon trains...) — don't retell, even via other words
+  const lastOpenerIdxRef=useRef(-1);   // index of last dictated opener pattern, to rotate them
   const dirMoodRef=useRef("normal");   // mood of the next block
   const callPhaseRef=useRef("idle");
   const callRecRef=useRef(null);
@@ -1072,16 +1073,6 @@ Reply ONLY valid JSON: {"story":"your spoken answer in ${al}","location":"curren
     const forbiddenStr=forbidden.length?forbidden.map(t=>t.key).join(", "):"";
 
     // Detect words the host has been overusing, ban them this segment.
-    const overused=(()=>{
-      const text=recentStoriesRef.current.join(" ").toLowerCase();
-      if(!text)return"";
-      const words=text.match(/[a-zа-яё]{5,}/gi)||[];
-      const stop=new Set(["который","которая","которое","которые","потому","здесь","место","места","сейчас","можно","очень","также","просто","между","около","вокруг","through","around","place","where","which","there","these","those","right","really"]);
-      const freq={};
-      words.forEach(w=>{if(!stop.has(w))freq[w]=(freq[w]||0)+1;});
-      return Object.keys(freq).filter(w=>freq[w]>=3).slice(0,12).join(", ");
-    })();
-
     const orderCtx=prefs?`\nLISTENER'S STANDING ORDER (overrides topic settings): "${prefs}". If they said "only X" talk strictly about X; if "more X" favor X but still vary.`:"";
     // Every ~12 minutes, remind which highway and direction we're travelling.
     let roadReminder="";
@@ -1093,9 +1084,23 @@ Reply ONLY valid JSON: {"story":"your spoken answer in ${al}","location":"curren
     let cityApproach="";
     const ca=cityAheadRef.current;
     if(ca&&ca.miles<=20&&ca.name!==cityAnnouncedNameRef.current){
-      cityApproach=`\n‼ ВПЕРЕДИ КРУПНЫЙ ГОРОД: примерно через ${Math.round(ca.miles)} миль будет ${ca.name}. Один раз, коротко (1-2 фразы), предупреди: назови город и один-два факта, если знаешь. НЕ используй шаблонную подводку, просто органично вставь. Больше про этот город заранее не напоминай.`;
+      cityApproach=`\n‼ ВПЕРЕДИ КРУПНЫЙ ГОРОД: примерно через ${Math.round(ca.miles)} миль будет ${ca.name}. Один раз, коротко (1-2 фразы), органично вставь: назови город и один-два факта, если знаешь. Больше про этот город заранее не напоминай.`;
       cityAnnouncedNameRef.current=ca.name;
     }
+    // POSITIVE opener control (per Gemini): don't ban words — DICTATE the start. Haiku obeys a hard
+    // instruction far better than a "don't". Rotate the pattern each block, never same as last.
+    const OPENERS=[
+      "Начни СТРОГО с конкретного ГОДА или даты (например «В 1887 году…», «К 1930-м…»).",
+      "Начни СТРОГО с ИМЕНИ человека — назови конкретную личность и сразу к делу.",
+      "Начни СТРОГО с ЧИСЛА или размера (например «Сорок тысяч голов…», «Три мили этих полей…»).",
+      "Начни СТРОГО с ПРИРОДНОГО или географического объекта (например «Эта река…», «Вот эти холмы…»).",
+      "Начни СТРОГО с того, что здесь ПРОИСХОДИТ или делают СЕГОДНЯ (завод, ферма, люди, их работа сейчас).",
+      "Начни СТРОГО с действия или сценки (кто-то что-то делает: пашет, строит, едет, готовит).",
+    ];
+    let oIdx=Math.floor(Math.random()*OPENERS.length);
+    if(oIdx===lastOpenerIdxRef.current)oIdx=(oIdx+1)%OPENERS.length;
+    lastOpenerIdxRef.current=oIdx;
+    const openerRule=OPENERS[oIdx];
     const VOICE={
       wiki:`YOU ARE "ВИКИ-ГИД" — a Wikipedia-based factual guide.
 VOICE: clear, factual, well-read, like an encyclopedic friend reading out what is really here. Calm and informative.
@@ -1127,9 +1132,9 @@ CORE RULES:
 4. ${samePlace?`You ALREADY named "${ld.city}". Say "здесь", "в этом месте" — do not re-introduce it.`:`New area — you may set the scene briefly.`}
 5. DON'T INVENT. If the ALLOWED topic genuinely has nothing real for this exact spot (e.g. no real films were shot here, no famous actor is from here), DON'T fabricate a vague "a few actors were born around here" — instead honestly pivot: say you don't have a confirmed film tie to this exact spot and give a real, concrete fact from the same topic about the broader region, or note it and move to the next allowed topic. Never make up names, titles, or specifics.
 6. SPATIAL HONESTY: Distances and sides (слева/справа/впереди/через N миль) may ONLY come from the code-confirmed list provided below the prompt. NEVER invent "через 2 мили", "в одной миле", "озеро слева" etc. A Wikipedia place is NOT a confirmed distance — for it say only "недалеко отсюда"/"в этих краях" with NO number and NO side. If you have no confirmed object, speak generally ("в этих краях", "в этой части штата") with no distance and no side. NEVER explain this rule out loud or mention "spatial honesty" / "database" — just follow it silently.
-7. ANTI-REPEAT — CRITICAL. You repeat yourself badly, even within 3 minutes. Do NOT restate a fact you've already given, even reworded, even from a new angle. Each segment must contain genuinely NEW information.${overused?` You OVERUSED these words — BANNED this segment: ${overused}.`:``}
+7. ANTI-REPEAT — CRITICAL. You repeat yourself badly, even within 3 minutes. Do NOT restate a fact you've already given, even reworded, even from a new angle. Each segment must contain genuinely NEW information.
 8. MOVEMENT AWARENESS: The listener is travelling by: ${tmCtx}. ${ (toMph(c.speed)||0) < 3 ? `The driver is currently STOPPED/parked. Do NOT say "you're speeding along", "as you drive", "rushing past". Speak as to someone standing still here: "здесь, где вы остановились...", "в этом месте...".` : tm==="bike"?`On a bicycle — slower pace, closer to nature, mention things a cyclist would notice.`:tm==="walk"?`On foot — intimate pace, immediate surroundings.`:`Moving at about ${Math.round(toMph(c.speed)||0)} mph.` }
-9. ENTRY TYPE for this segment (vary every time, never repeat the last one): ${["начни с вопроса","начни с даты или числа","начни с имени человека","начни с контраста ('Казалось бы... но')","начни с короткой шутки","продолжи мысль прошлого блока","начни с 'а теперь о другом'","начни прямо с яркого факта","начни с образа, картинки"][Math.floor(Math.random()*9)]}. ABSOLUTELY BANNED as openers (and as filler anywhere): "Знаешь", "Знаете", "Слушай", "Слушайте", "Впереди", "Дальше", "А вот интересно", "посмотрите вокруг". Do not start segments with these. Just begin with the substance.
+9. НАЧАЛО СЕГМЕНТА (обязательно, без исключений): ${openerRule} Сразу переходи к сути, живым разговорным языком.
 10. UNITS: this is the USA — ALWAYS use miles, never kilometers. Distances in miles only.
 11. WEATHER MUST MATCH REALITY: current sky is "${weatherRef.current?(weatherRef.current.desc||""):"unknown"}". Do NOT describe sunsets, golden light, clear skies, or scenery you can "see" if the weather doesn't support it. If it's raining/cloudy/snowing, either skip visual-scenery talk or frame it as "будь сейчас ясно, вы бы увидели...". Never claim a visible sunset/sunrise that contradicts the real weather.
 12. SUN / TIME-OF-DAY: mention time of day or the sun AT MOST once in a long while — not every segment. Never guess which side the sun is on. Use the real phase "${phase}" only; never say "закат"/"sunset" in the morning or "рассвет"/"sunrise" in the evening.
@@ -1152,7 +1157,7 @@ ALREADY SAID THIS DRIVE (never repeat): ${recentFacts||"nothing yet — first se
 - Keep time-of-day consistent with "${phase}". The exact local time is ${tStr} — if you mention the time at all, state it correctly; do NOT approximate it to a different hour.
 - ‼ LANGUAGE LOCK ‼: write EVERY single word in ${al}. Never switch to English or any other language mid-segment. If you catch yourself starting an English word, stop and use ${al}.
 
-Reply ONLY valid JSON: {"story":"your segment in ${al}, 3-5 sentences, in the ${bm.id} persona","location":"exact place in English","topics":"short phrase naming the ONE thing you covered","storyline":"2-4 word English label of the underlying story-theme so it is not retold later (e.g. river as landmark, wagon trains, railroad, civil war, bison); empty if none"}`;
+Reply ONLY valid JSON: {"story":"your segment in ${al}, 3-5 sentences, in the ${bm.id} persona","location":"exact place in English","topics":"short phrase naming the ONE thing you covered","storyline":"the ONE core fact of this segment in a short English sentence, concrete not abstract (e.g. 'the Oregon Trail crossed the Platte here in the 1840s' not 'pioneers'); empty if none"}`;
   };
 
   const callClaude=async(sys,msg,forNext)=>{
@@ -1370,6 +1375,10 @@ Reply ONLY valid JSON: {"story":"your segment in ${al}, 3-5 sentences, in the ${
         return;
       }
       storyText=res.story||"";
+      // Clean filler openers on the client (Gemini's tip) — cheaper than regenerating. If the model
+      // still opened with a banned crutch, snip it and capitalize the next word.
+      storyText=storyText.replace(/^\s*(?:ну и вот|ну вот|а вот|итак|знаете(?: что)?|знаешь(?: что)?|слушай(?:те)?|представьте(?: себе)?|а вы знали|кстати(?:,| о[^\s]*)?|вы знаете|и вот|так вот|а теперь|давайте|как ни странно|казалось бы|а вот интересно|посмотрите вокруг)[\s,—-]+/i,"");
+      if(storyText)storyText=storyText.charAt(0).toUpperCase()+storyText.slice(1);
       // When the host (style) changed, introduce the new persona ONCE before the story (also helps it stay in character).
       if(bcastRef.current!==lastIntroBcastRef.current){
         lastIntroBcastRef.current=bcastRef.current;
