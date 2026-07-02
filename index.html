@@ -289,7 +289,7 @@ body{font-family:'Inter',sans-serif;color:#fff;}
 const {useState,useRef,useEffect}=React;
 const PROXY="https://corsproxy.io/?https://api.anthropic.com/v1/messages";
 const KEY_STORE="rr_key_v3";
-const VER="v55";
+const VER="v56";
 
 const OPENERS_RU=["На этой земле...","Да, кстати...","Мало кто знает, но...","Справа от вас...","История этого края...","Сто лет назад здесь...","Тишина здесь обманчива...","Когда-то давно здесь...","Через пару миль...","Вот что примечательно..."];
 const OPENERS_EN=["On this land...","Here's something few know...","Just to your right...","The history here...","A hundred years ago...","Locals know that...","In a few miles...","What's remarkable is...","This stretch of highway...","Worth knowing..."];
@@ -1146,21 +1146,20 @@ HARD: real facts under the fun stay TRUE; NEVER joke about road directions, turn
     const blocksHere=placeBlockCountRef.current[placeKey];
     const stopped=(toMph(c.speed)||0)<3;
 
-    // ── Focus "lens" (Gemini): dictate the ANGLE of this block, rotate it, so one Wikipedia fact
-    //    can't dominate. Especially when standing still / after several blocks in one place. ──
-    const SCOPES=[
-      "СЕГОДНЯШНЯЯ ЖИЗНЬ этого места: чем люди тут живут сейчас, чем гордятся, местные привычки, спорт, работа, современный характер города.",
-      "ПРИРОДА И ГЕОГРАФИЯ: ландшафт, река, погода, земля, что растёт и кто водится в этих краях (штат в целом тоже годится).",
-      "БУДУЩЕЕ И СОВРЕМЕННОСТЬ: куда движется регион, что строят, технологии, планы, или тёплый местный миф/байка.",
-      "ЛЮДИ И КУЛЬТУРА: конкретные жители, характеры, кухня, музыка, традиции, забавные случаи.",
+    // ── Time-angle lens: does NOT override the director's topic — it only nudges WHICH era to view
+    //    the current topic through (past / present / future), so even a fixed spot feels fresh. ──
+    const ANGLES=[
+      "через ПРОШЛОЕ (как это было раньше, корни, история этой темы здесь)",
+      "через НАСТОЯЩЕЕ (как обстоит дело СЕГОДНЯ, современная жизнь по этой теме)",
+      "через БУДУЩЕЕ (куда это движется, что изменится, каким станет)",
+      "через живую ЧЕЛОВЕЧЕСКУЮ деталь (конкретный человек, сценка, случай по этой теме)",
     ];
     let scopeRule="";
-    // Force the lens once we've been in one place a while, or when parked — that's when it loops.
     if(blocksHere>=2||stopped){
-      let si=Math.floor(Math.random()*SCOPES.length);
-      if(si===scopeIdxRef.current)si=(si+1)%SCOPES.length;
+      let si=Math.floor(Math.random()*ANGLES.length);
+      if(si===scopeIdxRef.current)si=(si+1)%ANGLES.length;
       scopeIdxRef.current=si;
-      scopeRule=`\n\n‼ ФОКУС ЭТОГО БЛОКА (строго, не отклоняйся): говори про ${SCOPES[si]}\nПро историю/основание/железную дорогу в этом блоке НЕ надо — этот блок про другое.`;
+      scopeRule=`\n\nУГОЛ ПОДАЧИ (не меняет тему, только взгляд): раскрой СВОЮ НАЗНАЧЕННУЮ ТЕМУ ${ANGLES[si]}. Тему при этом НЕ меняй — она задана режиссёром выше.`;
     }
     // Already-told big facts HERE: name them so the model doesn't circle back (Vova: say once, then move on).
     let toldHere="";
@@ -1174,11 +1173,11 @@ HARD: real facts under the fun stay TRUE; NEVER joke about road directions, turn
     if(usedIds.length||usedTags.length){
       toldHere+=`\n\n‼ СМЫСЛОВОЙ АНТИ-ПОВТОР: НЕ повторяй эти уже раскрытые сюжеты и их СУТЬ, даже с другими цифрами/словами:\n— сюжеты: ${usedIds.join(", ")||"—"}\n— темы-суть: ${usedTags.join(", ")||"—"}\nНапример, если уже был «фермеры рано встают» — не давай снова «фермеры встают в другое время». Возьми принципиально другую мысль.`;
     }
-    // Parking fan (Gemini): standing still & the local article is drying up → free monologue from Haiku's
-    // own knowledge, no Wikipedia, no dates — culture, people, sports, the road, the future.
+    // Parking fan: ONLY after MANY blocks in one spot (local article truly drained). Even then it stays
+    // within the assigned topic — it just frees the model from Wikipedia dates into its own knowledge.
     let parkFan="";
-    if(stopped&&blocksHere>=3){
-      parkFan=`\n\n‼ РЕЖИМ СТОЯНКИ: водитель стоит, и подробную историю этого места ты уже рассказал. НЕ лезь снова в даты и основание города. Расскажи живое из общих знаний об этом штате/городе: характер местных, спорт (например Nebraska Cornhuskers), еда, погода, забавная бытовая зарисовка или мысль о дороге и о том, каким этот город станет лет через полста. Тепло, по-человечески, без исторических дат.`;
+    if(stopped&&blocksHere>=6){
+      parkFan=`\n\nМы давно стоим на месте и подробные факты тут почти исчерпаны. По СВОЕЙ НАЗНАЧЕННОЙ ТЕМЕ говори свободно из общих знаний об этом регионе — без сухих дат основания, живо и по-человечески. Тему не меняй.`;
     }
 
     return`${styleBlock}
