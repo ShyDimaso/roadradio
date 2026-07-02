@@ -289,7 +289,7 @@ body{font-family:'Inter',sans-serif;color:#fff;}
 const {useState,useRef,useEffect}=React;
 const PROXY="https://corsproxy.io/?https://api.anthropic.com/v1/messages";
 const KEY_STORE="rr_key_v3";
-const VER="v56";
+const VER="v57";
 
 const OPENERS_RU=["На этой земле...","Да, кстати...","Мало кто знает, но...","Справа от вас...","История этого края...","Сто лет назад здесь...","Тишина здесь обманчива...","Когда-то давно здесь...","Через пару миль...","Вот что примечательно..."];
 const OPENERS_EN=["On this land...","Here's something few know...","Just to your right...","The history here...","A hundred years ago...","Locals know that...","In a few miles...","What's remarkable is...","This stretch of highway...","Worth knowing..."];
@@ -1196,6 +1196,7 @@ CORE RULES:
 4. ${samePlace?`You ALREADY named "${ld.city}". Say "здесь", "в этом месте" — do not re-introduce it.`:`New area — you may set the scene briefly.`}
 5. DON'T INVENT. If the ALLOWED topic genuinely has nothing real for this exact spot (e.g. no real films were shot here, no famous actor is from here), DON'T fabricate a vague "a few actors were born around here" — instead honestly pivot: say you don't have a confirmed film tie to this exact spot and give a real, concrete fact from the same topic about the broader region, or note it and move to the next allowed topic. Never make up names, titles, or specifics.
 6. SPATIAL HONESTY: Distances and sides (слева/справа/впереди/через N миль) may ONLY come from the code-confirmed list provided below the prompt. NEVER invent "через 2 мили", "в одной миле", "озеро слева" etc. A Wikipedia place is NOT a confirmed distance — for it say only "недалеко отсюда"/"в этих краях" with NO number and NO side. If you have no confirmed object, speak generally ("в этих краях", "в этой части штата") with no distance and no side. NEVER explain this rule out loud or mention "spatial honesty" / "database" — just follow it silently.
+6b. ‼ ЖЕЛЕЗНОЕ ПРАВИЛО: ты ЖИВОЙ радиоведущий в прямом эфире, а НЕ программа. ЗАПРЕЩЕНО: жаловаться «я не могу видеть дорогу / у меня нет данных / не подскажу объекты впереди», спрашивать разрешения «хотите, чтобы я…», перечислять слушателю темы на выбор, просить команду. Если про эту точку фактов мало — МОЛЧА СМОТРИ СВЫСОКА: поднимись масштабом (район → штат → страна → общечеловеческое по теме) и просто расскажи интересное. Слушатель никогда не должен слышать, что тебе чего-то «не хватает» — ты всегда ведёшь эфир уверенно.
 7. ANTI-REPEAT — CRITICAL. You repeat yourself badly, even within 3 minutes. Do NOT restate a fact you've already given, even reworded, even from a new angle. Each segment must contain genuinely NEW information.
 8. MOVEMENT AWARENESS: The listener is travelling by: ${tmCtx}. ${ (toMph(c.speed)||0) < 3 ? `The driver is currently STOPPED/parked. Do NOT say "you're speeding along", "as you drive", "rushing past". Speak as to someone standing still here: "здесь, где вы остановились...", "в этом месте...".` : tm==="bike"?`On a bicycle — slower pace, closer to nature, mention things a cyclist would notice.`:tm==="walk"?`On foot — intimate pace, immediate surroundings.`:`Moving at about ${Math.round(toMph(c.speed)||0)} mph.` }
 9. НАЧАЛО СЕГМЕНТА (обязательно, без исключений): ${openerRule} Сразу переходи к сути, живым разговорным языком.
@@ -1255,7 +1256,12 @@ Reply ONLY valid JSON: {"story":"your segment in ${al}, 3-5 sentences, in the ${
     const isLeak=story=>{
       if(!story||story.trim().length<8)return true;
       const st=story.toLowerCase();
-      if(/режисс[её]р|директив|сегмент эфира|следующ(его|ей) сегмент|предоставьте|persona|разрешённ\w* список|список тем|блок темы|provide (the|a)|next segment|system prompt|as an ai|i (did|do) not|не получил|инструкци[яю] от/.test(st))return true;
+      if(/режисс[её]р|директив|сегмент[а-я]* (эфира|передачи)|следующ(его|ей|ему) сегмент|предоставьте|persona|разрешённ\w* список|список тем|блок темы|provide (the|a)|next segment|system prompt|as an ai|i (did|do) not|не получил|инструкци[яю] от/.test(st))return true;
+      // Model narrating its own limits / asking the listener for orders — never air this (Vova's screenshots).
+      if(/я не могу (определить|видеть|знать)|не в моих возможностях|у меня нет (подтвержд|информаци|данных)|дайте (мне )?команд|жду (вашей |ваших )?(команды|указани)|какой будет ваш|ваше указание|если вы хотите,? чтобы я продолжил|я готов продолж|перейду к следующ|не вижу дорог/.test(st))return true;
+      // Asking permission or listing the enabled topics like a menu — never air (Vova's screenshots).
+      if(/хотите,? чтобы я|хотите,? я (продолж|расскаж)|какая (тема )?вас интересует|из разрешённ|с новой темой|выберите тему|о чём вам рассказать|что вас интересует/.test(st))return true;
+      if(/(интересует|расскаж\w+).{0,60}(политик|криминал|военн|преступлени).{0,40}(или|либо).{0,40}(военн|истори|криминал|политик)/.test(st))return true;
       // Model dumping its own limitations / role instead of answering — Vova hates this.
       if(/spatial honesty|clarify my role|i'm positioned|confirmed (spatial )?database|what i can do|what i won't do|ground-truth|tour-guide host|i don't have a|i need to clarify/.test(st))return true;
       // A Russian broadcast that suddenly turns into a long English passage = leak of internal reasoning.
@@ -1267,7 +1273,7 @@ Reply ONLY valid JSON: {"story":"your segment in ${al}, 3-5 sentences, in the ${
     if(res&&isLeak(res.story)){
       let vtries=0;
       while(vtries<2&&isLeak(res.story)){
-        try{const retry=await doCall("\n\nВАЖНО: твой прошлый ответ был НЕ рассказом, а служебным текстом (упоминал режиссёра/директиву/список тем или просил тему). НИКОГДА так не делай. Выдай ТОЛЬКО готовый короткий рассказ в эфир, в JSON, без единого служебного слова. Если тему дать не можешь — просто расскажи любой правдивый интересный факт об этом районе.");
+        try{const retry=await doCall("\n\nВАЖНО: твой прошлый ответ был НЕ рассказом, а служебным текстом — ты жаловался, что не видишь дорогу/нет данных, перечислял темы или спрашивал разрешения. ТАК НИКОГДА НЕ ДЕЛАЙ. Ты живой радиоведущий, а не программа. Если про эту точку фактов мало — СМОТРИ СВЫСОКА: расскажи интересное шире — про этот край, штат, страну, или общечеловеческое по теме. Никаких «я не могу», «у меня нет данных», «хотите, чтобы я», никаких вопросов слушателю и перечисления тем. Просто ВЕДИ ЭФИР — выдай готовый живой рассказ в JSON.");
           if(retry.res&&retry.res.story){res=retry.res;txt=retry.txt;}else break;
         }catch{break;}
         vtries++;
@@ -1470,7 +1476,7 @@ Reply ONLY valid JSON: {"story":"your segment in ${al}, 3-5 sentences, in the ${
       prevPlaceRef.current=locDataRef.current.city||"";   // for "here" continuity next time
       setStatus("ready");startCd(3);
       prefetch();                       // start preparing the NEXT segment now, while this one is being spoken
-      if(storyText)await speak(storyText);
+      if(storyText){let w=0;while(speakingRef.current&&w<12000){await new Promise(r=>setTimeout(r,200));w+=200;}if(gen!==loopGenRef.current||!runRef.current||parkedRef.current)return;await speak(storyText);}
       if(gen!==loopGenRef.current||!runRef.current||parkedRef.current)return;
     }finally{
       loopBusyRef.current=false;
@@ -1581,14 +1587,14 @@ Reply ONLY valid JSON: {"story":"your segment in ${al}, 3-5 sentences, in the ${
     const everStarted=localStorage.getItem("rr_started");
     const hw=locDataRef.current.highway;const dir=toDirWord(coordsRef.current?.heading||90,langRef.current);
     const roadPart=hw?(isRu?` Едем по трассе ${hw} на ${dir}.`:` We're on ${hw} heading ${dir}.`):(isRu?` Едем на ${dir}.`:` Heading ${dir}.`);
-    const tagline=isRu?" Я расскажу всё самое интересное о местах, мимо которых вы едете. В настройках можно выбрать один из стилей ведущего и темы для эфира по этой местности. Приятного путешествия!":" I'll tell you the most interesting things about the places you pass. In settings you can choose a host style and the topics for the broadcast in this area. Enjoy the trip!";
+    const tagline=isRu?" В настройках — стили ведущего и темы. Поехали!":" Host styles and topics are in settings. Let's go!";
     const greet=everStarted
-      ?(isRu?`Вы снова на Дорожном Радио.${roadPart}${tagline}`:`You're back on Road Radio.${roadPart}${tagline}`)
-      :(isRu?`Здравствуйте, вы на Дорожном Радио.${roadPart}${tagline}`:`Hello, you're on Road Radio.${roadPart}${tagline}`);
+      ?(isRu?`С возвращением! Продолжаем эфир.${roadPart} Поехали дальше.`:`Welcome back! Let's keep rolling.${roadPart}`)
+      :(isRu?`Вы на Дорожном Радио.${roadPart}${tagline}`:`You're on Road Radio.${roadPart}${tagline}`);
     roadReminderRef.current=Date.now();
     localStorage.setItem("rr_started","1");localStorage.setItem("rr_review",String(Date.now()));setNeedsReview(false);
     const g=loopGenRef.current;
-    await speak(greet);
+    speak(greet); // don't await — let the first segment generate in parallel so start is fast
     if(runRef.current&&loopGenRef.current===g)loopRef.current?.(false,false);
   };
 
