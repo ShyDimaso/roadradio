@@ -289,7 +289,7 @@ body{font-family:'Inter',sans-serif;color:#fff;}
 const {useState,useRef,useEffect}=React;
 const PROXY="https://corsproxy.io/?https://api.anthropic.com/v1/messages";
 const KEY_STORE="rr_key_v3";
-const VER="v57";
+const VER="v58";
 
 const OPENERS_RU=["На этой земле...","Да, кстати...","Мало кто знает, но...","Справа от вас...","История этого края...","Сто лет назад здесь...","Тишина здесь обманчива...","Когда-то давно здесь...","Через пару миль...","Вот что примечательно..."];
 const OPENERS_EN=["On this land...","Here's something few know...","Just to your right...","The history here...","A hundred years ago...","Locals know that...","In a few miles...","What's remarkable is...","This stretch of highway...","Worth knowing..."];
@@ -505,6 +505,7 @@ function App(){
   const dirPlaylistRef=useRef([]);     // exhaustion queue: every enabled topic airs once before repeats
   const toldStoryIdsRef=useRef([]);    // semantic story-id slugs already aired (anti-paraphrase)
   const dirActiveTagsRef=useRef([]);   // subject+angle tags already aired recently
+  const expandNoticeShownRef=useRef(false); // one-time "expanding horizon" heads-up shown per place-session
   const toldFactsByPlaceRef=useRef({});// {placeKey: [core facts already told HERE]} — say big facts once per place
   const placeBlockCountRef=useRef({}); // {placeKey: how many blocks we've done at this place}
   const dirMoodRef=useRef("normal");   // mood of the next block
@@ -1179,6 +1180,11 @@ HARD: real facts under the fun stay TRUE; NEVER joke about road directions, turn
     if(stopped&&blocksHere>=6){
       parkFan=`\n\nМы давно стоим на месте и подробные факты тут почти исчерпаны. По СВОЕЙ НАЗНАЧЕННОЙ ТЕМЕ говори свободно из общих знаний об этом регионе — без сухих дат основания, живо и по-человечески. Тему не меняй.`;
     }
+    // One-time honest heads-up: when the local well is running dry, tell the listener like a real host.
+    if(stopped&&blocksHere===8&&!expandNoticeShownRef.current){
+      expandNoticeShownRef.current=true;
+      parkFan+=`\n\n‼ В ЭТОМ БЛОКЕ, по-человечески и коротко (1-2 фразы), тепло предупреди слушателя: мы уже прилично стоим на одном месте, близкие факты почти исчерпаны, так что дальше ты будешь потихоньку расширять горизонт по выбранным темам — захватывать соседние края и штат; а слушатель может задать вопрос или добавить темы в меню. Скажи это как живой ведущий, БЕЗ служебных слов, и тут же плавно продолжи рассказ шире.`;
+    }
 
     return`${styleBlock}
 
@@ -1196,7 +1202,9 @@ CORE RULES:
 4. ${samePlace?`You ALREADY named "${ld.city}". Say "здесь", "в этом месте" — do not re-introduce it.`:`New area — you may set the scene briefly.`}
 5. DON'T INVENT. If the ALLOWED topic genuinely has nothing real for this exact spot (e.g. no real films were shot here, no famous actor is from here), DON'T fabricate a vague "a few actors were born around here" — instead honestly pivot: say you don't have a confirmed film tie to this exact spot and give a real, concrete fact from the same topic about the broader region, or note it and move to the next allowed topic. Never make up names, titles, or specifics.
 6. SPATIAL HONESTY: Distances and sides (слева/справа/впереди/через N миль) may ONLY come from the code-confirmed list provided below the prompt. NEVER invent "через 2 мили", "в одной миле", "озеро слева" etc. A Wikipedia place is NOT a confirmed distance — for it say only "недалеко отсюда"/"в этих краях" with NO number and NO side. If you have no confirmed object, speak generally ("в этих краях", "в этой части штата") with no distance and no side. NEVER explain this rule out loud or mention "spatial honesty" / "database" — just follow it silently.
-6b. ‼ ЖЕЛЕЗНОЕ ПРАВИЛО: ты ЖИВОЙ радиоведущий в прямом эфире, а НЕ программа. ЗАПРЕЩЕНО: жаловаться «я не могу видеть дорогу / у меня нет данных / не подскажу объекты впереди», спрашивать разрешения «хотите, чтобы я…», перечислять слушателю темы на выбор, просить команду. Если про эту точку фактов мало — МОЛЧА СМОТРИ СВЫСОКА: поднимись масштабом (район → штат → страна → общечеловеческое по теме) и просто расскажи интересное. Слушатель никогда не должен слышать, что тебе чего-то «не хватает» — ты всегда ведёшь эфир уверенно.
+6b. ‼ ЖЕЛЕЗНОЕ ПРАВИЛО: ты ЖИВОЙ радиоведущий в прямом эфире, а НЕ программа. ЗАПРЕЩЕНО: жаловаться «я не могу видеть дорогу / у меня нет данных / не подскажу объекты впереди», спрашивать разрешения «хотите, чтобы я…», перечислять слушателю темы на выбор, просить команду. Если про эту точку фактов мало — МОЛЧА СМОТРИ СВЫСОКА: поднимись масштабом (район → штат → страна → общечеловеческое по теме) и просто расскажи интересное. Слушатель никогда не должен слышать, что тебе чего-то «не хватает» — ты всегда ведёшь эфир уверенно.${bm.id!=="funny"?`
+6c. ‼ БЕЗ ВЫДУМОК И ОТСЕБЯТИНЫ: говори ТОЛЬКО подтверждённые факты. ЗАПРЕЩЕНО сочинять бытовые сценки и «атмосферу»: «местные собираются вечерами», «здесь любят живую музыку», «горожане по выходным гуляют», «в кафе играет музыка», «жители гордятся» — если этого нет в фактах. Не выдумывай, чем люди тут занимаются, что чувствуют, как проводят вечера. Не знаешь — дай реальный исторический/документальный факт вместо придуманной картинки. Романтические догадки о быте — НЕ твоя работа.`:``}
+6d. РАСКРЫВАЙ ТЕМУ ШИРЕ: у любой темы огромная глубина — не липни к одному факту. Политика — это не только «столица», а современная жизнь штата, известные политики, как голосует регион, федеральный уровень. Так с каждой темой: копай разные грани, а не повторяй один якорный факт.
 7. ANTI-REPEAT — CRITICAL. You repeat yourself badly, even within 3 minutes. Do NOT restate a fact you've already given, even reworded, even from a new angle. Each segment must contain genuinely NEW information.
 8. MOVEMENT AWARENESS: The listener is travelling by: ${tmCtx}. ${ (toMph(c.speed)||0) < 3 ? `The driver is currently STOPPED/parked. Do NOT say "you're speeding along", "as you drive", "rushing past". Speak as to someone standing still here: "здесь, где вы остановились...", "в этом месте...".` : tm==="bike"?`On a bicycle — slower pace, closer to nature, mention things a cyclist would notice.`:tm==="walk"?`On foot — intimate pace, immediate surroundings.`:`Moving at about ${Math.round(toMph(c.speed)||0)} mph.` }
 9. НАЧАЛО СЕГМЕНТА (обязательно, без исключений): ${openerRule} Сразу переходи к сути, живым разговорным языком.
@@ -1575,7 +1583,7 @@ Reply ONLY valid JSON: {"story":"your segment in ${al}, 3-5 sentences, in the ${
     if(!c){setErr(lang==="ru"?"Нажмите автоопределение или введите координаты":"Tap auto-detect or enter coordinates");return;}
     coordsRef.current=c;setCoords(c);destRef.current=destination;
     runRef.current=true;histRef.current=[];nextRef.current=null;topicsUsedRef.current=[];saidFactsRef.current=[];bufferRef.current=[];recentStoriesRef.current=[];
-    dirTopicRef.current=null;dirCountRef.current=0;dirTargetRef.current=2;dirRecentTopicsRef.current=[];dirSummariesRef.current=[];toldStorylinesRef.current=[];toldFactsByPlaceRef.current={};placeBlockCountRef.current={};scopeIdxRef.current=-1;dirPlaylistRef.current=[];toldStoryIdsRef.current=[];dirActiveTagsRef.current=[];dirTopicStartRef.current=0;dirForceSwitchRef.current=false;lastIntroBcastRef.current=bcastRef.current;qaHistRef.current=[];
+    dirTopicRef.current=null;dirCountRef.current=0;dirTargetRef.current=2;dirRecentTopicsRef.current=[];dirSummariesRef.current=[];toldStorylinesRef.current=[];toldFactsByPlaceRef.current={};placeBlockCountRef.current={};scopeIdxRef.current=-1;dirPlaylistRef.current=[];toldStoryIdsRef.current=[];dirActiveTagsRef.current=[];expandNoticeShownRef.current=false;dirTopicStartRef.current=0;dirForceSwitchRef.current=false;lastIntroBcastRef.current=bcastRef.current;qaHistRef.current=[];
     openerIdx.current=0;stoppedSince.current=null;fuelWarnedRef.current=0;tourAckRef.current=false;
     loopBusyRef.current=false;loopGenRef.current++;        // fresh single generation
     parkedRef.current=false;pausedRef.current=false;setPaused(false);
