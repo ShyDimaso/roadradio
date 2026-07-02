@@ -289,7 +289,7 @@ body{font-family:'Inter',sans-serif;color:#fff;}
 const {useState,useRef,useEffect}=React;
 const PROXY="https://corsproxy.io/?https://api.anthropic.com/v1/messages";
 const KEY_STORE="rr_key_v3";
-const VER="v58";
+const VER="v59";
 
 const OPENERS_RU=["На этой земле...","Да, кстати...","Мало кто знает, но...","Справа от вас...","История этого края...","Сто лет назад здесь...","Тишина здесь обманчива...","Когда-то давно здесь...","Через пару миль...","Вот что примечательно..."];
 const OPENERS_EN=["On this land...","Here's something few know...","Just to your right...","The history here...","A hundred years ago...","Locals know that...","In a few miles...","What's remarkable is...","This stretch of highway...","Worth knowing..."];
@@ -1092,10 +1092,11 @@ Reply ONLY valid JSON: {"story":"your spoken answer in ${al}","location":"curren
       roadReminder=`\nROAD CHECK-IN: It's been a while — naturally work into THIS segment a brief reminder that we're driving on ${ld.highway} heading ${toDirWord(hdg,langRef.current)} (say the direction as a full word, never a letter).`;
       roadReminderRef.current=Date.now();
     }
-    // Major city / state capital ahead — mandatory short announce regardless of selected topics.
+    // Major city / state capital ahead — mandatory short announce, but ONLY when actually moving.
     let cityApproach="";
+    const movingNow=(toMph(c.speed)||0)>=3;
     const ca=cityAheadRef.current;
-    if(ca&&ca.miles<=20&&ca.name!==cityAnnouncedNameRef.current){
+    if(movingNow&&ca&&ca.miles<=20&&ca.name!==cityAnnouncedNameRef.current){
       cityApproach=`\n‼ ВПЕРЕДИ КРУПНЫЙ ГОРОД: примерно через ${Math.round(ca.miles)} миль будет ${ca.name}. Один раз, коротко (1-2 фразы), органично вставь: назови город и один-два факта, если знаешь. Больше про этот город заранее не напоминай.`;
       cityAnnouncedNameRef.current=ca.name;
     }
@@ -1221,6 +1222,7 @@ CURRENT POSITION (ground truth):
 - Temperature now: ${weatherRef.current?weatherRef.current.temp+"°F":"unknown"}${destCtx}${exCtx}${terrainCtx}
 - DO NOT describe what is visible out the window. You CANNOT see the road, terrain, forks, turns, fields, forests or scenery — never say "видите развилку", "дорога в полях", "впереди поворот", "вокруг леса". Talk only about facts of the PLACE (history, people, nature of the region, etc.), never about the live view.
 
+${stopped?`\n\n‼‼ СТАТУС: МАШИНА ПРИПАРКОВАНА. Водитель СТОИТ на месте в «${ld.city||"этом месте"}». Движения НЕТ. Никакой дороги впереди, никаких «проезжаем», «впереди по трассе», «следующий город», «дальше на дороге», «пока едем». Веди эфир как для стоящего на месте слушателя — спокойно, про ЭТО место и регион. Ты — уверенный местный радиоведущий, который знает про это место ВСЁ; у тебя НЕТ дефицита данных и никогда не бывает. Если по узкой теме мало — ты мгновенно и уверенно, будто так и задумано, переходишь на характер местных, погоду, природу, байки региона. Никаких извинений и жалоб на нехватку информации.`:`\n\nСТАТУС: машина в движении.`}
 ${nightCtx}${roadReminder}${cityApproach}${favsRef.current.length?`\n\n=== ЛИЧНЫЕ ПОЖЕЛАНИЯ СЛУШАТЕЛЯ (учитывай ОБЯЗАТЕЛЬНО, это его правила для эфира) ===\n${favsRef.current.map((f,i)=>`${i+1}. ${f}`).join("\n")}\n========================`:""}
 
 ALREADY SAID THIS DRIVE (never repeat): ${recentFacts||"nothing yet — first segment"}
@@ -1366,7 +1368,7 @@ Reply ONLY valid JSON: {"story":"your segment in ${al}, 3-5 sentences, in the ${
       // Fuel warning: occasionally check ahead; if the next station is far, the DJ warns instead of a normal segment.
       const cfgF=topicsCfgRef.current||{};
       const inTown=!!(locDataRef.current.city);
-      const canFuel=cfgF.fuel!==false&&travelRef.current==="car"&&!tourist&&!useNext&&!inTown;
+      const canFuel=cfgF.fuel!==false&&travelRef.current==="car"&&!tourist&&!useNext&&!inTown&&(toMph(c.speed)||0)>=3;
       const fuelDue=Date.now()-fuelWarnedRef.current>420000; // at most ~ every 7 min
       if(canFuel&&fuelDue){
         try{
@@ -1437,12 +1439,14 @@ Reply ONLY valid JSON: {"story":"your segment in ${al}, 3-5 sentences, in the ${
           }catch{}
         }
         // Precise spatial facts computed by code — the ONLY distances/sides the host may state.
-        const withGeo=pois.filter(p=>p.miles!=null).map(p=>`${p.name} (${p.miles.toFixed(1)} миль, ${p.side})`);
+        // When PARKED, suppress all "ahead/side" spatial data entirely — nothing is "ahead" when standing still.
+        const parkedNow=(toMph(c.speed)||0)<3;
+        const withGeo=parkedNow?[]:pois.filter(p=>p.miles!=null).map(p=>`${p.name} (${p.miles.toFixed(1)} миль, ${p.side})`);
         const noGeo=pois.filter(p=>p.miles==null).map(p=>p.name);
         let poiLine="";
         if(withGeo.length)poiLine+=`\nTHE ONLY confirmed nearby objects WITH distance/side you may state (use these exact distances/sides, never invent others): ${withGeo.join("; ")}.`;
         if(noGeo.length)poiLine+=`\nKnown in the general area (mention only generally, NO distance, NO side): ${noGeo.join(", ")}.`;
-        poiLine+=`\nIf an object is not in the list above, you MUST NOT say how far it is or which side it's on. No "через 2 мили", no "слева/справа" unless it came from the confirmed list.`;
+        if(!parkedNow)poiLine+=`\nIf an object is not in the list above, you MUST NOT say how far it is or which side it's on. No "через 2 мили", no "слева/справа" unless it came from the confirmed list.`;
         const styleReminder=`\n\n‼ FINAL AND MOST IMPORTANT — VOICE/PERSONA ‼\nWhatever the topic above, you MUST deliver it in this exact persona, and it must be unmistakable from the very first words:\n${bmReminder}\nIf your answer would read the same in any other persona, you FAILED. Make the persona obvious.`;
         try{res=await callClaude(sys+"\n\n"+directorText+poiLine+wikiBlock+styleReminder,"Produce ONLY the director's assigned block, IN PERSONA.",false);res._dirTopic=director.topicKey;
           // Semantic dedupe (Gemini): if this block's story-id repeats one we aired, retry ONCE with it banned.
