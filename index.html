@@ -289,7 +289,7 @@ body{font-family:'Inter',sans-serif;color:#fff;}
 const {useState,useRef,useEffect}=React;
 const PROXY="https://corsproxy.io/?https://api.anthropic.com/v1/messages";
 const KEY_STORE="rr_key_v3";
-const VER="v60";
+const VER="v61";
 
 const OPENERS_RU=["На этой земле...","Да, кстати...","Мало кто знает, но...","Справа от вас...","История этого края...","Сто лет назад здесь...","Тишина здесь обманчива...","Когда-то давно здесь...","Через пару миль...","Вот что примечательно..."];
 const OPENERS_EN=["On this land...","Here's something few know...","Just to your right...","The history here...","A hundred years ago...","Locals know that...","In a few miles...","What's remarkable is...","This stretch of highway...","Worth knowing..."];
@@ -506,6 +506,9 @@ function App(){
   const toldStoryIdsRef=useRef([]);    // semantic story-id slugs already aired (anti-paraphrase)
   const dirActiveTagsRef=useRef([]);   // subject+angle tags already aired recently
   const expandNoticeShownRef=useRef(false); // one-time "expanding horizon" heads-up shown per place-session
+  const allowExpandNoticeRef=useRef(false); // true ONLY during the single block where the heads-up is allowed
+  const fullCycleDoneRef=useRef(false);     // true once every enabled topic has aired at least once at this place
+  const fullCycleStartedRef=useRef(false);  // becomes true after first playlist fill
   const toldFactsByPlaceRef=useRef({});// {placeKey: [core facts already told HERE]} — say big facts once per place
   const placeBlockCountRef=useRef({}); // {placeKey: how many blocks we've done at this place}
   const dirMoodRef=useRef("normal");   // mood of the next block
@@ -935,6 +938,8 @@ function App(){
       // Refill & shuffle when empty or when the enabled set changed. This kills "half the topics never played".
       let pl=dirPlaylistRef.current.filter(k=>keys.includes(k));
       if(pl.length===0){
+        if(dirPlaylistRef.current.length>0||fullCycleStartedRef.current)fullCycleDoneRef.current=true; // a full pass just completed
+        fullCycleStartedRef.current=true;
         pl=[...keys];
         for(let i=pl.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[pl[i],pl[j]]=[pl[j],pl[i]];}
       }
@@ -1179,13 +1184,15 @@ HARD: real facts under the fun stay TRUE; NEVER joke about road directions, turn
     // within the assigned topic — it just frees the model from Wikipedia dates into its own knowledge.
     let parkFan="";
     if(stopped&&blocksHere>=6){
-      parkFan=`\n\nМы давно стоим на месте и подробные факты тут почти исчерпаны. По СВОЕЙ НАЗНАЧЕННОЙ ТЕМЕ говори свободно из общих знаний об этом регионе — без сухих дат основания, живо и по-человечески. Тему не меняй.`;
+      parkFan=`\n\n(Служебно, НЕ произносить вслух: по этой теме говори свободно из общих знаний о регионе, живо, без сухих дат основания. НЕ комментируй, что факты исчерпаны, НЕ говори, что расширяешь горизонт — просто молча рассказывай шире и интереснее.)`;
     }
-    // One-time honest heads-up: when the local well is running dry, tell the listener like a real host.
-    if(stopped&&blocksHere===8&&!expandNoticeShownRef.current){
+    // One-time honest heads-up: fires EXACTLY once, and ONLY after every enabled topic has already aired
+    // at this place (so we never claim "explored it all" while topics are still untouched).
+    if(stopped&&fullCycleDoneRef.current&&!expandNoticeShownRef.current){
       expandNoticeShownRef.current=true;
-      parkFan+=`\n\n‼ В ЭТОМ БЛОКЕ, по-человечески и коротко (1-2 фразы), тепло предупреди слушателя: мы уже прилично стоим на одном месте, близкие факты почти исчерпаны, так что дальше ты будешь потихоньку расширять горизонт по выбранным темам — захватывать соседние края и штат; а слушатель может задать вопрос или добавить темы в меню. Скажи это как живой ведущий, БЕЗ служебных слов, и тут же плавно продолжи рассказ шире.`;
-    }
+      allowExpandNoticeRef.current=true;
+      parkFan+=`\n\n‼ ТОЛЬКО В ЭТОМ ОДНОМ БЛОКЕ (больше это не повторится), одной короткой тёплой фразой намекни, что раз стоим давно — расскажешь и о соседних краях штата, и что слушатель может задать вопрос или добавить тему. Одна фраза, по-человечески, и сразу дальше по делу. НЕ извиняйся, НЕ говори «факты исчерпаны».`;
+    }else{allowExpandNoticeRef.current=false;}
 
     return`${styleBlock}
 
@@ -1206,6 +1213,9 @@ CORE RULES:
 6b. ‼ ЖЕЛЕЗНОЕ ПРАВИЛО: ты ЖИВОЙ радиоведущий в прямом эфире, а НЕ программа. ЗАПРЕЩЕНО: жаловаться на нехватку данных, спрашивать разрешения «хотите, чтобы я…», перечислять слушателю темы на выбор, просить команду. Если про эту точку фактов мало — МОЛЧА поднимись масштабом (район → штат → страна → общечеловеческое по теме) и просто расскажи интересное. Слушатель никогда не должен слышать, что тебе чего-то «не хватает» — ты всегда ведёшь эфир уверенно.${bm.id!=="funny"?`
 6c. ‼ БЕЗ ВЫДУМОК И ОТСЕБЯТИНЫ: говори ТОЛЬКО подтверждённые факты. ЗАПРЕЩЕНО сочинять бытовые сценки и «атмосферу»: «местные собираются вечерами», «здесь любят живую музыку», «горожане по выходным гуляют», «в кафе играет музыка», «жители гордятся» — если этого нет в фактах. Не выдумывай, чем люди тут занимаются, что чувствуют, как проводят вечера. Не знаешь — дай реальный исторический/документальный факт вместо придуманной картинки. Романтические догадки о быте — НЕ твоя работа.`:``}
 6d. РАСКРЫВАЙ ТЕМУ ШИРЕ: у любой темы огромная глубина — не липни к одному факту. Политика — это не только «столица», а современная жизнь штата, известные политики, как голосует регион, федеральный уровень. Так с каждой темой: копай разные грани, а не повторяй один якорный факт.
+6e. КОНКРЕТИКА ОБЯЗАТЕЛЬНА: упоминаешь человека — назови ИМЯ И ФАМИЛИЮ и что именно он сделал. Упоминаешь событие — назови ГОД (не «в конце прошлого века», а «в 1890-х» или «в 1887 году»). ЗАПРЕЩЕНО безымянно: «здесь вырос один человек, сыгравший роль», «жил известный политик» — кто именно? Если имени/года не знаешь точно — лучше возьми другой факт, который знаешь конкретно, чем говори туманно.
+6f. ЕСЛИ ПО ТЕМЕ ТУТ НЕЧЕГО СКАЗАТЬ (нет реальных фактов про эту зону по заданной теме) — НЕ выдумывай (не сочиняй уголовников, фильмы, события), и НЕ объявляй «про это тут нечего». Просто молча, без комментариев, расскажи по этой теме что-то честное в масштабе штата/страны, либо дай факт поинтереснее. Тишины и выдумок быть не должно.
+6g. СТАРШИНСТВО ФАКТОВ: самое главное — вперёд. Когда раскрываешь новое место, начинай с ГЛАВНОГО (кто и как основал, ключевая фигура, важнейшее событие), а мелочи и частности — потом. Нельзя начать с пустяка и лишь под конец вспомнить, благодаря кому вообще возникло это место. Но подавай это естественно, без пафоса и назойливости.
 7. ANTI-REPEAT — CRITICAL. You repeat yourself badly, even within 3 minutes. Do NOT restate a fact you've already given, even reworded, even from a new angle. Each segment must contain genuinely NEW information.
 8. MOVEMENT AWARENESS: The listener is travelling by: ${tmCtx}. ${ (toMph(c.speed)||0) < 3 ? `The driver is currently STOPPED/parked. Do NOT say "you're speeding along", "as you drive", "rushing past". Speak as to someone standing still here: "здесь, где вы остановились...", "в этом месте...".` : tm==="bike"?`On a bicycle — slower pace, closer to nature, mention things a cyclist would notice.`:tm==="walk"?`On foot — intimate pace, immediate surroundings.`:`Moving at about ${Math.round(toMph(c.speed)||0)} mph.` }
 9. НАЧАЛО СЕГМЕНТА (обязательно, без исключений): ${openerRule} Сразу переходи к сути, живым разговорным языком.
@@ -1271,6 +1281,8 @@ Reply ONLY valid JSON: {"story":"your segment in ${al}, 3-5 sentences, in the ${
       if(/я не могу (определить|видеть|знать)|не в моих возможностях|у меня нет (подтвержд|информаци|данных)|дайте (мне )?команд|жду (вашей |ваших )?(команды|указани)|какой будет ваш|ваше указание|если вы хотите,? чтобы я продолжил|я готов продолж|перейду к следующ|не вижу дорог/.test(st))return true;
       // Asking permission or listing the enabled topics like a menu — never air (Vova's screenshots).
       if(/хотите,? чтобы я|хотите,? я (продолж|расскаж)|какая (тема )?вас интересует|из разрешённ|с новой темой|выберите тему|о чём вам рассказать|что вас интересует/.test(st))return true;
+      // The "expanding horizon" heads-up became a parasite when repeated — allow it once (handled in code), kill repeats here.
+      if(/разворачива\w+ горизонт|расширя\w+ горизонт|захватыва\w+ соседние|ближайшие истории.{0,20}исчерпал|факты.{0,15}(почти )?исчерпал|я весь внимание|мы уже.{0,20}постояли/.test(st)&&!allowExpandNoticeRef.current)return true;
       if(/(интересует|расскаж\w+).{0,60}(политик|криминал|военн|преступлени).{0,40}(или|либо).{0,40}(военн|истори|криминал|политик)/.test(st))return true;
       // Model dumping its own limitations / role instead of answering — Vova hates this.
       if(/spatial honesty|clarify my role|i'm positioned|confirmed (spatial )?database|what i can do|what i won't do|ground-truth|tour-guide host|i don't have a|i need to clarify/.test(st))return true;
@@ -1587,7 +1599,7 @@ Reply ONLY valid JSON: {"story":"your segment in ${al}, 3-5 sentences, in the ${
     if(!c){setErr(lang==="ru"?"Нажмите автоопределение или введите координаты":"Tap auto-detect or enter coordinates");return;}
     coordsRef.current=c;setCoords(c);destRef.current=destination;
     runRef.current=true;histRef.current=[];nextRef.current=null;topicsUsedRef.current=[];saidFactsRef.current=[];bufferRef.current=[];recentStoriesRef.current=[];
-    dirTopicRef.current=null;dirCountRef.current=0;dirTargetRef.current=2;dirRecentTopicsRef.current=[];dirSummariesRef.current=[];toldStorylinesRef.current=[];toldFactsByPlaceRef.current={};placeBlockCountRef.current={};scopeIdxRef.current=-1;dirPlaylistRef.current=[];toldStoryIdsRef.current=[];dirActiveTagsRef.current=[];expandNoticeShownRef.current=false;dirTopicStartRef.current=0;dirForceSwitchRef.current=false;lastIntroBcastRef.current=bcastRef.current;qaHistRef.current=[];
+    dirTopicRef.current=null;dirCountRef.current=0;dirTargetRef.current=2;dirRecentTopicsRef.current=[];dirSummariesRef.current=[];toldStorylinesRef.current=[];toldFactsByPlaceRef.current={};placeBlockCountRef.current={};scopeIdxRef.current=-1;dirPlaylistRef.current=[];toldStoryIdsRef.current=[];dirActiveTagsRef.current=[];expandNoticeShownRef.current=false;allowExpandNoticeRef.current=false;fullCycleDoneRef.current=false;fullCycleStartedRef.current=false;dirTopicStartRef.current=0;dirForceSwitchRef.current=false;lastIntroBcastRef.current=bcastRef.current;qaHistRef.current=[];
     openerIdx.current=0;stoppedSince.current=null;fuelWarnedRef.current=0;tourAckRef.current=false;
     loopBusyRef.current=false;loopGenRef.current++;        // fresh single generation
     parkedRef.current=false;pausedRef.current=false;setPaused(false);
