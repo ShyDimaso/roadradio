@@ -289,7 +289,7 @@ body{font-family:'Inter',sans-serif;color:#fff;}
 const {useState,useRef,useEffect}=React;
 const PROXY="https://corsproxy.io/?https://api.anthropic.com/v1/messages";
 const KEY_STORE="rr_key_v3";
-const VER="v61";
+const VER="v62";
 
 const OPENERS_RU=["На этой земле...","Да, кстати...","Мало кто знает, но...","Справа от вас...","История этого края...","Сто лет назад здесь...","Тишина здесь обманчива...","Когда-то давно здесь...","Через пару миль...","Вот что примечательно..."];
 const OPENERS_EN=["On this land...","Here's something few know...","Just to your right...","The history here...","A hundred years ago...","Locals know that...","In a few miles...","What's remarkable is...","This stretch of highway...","Worth knowing..."];
@@ -1209,7 +1209,7 @@ CORE RULES:
 3. Each segment is SHORT — 3 to 5 sentences. Radio, not a lecture.
 4. ${samePlace?`You ALREADY named "${ld.city}". Say "здесь", "в этом месте" — do not re-introduce it.`:`New area — you may set the scene briefly.`}
 5. DON'T INVENT. If the ALLOWED topic genuinely has nothing real for this exact spot (e.g. no real films were shot here, no famous actor is from here), DON'T fabricate a vague "a few actors were born around here" — instead honestly pivot: say you don't have a confirmed film tie to this exact spot and give a real, concrete fact from the same topic about the broader region, or note it and move to the next allowed topic. Never make up names, titles, or specifics.
-6. ${stopped?`МАСШТАБ СТАТИКИ: ты рассказываешь о САМОМ этом месте и регионе вокруг как о статичном. Используй только пространственно-нейтральные привязки: «в этих краях», «в этом районе», «здесь», «на этой земле», «в этом штате». Если про саму точку фактов мало — свободно рассказывай о характере всего региона в целом.`:`SPATIAL HONESTY: Distances and sides (слева/справа/впереди/через N миль) may ONLY come from the code-confirmed list provided below the prompt. NEVER invent "через 2 мили", "в одной миле", "озеро слева" etc. A Wikipedia place is NOT a confirmed distance — for it say only "недалеко отсюда"/"в этих краях" with NO number and NO side. If you have no confirmed object, speak generally ("в этих краях", "в этой части штата") with no distance and no side. NEVER explain this rule out loud or mention "spatial honesty" / "database" — just follow it silently.`}
+6. ${stopped?`МАСШТАБ СТАТИКИ: ты рассказываешь о САМОМ этом месте и регионе вокруг как о статичном. Используй только пространственно-нейтральные привязки: «в этих краях», «в этом районе», «здесь», «на этой земле», «в этом штате». Если про саму точку фактов мало — свободно рассказывай о характере всего региона в целом.`:`ГЕОГРАФИЧЕСКАЯ ЧЕСТНОСТЬ: ты НЕ знаешь точных расстояний и направлений до объектов вокруг. НИКОГДА не называй мили и стороны («в полутора милях», «в двух милях на восток», «впереди справа», «увидите слева») — это всегда выдумка, ты не можешь этого знать. Говори только обобщённо: «в этих краях», «в этом районе», «недалеко». Исключение — заправки и крупный город впереди по маршруту, если их дистанция явно дана в тексте ниже. Больше НИКАКИХ чисел и сторон. Правило соблюдай молча, вслух его не упоминай.`}
 6b. ‼ ЖЕЛЕЗНОЕ ПРАВИЛО: ты ЖИВОЙ радиоведущий в прямом эфире, а НЕ программа. ЗАПРЕЩЕНО: жаловаться на нехватку данных, спрашивать разрешения «хотите, чтобы я…», перечислять слушателю темы на выбор, просить команду. Если про эту точку фактов мало — МОЛЧА поднимись масштабом (район → штат → страна → общечеловеческое по теме) и просто расскажи интересное. Слушатель никогда не должен слышать, что тебе чего-то «не хватает» — ты всегда ведёшь эфир уверенно.${bm.id!=="funny"?`
 6c. ‼ БЕЗ ВЫДУМОК И ОТСЕБЯТИНЫ: говори ТОЛЬКО подтверждённые факты. ЗАПРЕЩЕНО сочинять бытовые сценки и «атмосферу»: «местные собираются вечерами», «здесь любят живую музыку», «горожане по выходным гуляют», «в кафе играет музыка», «жители гордятся» — если этого нет в фактах. Не выдумывай, чем люди тут занимаются, что чувствуют, как проводят вечера. Не знаешь — дай реальный исторический/документальный факт вместо придуманной картинки. Романтические догадки о быте — НЕ твоя работа.`:``}
 6d. РАСКРЫВАЙ ТЕМУ ШИРЕ: у любой темы огромная глубина — не липни к одному факту. Политика — это не только «столица», а современная жизнь штата, известные политики, как голосует регион, федеральный уровень. Так с каждой темой: копай разные грани, а не повторяй один якорный факт.
@@ -1450,15 +1450,12 @@ Reply ONLY valid JSON: {"story":"your segment in ${al}, 3-5 sentences, in the ${
             }
           }catch{}
         }
-        // Precise spatial facts computed by code — the ONLY distances/sides the host may state.
-        // When PARKED, suppress all "ahead/side" spatial data entirely — nothing is "ahead" when standing still.
-        const parkedNow=(toMph(c.speed)||0)<3;
-        const withGeo=parkedNow?[]:pois.filter(p=>p.miles!=null).map(p=>`${p.name} (${p.miles.toFixed(1)} миль, ${p.side})`);
-        const noGeo=pois.filter(p=>p.miles==null).map(p=>p.name);
+        // Per Vova: distances-by-straight-line are unreliable and mislead ("1.5 mi east" for things
+        // actually downtown). Never state miles/side for POIs — mention them only as "in these parts".
+        const allPoiNames=pois.map(p=>p.name).filter(Boolean);
         let poiLine="";
-        if(withGeo.length)poiLine+=`\nTHE ONLY confirmed nearby objects WITH distance/side you may state (use these exact distances/sides, never invent others): ${withGeo.join("; ")}.`;
-        if(noGeo.length)poiLine+=`\nKnown in the general area (mention only generally, NO distance, NO side): ${noGeo.join(", ")}.`;
-        if(!parkedNow)poiLine+=`\nIf an object is not in the list above, you MUST NOT say how far it is or which side it's on. No "через 2 мили", no "слева/справа" unless it came from the confirmed list.`;
+        if(allPoiNames.length)poiLine+=`\nЕсть в этих краях (упоминай ТОЛЬКО обобщённо — «в этих краях», «в этом районе», БЕЗ каких-либо миль, БЕЗ сторон, БЕЗ «на восток/запад», без «впереди»): ${allPoiNames.slice(0,8).join(", ")}.`;
+        poiLine+=`\n‼ ТЫ НЕ ЗНАЕШЬ точных расстояний и направлений до объектов. НИКОГДА не говори «в полутора милях», «в двух милях на восток», «впереди справа». Если не уверен — просто «недалеко, в этих краях», без чисел и сторон.`;
         const styleReminder=`\n\n‼ FINAL AND MOST IMPORTANT — VOICE/PERSONA ‼\nWhatever the topic above, you MUST deliver it in this exact persona, and it must be unmistakable from the very first words:\n${bmReminder}\nIf your answer would read the same in any other persona, you FAILED. Make the persona obvious.`;
         try{res=await callClaude(sys+"\n\n"+directorText+poiLine+wikiBlock+styleReminder,"Produce ONLY the director's assigned block, IN PERSONA.",false);res._dirTopic=director.topicKey;
           // Semantic dedupe (Gemini): if this block's story-id repeats one we aired, retry ONCE with it banned.
