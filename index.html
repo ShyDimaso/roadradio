@@ -289,10 +289,10 @@ body{font-family:'Inter',sans-serif;color:#fff;}
 const {useState,useRef,useEffect}=React;
 const PROXY="https://corsproxy.io/?https://api.anthropic.com/v1/messages";
 const KEY_STORE="rr_key_v3";
-const VER="v66";
+const VER="v67";
 
-const OPENERS_RU=["На этой земле...","Да, кстати...","Мало кто знает, но...","Справа от вас...","История этого края...","Сто лет назад здесь...","Тишина здесь обманчива...","Когда-то давно здесь...","Через пару миль...","Вот что примечательно..."];
-const OPENERS_EN=["On this land...","Here's something few know...","Just to your right...","The history here...","A hundred years ago...","Locals know that...","In a few miles...","What's remarkable is...","This stretch of highway...","Worth knowing..."];
+const OPENERS_RU=["На этой земле...","Да, кстати...","Мало кто знает, но...","В этих краях...","История этого края...","Сто лет назад здесь...","Тишина здесь обманчива...","Когда-то давно здесь...","Недалеко отсюда...","Вот что примечательно..."];
+const OPENERS_EN=["On this land...","Here's something few know...","In these parts...","The history here...","A hundred years ago...","Locals know that...","Not far from here...","What's remarkable is...","This corner of the state...","Worth knowing..."];
 
 const TRAVEL=[{id:"car",icon:"🚗",en:"Car",ru:"Машина"},{id:"bus",icon:"🚌",en:"Bus/Train",ru:"Автобус"},{id:"bike",icon:"🚲",en:"Bike",ru:"Велосипед"},{id:"walk",icon:"🚶",en:"Walk",ru:"Пешком"}];
 const BCASTS=[
@@ -928,7 +928,7 @@ ${mustClose?`Заверши тему красиво, законченной мы
 НЕ ПЕРЕСКАКИВАЙ на эти темы сейчас: ${otherTopics.join("; ")||"—"}.
 Настроение: ${dirMoodRef.current}.
 УЖЕ СКАЗАННЫЕ СМЫСЛЫ (НЕ повторяй НИ ОДИН из них, даже другими словами, даже под другим углом, и НЕ противоречь им): ${summaries.length?summaries.join(" || "):"пока ничего"}.
-${coveredEnts.length?`ОБ ЭТОМ ТЫ УЖЕ ПОДРОБНО РАССКАЗАЛ — НЕ делай это снова главным героем блока, даже под новым углом: ${coveredEnts.join(", ")}. Возьми ДРУГУЮ тему/сущность, свежий поворот.`:``}
+${coveredEnts.length?`‼ ОБ ЭТОМ ТЫ УЖЕ РАССКАЗЫВАЛ — не делай это снова главным героем блока, даже другими словами: ${coveredEnts.join(", ")}. И НЕ ходи по кругу вокруг одной области (например всё время древности, окаменелости, мамонты, археология) — если прошлый блок был про это, сделай ЭТОТ про совсем другое: людей, современную жизнь, культуру, экономику, природу сегодня. Каждый блок — свежая грань.`:``}
 
 ЕСЛИ по этой теме про КОНКРЕТНУЮ точку фактов мало — НЕ говори «у меня нет данных», НЕ извиняйся, НЕ объявляй смену темы. Вместо этого ПОДНИМИСЬ МАСШТАБОМ, как камера вверх:
  • сначала про эту тему в рамках округа/района;
@@ -1083,7 +1083,7 @@ CORE RULES:
 3. Each segment is SHORT — 3 to 5 sentences. Radio, not a lecture.
 4. ${samePlace?`You ALREADY named "${ld.city}". Say "здесь", "в этом месте" — do not re-introduce it.`:`New area — you may set the scene briefly.`}
 5. DON'T INVENT. If the ALLOWED topic genuinely has nothing real for this exact spot (e.g. no real films were shot here, no famous actor is from here), DON'T fabricate a vague "a few actors were born around here" — instead honestly pivot: say you don't have a confirmed film tie to this exact spot and give a real, concrete fact from the same topic about the broader region, or note it and move to the next allowed topic. Never make up names, titles, or specifics.
-6. SPATIAL HONESTY: Distances and sides (слева/справа/впереди/через N миль) may ONLY come from the code-confirmed list provided below the prompt. NEVER invent "через 2 мили", "озеро слева" etc. If you have no confirmed object, speak generally ("в этих краях", "в этой части штата") with no distance and no side.
+6. РАССТОЯНИЯ И СТОРОНЫ: ты НЕ знаешь, в скольких милях и в какой стороне находятся объекты. НИКОГДА не называй мили и стороны: ни «в паре миль», ни «в полутора милях», ни «на восток», ни «справа», ни «впереди». Это всегда выдумка. Говори только «недалеко отсюда», «в этих краях», «в этом районе», «в этой части штата» — без чисел и без сторон. Соблюдай молча.
 7. ANTI-REPEAT — CRITICAL. You repeat yourself badly, even within 3 minutes. Do NOT restate a fact you've already given, even reworded, even from a new angle. Each segment must contain genuinely NEW information.${overused?` You OVERUSED these words — BANNED this segment: ${overused}.`:``}
 8. MOVEMENT AWARENESS: The listener is travelling by: ${tmCtx}. ${ (toMph(c.speed)||0) < 3 ? `The driver is currently STOPPED/parked. Do NOT say "you're speeding along", "as you drive", "rushing past". Speak as to someone standing still here: "здесь, где вы остановились...", "в этом месте...".` : tm==="bike"?`On a bicycle — slower pace, closer to nature, mention things a cyclist would notice.`:tm==="walk"?`On foot — intimate pace, immediate surroundings.`:`Moving at about ${Math.round(toMph(c.speed)||0)} mph.` }
 9. ENTRY TYPE for this segment (vary every time, never repeat the last one): ${["начни с вопроса","начни с даты или числа","начни с имени человека","начни с неожиданного факта","начни с короткой шутки","продолжи мысль прошлого блока","начни с живого образа, картинки","начни с маленькой детали и разверни её","начни со звука или запаха этого места","начни с действия — кто-то что-то делает"][Math.floor(Math.random()*10)]}. ABSOLUTELY BANNED as openers (and as filler anywhere): "Знаешь", "Знаете", "Слушай", "Слушайте", "Впереди", "Дальше", "А вот интересно", "посмотрите вокруг", "Казалось бы", "Как ни странно". Do not start segments with these. Just begin with the substance.
