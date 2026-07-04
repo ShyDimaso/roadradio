@@ -289,7 +289,7 @@ body{font-family:'Inter',sans-serif;color:#fff;}
 const {useState,useRef,useEffect}=React;
 const PROXY="https://corsproxy.io/?https://api.anthropic.com/v1/messages";
 const KEY_STORE="rr_key_v3";
-const VER="v65";
+const VER="v66";
 
 const OPENERS_RU=["На этой земле...","Да, кстати...","Мало кто знает, но...","Справа от вас...","История этого края...","Сто лет назад здесь...","Тишина здесь обманчива...","Когда-то давно здесь...","Через пару миль...","Вот что примечательно..."];
 const OPENERS_EN=["On this land...","Here's something few know...","Just to your right...","The history here...","A hundred years ago...","Locals know that...","In a few miles...","What's remarkable is...","This stretch of highway...","Worth knowing..."];
@@ -1301,13 +1301,11 @@ Reply ONLY valid JSON: {"story":"your segment in ${al}, 3-5 sentences, in the ${
             }
           }catch{}
         }
-        // Precise spatial facts computed by code — the ONLY distances/sides the host may state.
-        const withGeo=pois.filter(p=>p.miles!=null).map(p=>`${p.name} (${p.miles.toFixed(1)} миль, ${p.side})`);
-        const noGeo=pois.filter(p=>p.miles==null).map(p=>p.name);
-        let poiLine="";
-        if(withGeo.length)poiLine+=`\nTHE ONLY confirmed nearby objects WITH distance/side you may state (use these exact distances/sides, never invent others): ${withGeo.join("; ")}.`;
-        if(noGeo.length)poiLine+=`\nKnown in the general area (mention only generally, NO distance, NO side): ${noGeo.join(", ")}.`;
-        poiLine+=`\nIf an object is not in the list above, you MUST NOT say how far it is or which side it's on. No "через 2 мили", no "слева/справа" unless it came from the confirmed list.`;
+        // ANCHOR REMOVED (consilium of Gemini+GPT): feeding the model nearby POIs WITH distances made it
+        // fixate on the town's 3-4 landmarks (capitol/university) and invent "в паре миль". In open country
+        // there are no POIs, so the host roams the whole region freely — which was the GOOD broadcast.
+        // So: never hand over POIs-with-distances. Let the director's topic drive a WIDE regional story.
+        let poiLine="\n\n‼ ГОВОРИ ШИРОКО про весь край, регион и штат по своей теме — как будто ты паришь над картой. НЕ привязывайся к отдельным зданиям и достопримечательностям, НЕ перечисляй знаменитые объекты города по кругу. НИКОГДА не называй расстояния и стороны («в паре миль», «на восток», «впереди») — ты их не знаешь. Раскрывай тему через людей, историю края, природу, культуру, жизнь региона — разнообразно, меняя грани.";
         const styleReminder=`\n\n‼ FINAL AND MOST IMPORTANT — VOICE/PERSONA ‼\nWhatever the topic above, you MUST deliver it in this exact persona, and it must be unmistakable from the very first words:\n${bmReminder}\nIf your answer would read the same in any other persona, you FAILED. Make the persona obvious.`;
         try{res=await callClaude(sys+"\n\n"+directorText+poiLine+wikiBlock+styleReminder,"Produce ONLY the director's assigned block, IN PERSONA.",false);res._dirTopic=director.topicKey;}
         catch(e){
