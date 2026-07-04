@@ -274,12 +274,28 @@ body{font-family:'Inter',sans-serif;color:#fff;}
 <body>
 <div id="app"></div>
 <script>
-/* Register the real service worker file (relative path works under /roadradio/ on GitHub Pages). */
+/* SW KILLER (per GPT+Gemini): a stale service worker (old sw.js) was pinning an old cached version.
+   Unregister ALL service workers, delete ALL their caches, and reload ONCE so the fresh version wins.
+   Runs silently; after the one-time reload every future version updates normally. */
 (function(){
   if(!("serviceWorker" in navigator))return;
-  window.addEventListener("load",function(){
-    try{var sw="self.addEventListener(\u0027install\u0027,function(e){self.skipWaiting();});";var u=URL.createObjectURL(new Blob([sw],{type:"text/javascript"}));navigator.serviceWorker.register(u).catch(function(){});}catch(e){}
-  });
+  try{
+    navigator.serviceWorker.getRegistrations().then(function(regs){
+      var hadSW=regs&&regs.length>0;
+      var jobs=[];
+      regs.forEach(function(r){jobs.push(r.unregister());});
+      if(window.caches&&caches.keys){
+        jobs.push(caches.keys().then(function(keys){return Promise.all(keys.map(function(k){return caches.delete(k);}));}));
+      }
+      Promise.all(jobs).then(function(){
+        // Reload once (guarded by a sessionStorage flag so we never loop).
+        if(hadSW&&!sessionStorage.getItem("rr_sw_cleared")){
+          sessionStorage.setItem("rr_sw_cleared","1");
+          location.reload(true);
+        }
+      });
+    }).catch(function(){});
+  }catch(e){}
 })();
 </script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
@@ -289,7 +305,7 @@ body{font-family:'Inter',sans-serif;color:#fff;}
 const {useState,useRef,useEffect}=React;
 const PROXY="https://corsproxy.io/?https://api.anthropic.com/v1/messages";
 const KEY_STORE="rr_key_v3";
-const VER="v63";
+const VER="v64";
 
 const OPENERS_RU=["На этой земле...","Да, кстати...","Мало кто знает, но...","Справа от вас...","История этого края...","Сто лет назад здесь...","Тишина здесь обманчива...","Когда-то давно здесь...","Через пару миль...","Вот что примечательно..."];
 const OPENERS_EN=["On this land...","Here's something few know...","Just to your right...","The history here...","A hundred years ago...","Locals know that...","In a few miles...","What's remarkable is...","This stretch of highway...","Worth knowing..."];
