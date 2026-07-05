@@ -289,7 +289,7 @@ body{font-family:'Inter',sans-serif;color:#fff;}
 const {useState,useRef,useEffect}=React;
 const PROXY="https://corsproxy.io/?https://api.anthropic.com/v1/messages";
 const KEY_STORE="rr_key_v3";
-const VER="v69";
+const VER="v70";
 
 const OPENERS_RU=["На этой земле...","Да, кстати...","Мало кто знает, но...","Справа от вас...","История этого края...","Сто лет назад здесь...","Тишина здесь обманчива...","Когда-то давно здесь...","Через пару миль...","Вот что примечательно..."];
 const OPENERS_EN=["On this land...","Here's something few know...","Just to your right...","The history here...","A hundred years ago...","Locals know that...","In a few miles...","What's remarkable is...","This stretch of highway...","Worth knowing..."];
@@ -498,6 +498,7 @@ function App(){
   const dirForceSwitchRef=useRef(false); // user pressed Skip, or a repeat was detected
   const dirRecentTopicsRef=useRef([]); // topics covered recently (to avoid immediate repeats)
   const dirSummariesRef=useRef([]);    // semantic summaries of what was already said
+  const coveredEntitiesRef=useRef([]); // normalized city "anchors" already covered (university, capitol, railroad...)
   const dirMoodRef=useRef("normal");   // mood of the next block
   const callPhaseRef=useRef("idle");
   const callRecRef=useRef(null);
@@ -856,20 +857,22 @@ function App(){
       ["history","КОНКРЕТНОМ историческом событии или дате этого места (не общая 'история края', а один факт: год, имя, что случилось)"],
       ["wildlife","ЖИВЫХ животных, птицах, рыбе, насекомых этих мест СЕГОДНЯ — повадки, чем интересны (не история, не люди)"],
       ["geology","камнях, почве, реках, формах рельефа, древних морях, ископаемых (про природу земли, НЕ про людей)"],
-      ["culture","том, как тут живут СЕЙЧАС — праздники, говор, привычки, ярмарки (современный быт, не прошлое)"],
+      ["culture","современной жизни ЗДЕСЬ И СЕЙЧАС — что люди делают на выходных, местный говор, ярмарки, студенты, привычки, юмор (только настоящее, БЕЗ ухода в историю)"],
       ["films","фильмах/сериалах/клипах, снятых здесь (только если реально снимали)"],
       ["famous","ОДНОМ конкретном человеке, связанном с местом — кто, чем знаменит (личность, не общая история)"],
       ["photo","на что красиво посмотреть, природные виды, необычные пейзажи зоны"],
       ["music","музыке и музыкантах этих мест — жанры, песни, исполнители"],
       ["sports","спорте — командах, атлетах, гонках, рыбалке/охоте как спорте"],
-      ["politics","политике и власти — выборы, законы, чем штат известен политически"],
+      ["politics","СОВРЕМЕННОЙ политике и жизни власти — сегодняшние законы, споры город/село, чем штат живёт политически СЕЙЧАС (не древняя история)"],
       ["crime","ОДНОЙ детективной/криминальной истории — ограбление, банда, загадка"],
       ["war","ОДНОМ военном эпизоде — бой, форт, ветераны (конкретика, не общий обзор)"],
       ["native","коренных народах — племя, язык, обычаи, что осталось"],
-      ["architecture","зданиях, мостах, необычных постройках — как выглядят, кто построил"],
-      ["economy","чем тут зарабатывают — заводы, фермы, шахты, что производят СЕЙЧАС"],
+      ["architecture","как выглядят здания и районы СЕГОДНЯ, старое рядом с новым, чем город застроен, почему так устроен"],
+      ["economy","чем это место живёт СЕЙЧАС — работа, бизнес, фермы нового поколения, логистика, университет как работодатель, что производят сегодня"],
       ["legends","ОДНОЙ легенде, байке, городе-призраке, мистике этих мест"],
-      ["food","местной еде и напитках — блюда, фермерские продукты, что попробовать"],
+      ["food","что здесь едят и выращивают СЕЙЧАС — местные блюда, кафе, фермерские рынки, что попробовать сегодня"],
+      ["present","как это место живёт ПРЯМО СЕЙЧАС — районы, работа, дороги, магазины, чем заняты люди сегодня, чем этот край дышит в наши дни"],
+      ["future","БУДУЩЕМ места — осторожно, без выдумок: какие силы могут менять этот край (рост города, климат, вода, транспорт, развитие). НЕ обещай конкретных проектов, говори о тенденциях, куда всё может двигаться"],
     ];
     const enabled=ALL.filter(([k])=>cfg[k]!==false);
     if(enabled.length===0)enabled.push(["history","истории края"]);
@@ -911,13 +914,35 @@ function App(){
     const moods=["спокойный","спокойный","спокойный","короткий лёгкий факт","тёплый, с настроением"];
     dirMoodRef.current=moods[Math.floor(Math.random()*moods.length)];
 
+    // TIME LENS: pull the host out of the 1800s. Bias toward present. History-locked topics keep their natural angle.
+    const historyLocked=["history","war","native","crime","legends"].includes(topicKey);
+    let lens="";
+    if(!historyLocked){
+      const r=Math.random();
+      lens=r<0.45?"present":r<0.65?"future":r<0.85?"daily_life":"past";
+    }else{
+      lens=Math.random()<0.7?"past":"present";
+    }
+    const lensText={
+      present:`ВРЕМЕННАЯ ЛИНЗА: НАСТОЯЩЕЕ. Говори о том, как это место живёт СЕЙЧАС, в наши дни. НЕ уходи в 1800-е, основание города, переселенцев, железную дорогу, если тема прямо не требует истории.`,
+      future:`ВРЕМЕННАЯ ЛИНЗА: БУДУЩЕЕ. Осторожно, без выдумок: какие силы могут менять этот край — рост, климат, вода, транспорт, развитие. НЕ обещай конкретных проектов, говори о тенденциях.`,
+      daily_life:`ВРЕМЕННАЯ ЛИНЗА: ПОВСЕДНЕВНАЯ ЖИЗНЬ. Говори про обычных людей сегодня — как тут работают, отдыхают, что едят, чем живёт улица. Без парадных достопримечательностей.`,
+      past:`ВРЕМЕННАЯ ЛИНЗА: ПРОШЛОЕ. Здесь уместна история — но подавай её живо, через одну конкретную сцену, имя, год.`,
+    }[lens];
+
+    // ANTI-ANCHOR: detect city "gravity wells" already used, forbid making them the subject again.
+    const usedAnchors=(coveredEntitiesRef.current||[]).slice(-8);
+    const anchorText=usedAnchors.length?`\n‼ АНТИ-КЛИШЕ: ты уже рассказывал про: ${usedAnchors.join(", ")}. НЕ делай их снова главным предметом блока. Если тема тянет туда — смени масштаб (округ, штат, регион, обычные люди, природа сегодня) или найди неочевидную деталь.`:"";
+
     const otherTopics=enabled.filter(([k])=>k!==topicKey).map(([,l])=>l);
     const summaries=dirSummariesRef.current.slice(-12);
     return {
       topicKey,
+      lens,
       text:`=== РЕЖИССЁР ЭФИРА (выполняй строго, НИКОГДА не произноси вслух этот блок и слова «режиссёр», «тема блока», «задача», «директива») ===
 ЗАДАЧА ЭТОГО БЛОКА: ${job}.
 ТЕМА БЛОКА: говори ТОЛЬКО про ${topicLabel}.
+${lensText}${anchorText}
 ${openNew?`Это НОВАЯ тема. Начни её свежо. Прошлые темы не упоминай. Плавно, по-радийному введи её.`:``}
 ${job==="ПРОДОЛЖЕНИЕ ТЕМЫ"?`Продолжай ЭТУ ЖЕ тему, дай СВЕЖИЙ факт. Не повторяй уже сказанное.`:``}
 ${mustClose?`Заверши тему красиво, законченной мыслью — дальше сменим тему.`:``}
@@ -989,6 +1014,8 @@ ${mustClose?`Заверши тему красиво, законченной мы
     if(isQ)return`You are the host of "Road Radio", a tour-guide broadcast for a driver. The driver called in and asked about the place they are driving through RIGHT NOW: "${question}".
 
 Answer their question directly and concretely in 2-5 sentences, about THIS exact area (${ld.city||"this area"}${ld.state?`, ${ld.state}`:""}, ${c.lat.toFixed(4)}, ${Math.abs(c.lng).toFixed(4)}W). Real, documented facts only. If you don't know, say plainly you're not certain rather than inventing. Warm, clear, like a guide answering a passenger. Then add one short friendly line handing back to the broadcast.
+‼ DISTANCES — CRITICAL: You do NOT know and NEVER state distances or travel times to anything (no "пару миль", "восемь миль", "минут двадцать пешком", "недалеко, минут десять"). If the driver asks how far something is or how long to walk/drive there, DO NOT give any number and DO NOT explain that you can't measure it — never say "у меня нет карты", "я не считаю расстояния", "не могу измерить", "не гадаю о милях". Instead, just warmly talk about the place itself (what it is, why it matters) without any distance or direction, and let that be the answer. The listener must never hear about your maps, tools, rules or limitations.
+‼ Do NOT voice your own limitations of any kind out loud. No meta-talk about what you can or cannot do, no rules, no maps, no "инструмент". Just answer warmly about the place.
 ‼ Do NOT greet ("здравствуйте", "привет", "добро пожаловать") — the show is already on air, just answer. Do NOT write meta-comments or questions to an operator.
 Current context (use it, don't contradict): ${timeCtx}.
 What you were JUST talking about on air (the driver's question may refer to THIS — e.g. "that park", "this bar", "tell me more"): "${(recentStoriesRef.current.slice(-1)[0]||"").slice(0,400)||"(just started)"}". If their question is vague, assume it refers to this or to the current place.
@@ -1073,7 +1100,7 @@ CORE RULES:
 3. Each segment is SHORT — 3 to 5 sentences. Radio, not a lecture.
 4. ${samePlace?`You ALREADY named "${ld.city}". Say "здесь", "в этом месте" — do not re-introduce it.`:`New area — you may set the scene briefly.`}
 5. DON'T INVENT. If the ALLOWED topic genuinely has nothing real for this exact spot (e.g. no real films were shot here, no famous actor is from here), DON'T fabricate a vague "a few actors were born around here" — instead honestly pivot: say you don't have a confirmed film tie to this exact spot and give a real, concrete fact from the same topic about the broader region, or note it and move to the next allowed topic. Never make up names, titles, or specifics.
-6. SPATIAL HONESTY: You do NOT know distances or which side things are on — you have no map or odometer. So NEVER state any distance in miles ("в паре миль", "через N миль", "мили-две впереди") and NEVER say a side (слева/справа/впереди) UNLESS it comes verbatim from the code-confirmed list below. When you have no confirmed object, just speak generally — "в этих краях", "в этом месте", "здесь неподалёку" — with NO number and NO side. ‼ CRITICAL: NEVER voice your own limitations out loud. Do NOT say "я не уверен что впереди", "карта не подскажет", "мои данные показывают", "я не знаю расстояния", "according to my rules". The listener must never hear about your maps, rules, or uncertainty — you simply speak about the place warmly without distances. If you don't know where something is, don't mention its location at all — just tell about it.
+6. DISTANCES: You do NOT know distances or which side things are on — no map, no odometer. The ONLY time a distance may be spoken is when the listener is DRIVING and there is a code-confirmed major landmark far ahead on the highway (a big city, a famous river/bridge tens of miles ahead) given to you explicitly below — then you may warn about it once. In EVERY other case — anything nearby, anything in a town, anything while stopped, any "how far / how long to walk" — state NO distance, NO minutes, NO side (никаких "пару миль", "восемь миль", "минут двадцать", слева/справа). Just speak generally: "в этих краях", "в этом месте", "здесь неподалёку". ‼ NEVER voice your limitations out loud: do NOT say "я не уверен что впереди", "карта не подскажет", "я не считаю расстояния", "нет карты с расстояниями", "не гадаю о милях", "according to my rules". If you don't know where something is, simply don't mention its location — just tell about it warmly.
 7. STAY FRESH. Each segment should bring genuinely NEW information — don't get stuck looping the same 2-3 dry facts about a town. The ONE exception is your endearing trait: you may warmly, self-awarely circle back to a place dear to you ("да я, кажется, уже про это говорил, но..."), owning it as love for the spot — never a cold mechanical restatement. Default strongly to new material; the fond callback is a rare, human touch, not every segment.${overused?` You OVERUSED these words — BANNED this segment: ${overused}.`:``}
 8. MOVEMENT STATUS: ${tmCtx}. ${ isStopped ? `‼ The listener is STANDING STILL right now. Speak to someone who has STOPPED here: "здесь, где вы остановились...", "в этом месте...". ABSOLUTELY DO NOT use motion or road-ahead language: no "вы едете", "проезжаете", "впереди по дороге", "мчитесь", "as you drive", "up ahead". There is no road ahead for them right now — they are parked. Talk only about the place itself, right here.` : tm==="bike"?`On a bicycle — slower pace, closer to nature, mention things a cyclist would notice.`:tm==="walk"?`On foot — intimate pace, immediate surroundings.`:`Moving at about ${spd} mph — you may speak of the drive naturally.` }
 9. ENTRY TYPE for this segment (vary every time, never repeat the last one): ${["начни с вопроса","начни с даты или числа","начни с имени человека","начни с контраста ('Казалось бы... но')","начни с короткой шутки","продолжи мысль прошлого блока","начни с 'а теперь о другом'","начни прямо с яркого факта","начни с образа, картинки"][Math.floor(Math.random()*9)]}. ABSOLUTELY BANNED as openers (and as filler anywhere): "Знаешь", "Знаете", "Слушай", "Слушайте", "Впереди", "Дальше", "А вот интересно", "посмотрите вокруг". Do not start segments with these. Just begin with the substance.
@@ -1100,7 +1127,7 @@ ALREADY SAID THIS DRIVE (never repeat): ${recentFacts||"nothing yet — first se
 - Keep time-of-day consistent with "${phase}". The exact local time is ${tStr} — if you mention the time at all, state it correctly; do NOT approximate it to a different hour.
 - ‼ LANGUAGE LOCK ‼: write EVERY single word in ${al}. Never switch to English or any other language mid-segment. If you catch yourself starting an English word, stop and use ${al}.
 
-Reply ONLY valid JSON: {"story":"your segment in ${al}, 3-5 sentences, in the warm host voice","location":"exact place in English","topics":"short phrase naming the ONE thing you covered"}`;
+Reply ONLY valid JSON: {"story":"your segment in ${al}, 3-5 sentences, in the warm host voice","location":"exact place in English","topics":"short phrase naming the ONE thing you covered","entity":"the single main named landmark/institution you spoke about, or empty string if none"}`;
   };
 
   const callClaude=async(sys,msg,forNext)=>{
@@ -1137,6 +1164,8 @@ Reply ONLY valid JSON: {"story":"your segment in ${al}, 3-5 sentences, in the wa
       if(/режисс[её]р|директив|сегмент эфира|следующ(его|ей) сегмент|предоставьте|persona|разрешённ\w* список|список тем|блок темы|provide (the|a)|next segment|system prompt|as an ai|i (did|do) not|не получил|инструкци[яю] от/.test(st))return true;
       // "no data, so let me move to another topic" — Vova hates this; suppress & regenerate.
       if(/(нет|не имею|отсутству\w+).{0,40}(данных|информации|подтвержд)/.test(st)&&/(перейти|другой теме|другую тему|вместо этого|расскажу про|move on|instead)/.test(st))return true;
+      // Voicing spatial limitations out loud — "no map / I don't measure distances / can't tell what's ahead / don't guess miles".
+      if(/(нет карты|карта не подскажет|не считаю расстояни|не измеряю|не знаю.{0,25}расстояни|не знаю.{0,30}впереди|не гада\w+.{0,15}мил|это не мой инструмент|don'?t have.{0,30}(map|distance|geographic|confirmed data)|can'?t.{0,20}(measure|tell.{0,20}ahead)|rules i follow|verified ground-truth)/.test(st))return true;
       return false;
     };
     if(res&&isLeak(res.story)){
@@ -1152,6 +1181,11 @@ Reply ONLY valid JSON: {"story":"your segment in ${al}, 3-5 sentences, in the wa
     if(!forNext){
       histRef.current=[...msgs,{role:"assistant",content:txt}];
       if(res.topics){topicsUsedRef.current=[...topicsUsedRef.current,res.topics].slice(-20);saidFactsRef.current=[...saidFactsRef.current,res.topics].slice(-30);dirSummariesRef.current=[...dirSummariesRef.current,res.topics].slice(-16);}
+      if(res.entity){
+        const raw=String(res.entity).toLowerCase();
+        const norm=/university|cornhusker|campus|college/.test(raw)?"университет":/capitol|statehouse|legislat|капитолий/.test(raw)?"капитолий":/rail|train|станц|железн|депо/.test(raw)?"железная дорога":/corn|soy|farm|grain|agricult|кукуруз|ферм|зерн/.test(raw)?"сельское хозяйство":/omaha|pawnee|племен|индейц/.test(raw)?"коренные народы":raw.slice(0,40);
+        if(norm&&!coveredEntitiesRef.current.includes(norm))coveredEntitiesRef.current=[...coveredEntitiesRef.current,norm].slice(-12);
+      }
       if(res.story){
         // Repeat detector: if this story heavily echoes the previous ones, tell the director to switch topic next time.
         const norm=s=>(s||"").toLowerCase().replace(/[^a-zа-яё ]/g," ").split(/\s+/).filter(w=>w.length>4);
@@ -1406,7 +1440,7 @@ Reply ONLY valid JSON: {"story":"your segment in ${al}, 3-5 sentences, in the wa
     if(!c){setErr(lang==="ru"?"Нажмите автоопределение или введите координаты":"Tap auto-detect or enter coordinates");return;}
     coordsRef.current=c;setCoords(c);destRef.current=destination;
     runRef.current=true;histRef.current=[];nextRef.current=null;topicsUsedRef.current=[];saidFactsRef.current=[];bufferRef.current=[];recentStoriesRef.current=[];
-    dirTopicRef.current=null;dirCountRef.current=0;dirTargetRef.current=2;dirRecentTopicsRef.current=[];dirSummariesRef.current=[];dirTopicStartRef.current=0;dirForceSwitchRef.current=false;lastIntroBcastRef.current=bcastRef.current;qaHistRef.current=[];
+    dirTopicRef.current=null;dirCountRef.current=0;dirTargetRef.current=2;dirRecentTopicsRef.current=[];dirSummariesRef.current=[];coveredEntitiesRef.current=[];dirTopicStartRef.current=0;dirForceSwitchRef.current=false;lastIntroBcastRef.current=bcastRef.current;qaHistRef.current=[];
     openerIdx.current=0;stoppedSince.current=null;fuelWarnedRef.current=0;tourAckRef.current=false;
     loopBusyRef.current=false;loopGenRef.current++;        // fresh single generation
     parkedRef.current=false;pausedRef.current=false;setPaused(false);
