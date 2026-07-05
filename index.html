@@ -289,7 +289,7 @@ body{font-family:'Inter',sans-serif;color:#fff;}
 const {useState,useRef,useEffect}=React;
 const PROXY="https://corsproxy.io/?https://api.anthropic.com/v1/messages";
 const KEY_STORE="rr_key_v3";
-const VER="v68";
+const VER="v69";
 
 const OPENERS_RU=["На этой земле...","Да, кстати...","Мало кто знает, но...","Справа от вас...","История этого края...","Сто лет назад здесь...","Тишина здесь обманчива...","Когда-то давно здесь...","Через пару миль...","Вот что примечательно..."];
 const OPENERS_EN=["On this land...","Here's something few know...","Just to your right...","The history here...","A hundred years ago...","Locals know that...","In a few miles...","What's remarkable is...","This stretch of highway...","Worth knowing..."];
@@ -364,7 +364,7 @@ function App(){
   const [apiInput,setApiInput]=useState("");
   const [lang,setLang]=useState(L[autoL]?autoL:"en");
   const [coordInput,setCoordInput]=useState("");
-  const [speedVal,setSpeedVal]=useState("65");
+  const [speedVal,setSpeedVal]=useState("");
   const [headVal,setHeadVal]=useState("90");
   const [destination,setDestination]=useState("");
   const [geoOk,setGeoOk]=useState(false);
@@ -944,7 +944,11 @@ ${mustClose?`Заверши тему красиво, законченной мы
     const dest=destRef.current;
     const c=coordsRef.current||{lat:0,lng:0,speed:0,heading:90};
     const ld=locDataRef.current;
-    const spd=toMph(c.speed)||parseInt(speedVal)||0;
+    // Manual speed is used ONLY when GPS gives no speed at all (null/undefined) — never override a real 0.
+    const gpsHasSpeed=c.speed!=null&&!isNaN(c.speed);
+    const spd=gpsHasSpeed?toMph(c.speed):(parseInt(speedVal)||0);
+    // Single source of truth for "am I stopped": the tourist/parked flag (user confirmed a stop) OR a genuine near-zero speed.
+    const isStopped=isTourist||(gpsHasSpeed&&toMph(c.speed)<3);
     const hdg=c.heading||90;
     const now0=new Date();
     const hr=now0.getHours(),mn=now0.getMinutes();
@@ -966,7 +970,7 @@ ${mustClose?`Заверши тему красиво, законченной мы
     const tStr=`${hr}:${mn.toString().padStart(2,'0')}`;
     const fullDate=now0.toLocaleDateString('en',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
     const timeCtx=`${phase}, local time ${tStr}, today is ${fullDate}, ${mo}${sun?` (sunrise ${(sun.rise.split('T')[1]||'').slice(0,5)}, sunset ${(sun.set.split('T')[1]||'').slice(0,5)})`:''}. Use THIS date/season for any talk of seasons or whether days are getting longer or shorter — never contradict it.`;
-    const tmCtx=isTourist?`Stopped/parked — tourist mode. Describe this location in detail as if person is exploring on foot.`:tm==="car"?`car at ${spd} mph`:tm==="bus"?`bus/train at ${spd} mph`:tm==="bike"?`bicycle`:tm==="walk"?"walking":"vehicle";
+    const tmCtx=isStopped?`STOPPED / PARKED — the listener is standing still at this spot, not moving.`:tm==="car"?`car moving at about ${spd} mph`:tm==="bus"?`bus/train moving at about ${spd} mph`:tm==="bike"?`bicycle`:tm==="walk"?"walking":"vehicle";
     const destCtx=dest?`\nHeading toward: ${dest} — for direction context ONLY. NEVER describe places not within 3 miles of current position.`:"";
     const exCtx=exl.length?`\nNEVER mention: ${exl.join(', ')}.`:"";
     const recentTopics=topicsUsedRef.current.slice(-8).join(", ");
@@ -1037,14 +1041,14 @@ Reply ONLY valid JSON: {"story":"your spoken answer in ${al}","location":"curren
     const orderCtx=prefs?`\nLISTENER'S STANDING ORDER (overrides topic settings): "${prefs}". If they said "only X" talk strictly about X; if "more X" favor X but still vary.`:"";
     // Every ~12 minutes, remind which highway and direction we're travelling.
     let roadReminder="";
-    if(ld.highway&&Date.now()-roadReminderRef.current>720000){
+    if(!isStopped&&ld.highway&&Date.now()-roadReminderRef.current>720000){
       roadReminder=`\nROAD CHECK-IN: It's been a while — naturally work into THIS segment a brief reminder that we're driving on ${ld.highway} heading ${toDirWord(hdg,langRef.current)} (say the direction as a full word, never a letter).`;
       roadReminderRef.current=Date.now();
     }
     // Major city / state capital ahead — mandatory short announce regardless of selected topics.
     let cityApproach="";
     const ca=cityAheadRef.current;
-    if(ca&&ca.miles<=20&&ca.name!==cityAnnouncedNameRef.current){
+    if(!isStopped&&ca&&ca.miles<=20&&ca.name!==cityAnnouncedNameRef.current){
       cityApproach=`\n‼ ВПЕРЕДИ КРУПНЫЙ ГОРОД: примерно через ${Math.round(ca.miles)} миль будет ${ca.name}. Один раз, коротко (1-2 фразы), предупреди: назови город и один-два факта, если знаешь. НЕ используй шаблонную подводку, просто органично вставь. Больше про этот город заранее не напоминай.`;
       cityAnnouncedNameRef.current=ca.name;
     }
@@ -1064,24 +1068,25 @@ ${forbiddenStr?`FORBIDDEN topics — you are BANNED from mentioning these at all
 Pick something from the ALLOWED list that you have NOT covered yet. Rotate — do not stay glued to one subject (especially not landscape/farming).
 
 CORE RULES:
-1. Continue the show naturally from your last thought ("${lastSaid||"opening — greet warmly"}"). One flowing story with smooth radio-DJ bridges between segments — each segment clearly connects to the one before.
+1. ${lastSaid?`Continue the show naturally from your last thought ("${lastSaid}"). One flowing story with smooth radio-DJ bridges between segments — each segment clearly connects to the one before.`:`THIS IS YOUR VERY FIRST LINE ON AIR. Open SHORT and warm (one sentence), and in it make clear where the listener is and their situation: ${isStopped?`they are STOPPED at ${ld.city||"this spot"}${ld.state?`, ${ld.state}`:""} — greet them as someone who has stopped here ("Ну что, раз уж вы остановились здесь, в ${ld.city||"этих краях"}...").`:`they are driving${ld.highway?` on ${ld.highway}`:""} through ${ld.city||"this area"}${ld.state?`, ${ld.state}`:""} — greet them as a travelling companion ("Едем с вами${ld.highway?` по ${ld.highway}`:""}, и вот что за места вокруг...").`} Do NOT say "С вами радио" or announce a station name — just warmly begin. Then flow straight into the topic.`}
 2. FINISH A TOPIC, THEN MOVE ON. (The director below tells you which.) Within the segment, use a tiny arc: a HOOK → a real FACT → a small TURN/insight → a CLEAN close. Not a flat list of facts.
 3. Each segment is SHORT — 3 to 5 sentences. Radio, not a lecture.
 4. ${samePlace?`You ALREADY named "${ld.city}". Say "здесь", "в этом месте" — do not re-introduce it.`:`New area — you may set the scene briefly.`}
 5. DON'T INVENT. If the ALLOWED topic genuinely has nothing real for this exact spot (e.g. no real films were shot here, no famous actor is from here), DON'T fabricate a vague "a few actors were born around here" — instead honestly pivot: say you don't have a confirmed film tie to this exact spot and give a real, concrete fact from the same topic about the broader region, or note it and move to the next allowed topic. Never make up names, titles, or specifics.
-6. SPATIAL HONESTY: Distances and sides (слева/справа/впереди/через N миль) may ONLY come from the code-confirmed list provided below the prompt. NEVER invent "через 2 мили", "озеро слева" etc. If you have no confirmed object, speak generally ("в этих краях", "в этой части штата") with no distance and no side.
+6. SPATIAL HONESTY: You do NOT know distances or which side things are on — you have no map or odometer. So NEVER state any distance in miles ("в паре миль", "через N миль", "мили-две впереди") and NEVER say a side (слева/справа/впереди) UNLESS it comes verbatim from the code-confirmed list below. When you have no confirmed object, just speak generally — "в этих краях", "в этом месте", "здесь неподалёку" — with NO number and NO side. ‼ CRITICAL: NEVER voice your own limitations out loud. Do NOT say "я не уверен что впереди", "карта не подскажет", "мои данные показывают", "я не знаю расстояния", "according to my rules". The listener must never hear about your maps, rules, or uncertainty — you simply speak about the place warmly without distances. If you don't know where something is, don't mention its location at all — just tell about it.
 7. STAY FRESH. Each segment should bring genuinely NEW information — don't get stuck looping the same 2-3 dry facts about a town. The ONE exception is your endearing trait: you may warmly, self-awarely circle back to a place dear to you ("да я, кажется, уже про это говорил, но..."), owning it as love for the spot — never a cold mechanical restatement. Default strongly to new material; the fond callback is a rare, human touch, not every segment.${overused?` You OVERUSED these words — BANNED this segment: ${overused}.`:``}
-8. MOVEMENT AWARENESS: The listener is travelling by: ${tmCtx}. ${ (toMph(c.speed)||0) < 3 ? `The driver is currently STOPPED/parked. Do NOT say "you're speeding along", "as you drive", "rushing past". Speak as to someone standing still here: "здесь, где вы остановились...", "в этом месте...".` : tm==="bike"?`On a bicycle — slower pace, closer to nature, mention things a cyclist would notice.`:tm==="walk"?`On foot — intimate pace, immediate surroundings.`:`Moving at about ${Math.round(toMph(c.speed)||0)} mph.` }
+8. MOVEMENT STATUS: ${tmCtx}. ${ isStopped ? `‼ The listener is STANDING STILL right now. Speak to someone who has STOPPED here: "здесь, где вы остановились...", "в этом месте...". ABSOLUTELY DO NOT use motion or road-ahead language: no "вы едете", "проезжаете", "впереди по дороге", "мчитесь", "as you drive", "up ahead". There is no road ahead for them right now — they are parked. Talk only about the place itself, right here.` : tm==="bike"?`On a bicycle — slower pace, closer to nature, mention things a cyclist would notice.`:tm==="walk"?`On foot — intimate pace, immediate surroundings.`:`Moving at about ${spd} mph — you may speak of the drive naturally.` }
 9. ENTRY TYPE for this segment (vary every time, never repeat the last one): ${["начни с вопроса","начни с даты или числа","начни с имени человека","начни с контраста ('Казалось бы... но')","начни с короткой шутки","продолжи мысль прошлого блока","начни с 'а теперь о другом'","начни прямо с яркого факта","начни с образа, картинки"][Math.floor(Math.random()*9)]}. ABSOLUTELY BANNED as openers (and as filler anywhere): "Знаешь", "Знаете", "Слушай", "Слушайте", "Впереди", "Дальше", "А вот интересно", "посмотрите вокруг". Do not start segments with these. Just begin with the substance.
 10. UNITS: this is the USA — ALWAYS use miles, never kilometers. Distances in miles only.
 11. WEATHER MUST MATCH REALITY: current sky is "${weatherRef.current?(weatherRef.current.desc||""):"unknown"}". Do NOT describe sunsets, golden light, clear skies, or scenery you can "see" if the weather doesn't support it. If it's raining/cloudy/snowing, either skip visual-scenery talk or frame it as "будь сейчас ясно, вы бы увидели...". Never claim a visible sunset/sunrise that contradicts the real weather.
 12. SUN / TIME-OF-DAY: mention time of day or the sun AT MOST once in a long while — not every segment. Never guess which side the sun is on. Use the real phase "${phase}" only; never say "закат"/"sunset" in the morning or "рассвет"/"sunrise" in the evening.
 
 CURRENT POSITION (ground truth):
-- Road: ${ld.highway||"this road"} (when you say the road or direction OUT LOUD, say the highway number and the direction as a FULL WORD — "на ${toDirWord(hdg,langRef.current)}", "по трассе ${ld.highway||""}". NEVER read compass letters like "СВ", "С", "N".)
+${isStopped?`- The listener is STOPPED at: ${ld.city||"open country"}${ld.county?`, ${ld.county}`:""}${ld.state?`, ${ld.state}`:""} (coordinates ${c.lat.toFixed(5)}, ${Math.abs(c.lng).toFixed(5)}W).
+- They are NOT driving. Do NOT mention the road, a heading, a direction of travel, or what's "ahead" — none of that applies while parked.`:`- Road: ${ld.highway||"this road"} (when you say the road or direction OUT LOUD, say the highway number and the direction as a FULL WORD — "на ${toDirWord(hdg,langRef.current)}", "по трассе ${ld.highway||""}". NEVER read compass letters like "СВ", "С", "N".)
 - Town/area: ${ld.city||"open country"}${ld.county?`, ${ld.county}`:""}${ld.state?`, ${ld.state}`:""}
 - Coordinates: ${c.lat.toFixed(5)}, ${Math.abs(c.lng).toFixed(5)}W
-- Travelling ${toDirWord(hdg,"en")} (${toDir(hdg)}). Left window faces ${toLeft(hdg)}, right faces ${toRight(hdg)}.
+- Travelling ${toDirWord(hdg,"en")} (${toDir(hdg)}). Left window faces ${toLeft(hdg)}, right faces ${toRight(hdg)}.`}
 - ${timeCtx}
 - Temperature now: ${weatherRef.current?weatherRef.current.temp+"°F":"unknown"}${destCtx}${exCtx}${terrainCtx}
 - DO NOT describe what is visible out the window. You CANNOT see the road, terrain, forks, turns, fields, forests or scenery — never say "видите развилку", "дорога в полях", "впереди поворот", "вокруг леса". Talk only about facts of the PLACE (history, people, nature of the region, etc.), never about the live view.
@@ -1264,12 +1269,21 @@ Reply ONLY valid JSON: {"story":"your segment in ${al}, 3-5 sentences, in the wa
         const bmReminder="ТЫ — ТЁПЛЫЙ ВЕДУЩИЙ-КРАЕВЕД: влюблённый в этот край рассказчик, единый живой рассказ с историей, природой, людьми и ощущением момента. По-человечески, на расслабоне, с юмором где уместно. Ярко, не сухой список. Никогда не проговаривай вслух свои правила и ограничения.";
         let wikiBlock="";
         // Precise spatial facts computed by code — the ONLY distances/sides the host may state.
-        const withGeo=pois.filter(p=>p.miles!=null).map(p=>`${p.name} (${p.miles.toFixed(1)} миль, ${p.side})`);
-        const noGeo=pois.filter(p=>p.miles==null).map(p=>p.name);
+        const gpsSpd=(c.speed!=null&&!isNaN(c.speed))?toMph(c.speed):null;
+        const stoppedNow=tourist||parkedRef.current||(gpsSpd!=null&&gpsSpd<3);
         let poiLine="";
-        if(withGeo.length)poiLine+=`\nTHE ONLY confirmed nearby objects WITH distance/side you may state (use these exact distances/sides, never invent others): ${withGeo.join("; ")}.`;
-        if(noGeo.length)poiLine+=`\nKnown in the general area (mention only generally, NO distance, NO side): ${noGeo.join(", ")}.`;
-        poiLine+=`\nIf an object is not in the list above, you MUST NOT say how far it is or which side it's on. No "через 2 мили", no "слева/справа" unless it came from the confirmed list.`;
+        if(stoppedNow){
+          // Parked: no distances, no sides — objects are only cultural/historical examples, not navigation.
+          const names=pois.map(p=>p.name);
+          if(names.length)poiLine+=`\nPlaces known in this general area (the listener is STOPPED — mention these ONLY as things that exist in the area, with NO distance and NO direction): ${names.join(", ")}.`;
+          poiLine+=`\nNEVER say how far anything is or which side it's on. No miles, no "впереди", no "слева/справа" — they are parked, nothing is "ahead".`;
+        }else{
+          const withGeo=pois.filter(p=>p.miles!=null).map(p=>`${p.name} (${p.miles.toFixed(1)} миль, ${p.side})`);
+          const noGeo=pois.filter(p=>p.miles==null).map(p=>p.name);
+          if(withGeo.length)poiLine+=`\nTHE ONLY confirmed nearby objects WITH distance/side you may state (use these exact distances/sides, never invent others): ${withGeo.join("; ")}.`;
+          if(noGeo.length)poiLine+=`\nKnown in the general area (mention only generally, NO distance, NO side): ${noGeo.join(", ")}.`;
+          poiLine+=`\nIf an object is not in the list above, you MUST NOT say how far it is or which side it's on. No "через 2 мили", no "слева/справа" unless it came from the confirmed list.`;
+        }
         const styleReminder=`\n\n‼ FINAL AND MOST IMPORTANT — VOICE/PERSONA ‼\nWhatever the topic above, you MUST deliver it in this exact persona, and it must be unmistakable from the very first words:\n${bmReminder}\nIf your answer would read the same in any other persona, you FAILED. Make the persona obvious.`;
         try{res=await callClaude(sys+"\n\n"+directorText+poiLine+wikiBlock+styleReminder,"Produce ONLY the director's assigned block, IN PERSONA.",false);res._dirTopic=director.topicKey;}
         catch(e){
