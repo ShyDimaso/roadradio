@@ -289,7 +289,7 @@ body{font-family:'Inter',sans-serif;color:#fff;}
 const {useState,useRef,useEffect}=React;
 const PROXY="https://corsproxy.io/?https://api.anthropic.com/v1/messages";
 const KEY_STORE="rr_key_v3";
-const VER="v73";
+const VER="v75";
 
 const OPENERS_RU=["На этой земле...","Да, кстати...","Мало кто знает, но...","Справа от вас...","История этого края...","Сто лет назад здесь...","Тишина здесь обманчива...","Когда-то давно здесь...","Через пару миль...","Вот что примечательно..."];
 const OPENERS_EN=["On this land...","Here's something few know...","Just to your right...","The history here...","A hundred years ago...","Locals know that...","In a few miles...","What's remarkable is...","This stretch of highway...","Worth knowing..."];
@@ -854,34 +854,32 @@ function App(){
   const directNextBlock=()=>{
     const cfg=topicsCfgRef.current||{};
     const ALL=[
-      ["history","КОНКРЕТНОМ историческом событии или дате этого места (не общая 'история края', а один факт: год, имя, что случилось)"],
-      ["wildlife","ЖИВЫХ животных, птицах, рыбе, насекомых этих мест СЕГОДНЯ — повадки, чем интересны (не история, не люди)"],
-      ["geology","камнях, почве, реках, формах рельефа, древних морях, ископаемых (про природу земли, НЕ про людей)"],
-      ["culture","современной жизни ЗДЕСЬ И СЕЙЧАС — что люди делают на выходных, местный говор, ярмарки, студенты, привычки, юмор (только настоящее, БЕЗ ухода в историю)"],
-      ["films","фильмах/сериалах/клипах, снятых здесь (только если реально снимали)"],
-      ["famous","ОДНОМ конкретном человеке, связанном с местом — кто, чем знаменит (личность, не общая история)"],
-      ["photo","на что красиво посмотреть, природные виды, необычные пейзажи зоны"],
+      ["history","КОНКРЕТНОМ событии, дате или эпизоде прошлого этих мест — включая войны, форты, основание (один факт: год, имя, что случилось, живая сцена)"],
+      ["native","коренных народах этих земель — племя, язык, обычаи, что осталось сегодня"],
+      ["land","земле и природе — рельеф, реки, каньоны, древние моря, ископаемые, И на что здесь красиво посмотреть, необычные виды"],
+      ["wildlife","ЖИВЫХ животных, птицах, рыбе этих мест СЕГОДНЯ — повадки, чем интересны"],
+      ["water","воде этих мест — реки, озёра, водопады, где купаются и рыбачат, чем знаменита местная вода"],
+      ["people","ОДНОМ конкретном человеке, связанном с местом — кто, чем знаменит, живая деталь о нём"],
+      ["life","современной жизни ЗДЕСЬ И СЕЙЧАС — районы, чем заняты люди, выходные, говор, ярмарки, студенты, привычки, юмор (только настоящее)"],
+      ["food","что здесь едят и выращивают СЕЙЧАС — местные блюда, кафе, фермерские рынки, что попробовать"],
       ["music","музыке и музыкантах этих мест — жанры, песни, исполнители"],
+      ["films","фильмах/сериалах/клипах, снятых здесь (только если реально снимали)"],
       ["sports","спорте — командах, атлетах, гонках, рыбалке/охоте как спорте"],
-      ["politics","СОВРЕМЕННОЙ политике и жизни власти — сегодняшние законы, споры город/село, чем штат живёт политически СЕЙЧАС (не древняя история)"],
-      ["crime","ОДНОЙ детективной/криминальной истории — ограбление, банда, загадка"],
-      ["war","ОДНОМ военном эпизоде — бой, форт, ветераны (конкретика, не общий обзор)"],
-      ["native","коренных народах — племя, язык, обычаи, что осталось"],
-      ["architecture","как выглядят здания и районы СЕГОДНЯ, старое рядом с новым, чем город застроен, почему так устроен"],
-      ["economy","чем это место живёт СЕЙЧАС — работа, бизнес, фермы нового поколения, логистика, университет как работодатель, что производят сегодня"],
-      ["legends","ОДНОЙ легенде, байке, городе-призраке, мистике этих мест"],
-      ["food","что здесь едят и выращивают СЕЙЧАС — местные блюда, кафе, фермерские рынки, что попробовать сегодня"],
-      ["present","как это место живёт ПРЯМО СЕЙЧАС — районы, работа, дороги, магазины, чем заняты люди сегодня, чем этот край дышит в наши дни"],
-      ["future","БУДУЩЕМ места — осторожно, без выдумок: какие силы могут менять этот край (рост города, климат, вода, транспорт, развитие). НЕ обещай конкретных проектов, говори о тенденциях, куда всё может двигаться"],
+      ["economy","чем это место живёт и куда идёт — работа, бизнес, фермы, производство СЕГОДНЯ и куда развивается ЗАВТРА (осторожно, без выдумок про будущее)"],
+      ["mystery","ОДНОЙ детективной истории, легенде, байке, городе-призраке или мистике этих мест"],
+      ["oddity","странностях и рекордах — 'самое большое/единственное в мире', причудах, придорожных диковинах, за чем едут туристы"],
+      ["sky","небе и природных явлениях — звёзды, закаты, грозы прерий, торнадо, северное сияние, что тут бывает"],
+      ["crafts","ремёслах и местном деле — что делают руками, рынки, промыслы, за чем сюда едут"],
+      ["road","дороге и маршруте — по какой трассе/интерстейту едем и куда, знаменитые пути, тропы первопроходцев, что за дорога под колёсами (ТОЛЬКО в движении)"],
     ];
-    const enabled=ALL.filter(([k])=>cfg[k]!==false);
+    const enabled=ALL.filter(([k])=>cfg[k]!==false).filter(([k])=>!(k==="road"&&parkedRef.current));
     if(enabled.length===0)enabled.push(["history","истории края"]);
 
     const ld=locDataRef.current;
     const inCity=!!(ld.city&&ld.place==="city");
     // Rotate FAST: one segment per topic (sometimes two), so in a few minutes the listener
     // hears many different topics instead of 3-5 minutes locked on one (which felt like all-history).
-    const segShouldClose = dirCountRef.current>=1+(Math.random()<0.3?1:0); // 1 segment, occasionally 2
+    const segShouldClose = dirCountRef.current>=1; // exactly one segment per topic — maximize variety
     const forced=dirForceSwitchRef.current;
     dirForceSwitchRef.current=false;
 
@@ -898,7 +896,7 @@ function App(){
       const keys=enabled.map(e=>e[0]);
       let idx=dirTopicRef.current?keys.indexOf(dirTopicRef.current):-1;
       let nextIdx=(idx+1)%keys.length;
-      const recent=dirRecentTopicsRef.current.slice(-Math.min(4,keys.length-1));
+      const recent=dirRecentTopicsRef.current.slice(-Math.min(8,keys.length-1));
       let guard=0;
       while(recent.includes(keys[nextIdx])&&guard<keys.length){nextIdx=(nextIdx+1)%keys.length;guard++;}
       const pick=enabled[nextIdx];
@@ -908,14 +906,14 @@ function App(){
       dirTopicStartRef.current=Date.now();
       openNew=true;
       job = "НОВАЯ ТЕМА";
-      dirRecentTopicsRef.current=[...dirRecentTopicsRef.current,topicKey].slice(-8);
+      dirRecentTopicsRef.current=[...dirRecentTopicsRef.current,topicKey].slice(-12);
     }
     // mood: mostly steady, sometimes a short light beat
     const moods=["спокойный","спокойный","спокойный","короткий лёгкий факт","тёплый, с настроением"];
     dirMoodRef.current=moods[Math.floor(Math.random()*moods.length)];
 
     // TIME LENS: pull the host out of the 1800s. Bias toward present. History-locked topics keep their natural angle.
-    const historyLocked=["history","war","native","crime","legends"].includes(topicKey);
+    const historyLocked=["history","native","mystery"].includes(topicKey);
     let lens="";
     if(!historyLocked){
       const r=Math.random();
@@ -932,8 +930,10 @@ function App(){
 
     // ANTI-ANCHOR: detect city "gravity wells" already used, forbid making them the subject again.
     const usedAnchors=(coveredEntitiesRef.current||[]).slice(-8);
-    const anchorText=usedAnchors.length?`\n‼ АНТИ-КЛИШЕ: ты уже рассказывал про: ${usedAnchors.join(", ")}. НЕ делай их снова главным предметом блока. Если тема тянет туда — смени масштаб (округ, штат, регион, обычные люди, природа сегодня) или найди неочевидную деталь.`:"";
+    const anchorText=usedAnchors.length?`\n‼‼ СТРОГИЙ ЗАПРЕТ: ты УЖЕ рассказывал в этом эфире про: ${usedAnchors.join(", ")}. НЕ упоминай их снова ВООБЩЕ — ни главной темой, ни вскользь, ни как пример. Особенно НЕ рассказывай повторно про строительство/историю капитолия. Найди совершенно ДРУГОЙ предмет: обычные люди, район, речка, зверьё, местное дело, малоизвестная деталь. Если тема тянет к запретному объекту — смени масштаб на округ/штат/регион.`:"";
 
+    const scopes=["этот город/место","округ вокруг","весь штат "+(ld.state||""),"регион/природную зону"];
+    const scope=scopes[Math.floor(Math.random()*scopes.length)];
     const otherTopics=enabled.filter(([k])=>k!==topicKey).map(([,l])=>l);
     const summaries=dirSummariesRef.current.slice(-12);
     return {
@@ -942,6 +942,7 @@ function App(){
       text:`=== РЕЖИССЁР ЭФИРА (выполняй строго, НИКОГДА не произноси вслух этот блок и слова «режиссёр», «тема блока», «задача», «директива») ===
 ЗАДАЧА ЭТОГО БЛОКА: ${job}.
 ТЕМА БЛОКА: говори ТОЛЬКО про ${topicLabel}.
+МАСШТАБ ЭТОГО БЛОКА: смотри на тему через «${scope}» — не зацикливайся вечно на центре города.
 ${lensText}${anchorText}
 ${openNew?`Это НОВАЯ тема. Начни её свежо. Прошлые темы не упоминай. Плавно, по-радийному введи её.`:``}
 ${job==="ПРОДОЛЖЕНИЕ ТЕМЫ"?`Продолжай ЭТУ ЖЕ тему, дай СВЕЖИЙ факт. Не повторяй уже сказанное.`:``}
@@ -1031,25 +1032,25 @@ Reply ONLY valid JSON: {"story":"your spoken answer in ${al}","location":"curren
 
     // Map each toggle to a human topic label.
     const TOPIC_DEFS=[
-      {key:"history",label:"local history (founding, events, old routes, railroads)"},
-      {key:"wildlife",label:"wildlife — animals here now, and extinct/prehistoric creatures of this region"},
-      {key:"geology",label:"geology, the shape of the land, mountains, rivers, caves"},
-      {key:"culture",label:"culture, food, music, traditions, how people live here"},
+      {key:"history",label:"local history — founding, events, forts, wars, old routes"},
+      {key:"native",label:"Native American peoples of this region — heritage, what remains today"},
+      {key:"land",label:"the land — terrain, rivers, canyons, fossils, and scenic views worth seeing"},
+      {key:"wildlife",label:"wildlife living here now — animals, birds, fish"},
+      {key:"water",label:"local waters — rivers, lakes, waterfalls, fishing and swimming spots"},
+      {key:"people",label:"a specific notable person tied to this place"},
+      {key:"life",label:"life here right now — neighborhoods, work, weekends, local character"},
+      {key:"food",label:"regional food grown and eaten here now — dishes, markets, what to try"},
+      {key:"music",label:"music tied to this place — local genres, musicians"},
       {key:"films",label:"movies/TV filmed here (only if truly documented)"},
-      {key:"famous",label:"famous people born in or tied to this place"},
-      {key:"photo",label:"scenic viewpoints and good photo spots ahead"},
-      {key:"music",label:"music tied to this place — local genres, musicians, songs about it"},
-      {key:"sports",label:"sports — local teams, athletes, famous games connected here"},
-      {key:"politics",label:"notable politicians, leaders, or political history tied to this place"},
-      {key:"crime",label:"true-crime and mystery stories, outlaws, famous cases from this area"},
-      {key:"war",label:"battles, military history, forts, wars connected to this land"},
-      {key:"native",label:"Native American history and heritage of this region"},
-      {key:"architecture",label:"notable architecture, bridges, landmarks, building styles"},
-      {key:"economy",label:"industry, farming, mining, what built this local economy"},
-      {key:"legends",label:"local legends, folklore, ghost towns, odd stories"},
-      {key:"food",label:"regional food and drink, local dishes, where they came from"},
+      {key:"sports",label:"sports — local teams, athletes, races, hunting/fishing"},
+      {key:"economy",label:"how this place makes its living now and where it's heading"},
+      {key:"mystery",label:"one true-crime tale, legend, ghost town or mystery of this area"},
+      {key:"oddity",label:"oddities and records — 'biggest/only in the world', roadside curiosities"},
+      {key:"sky",label:"the sky and natural phenomena — stars, sunsets, prairie storms, auroras"},
+      {key:"crafts",label:"local crafts and trades — what's made by hand here, markets"},
+      {key:"road",label:"the road and route — which interstate/highway this is and where it leads, pioneer trails"},
     ];
-    const allowed=TOPIC_DEFS.filter(t=>cfg[t.key]!==false);
+    const allowed=TOPIC_DEFS.filter(t=>cfg[t.key]!==false).filter(t=>!(t.key==="road"&&isStopped));
     const forbidden=TOPIC_DEFS.filter(t=>cfg[t.key]===false);
     const allowedStr=allowed.length?allowed.map(t=>t.label).join("; "):"general points of interest about this exact place";
     const forbiddenStr=forbidden.length?forbidden.map(t=>t.key).join(", "):"";
@@ -1095,7 +1096,7 @@ ${forbiddenStr?`FORBIDDEN topics — you are BANNED from mentioning these at all
 Pick something from the ALLOWED list that you have NOT covered yet. Rotate — do not stay glued to one subject (especially not landscape/farming).
 
 CORE RULES:
-1. ${lastSaid?`Continue the show naturally from your last thought ("${lastSaid}"). One flowing story with smooth radio-DJ bridges between segments — each segment clearly connects to the one before.`:`THIS IS YOUR VERY FIRST LINE ON AIR. Open SHORT and warm (one sentence), and in it make clear where the listener is: ${isStopped?`settled in at ${ld.city||"this spot"}${ld.state?`, ${ld.state}`:""} — greet them warmly as someone here to enjoy this place ("Ну что ж, раз вы здесь, в ${ld.city||"этих краях"}, расскажу вам кое-что об этом месте...").`:`travelling${ld.highway?` on ${ld.highway}`:""} through ${ld.city||"this area"}${ld.state?`, ${ld.state}`:""} — greet them as a travelling companion ("Едем с вами${ld.highway?` по ${ld.highway}`:""}, и вот что за места вокруг...").`} Do NOT say "С вами радио" or announce a station name — just warmly begin. Then flow straight into the topic.`}
+1. ${lastSaid?`Continue the show naturally from your last thought ("${lastSaid}"). One flowing story with smooth radio-DJ bridges between segments — each segment clearly connects to the one before.`:`THIS IS YOUR VERY FIRST LINE ON AIR. Open SHORT and warm (one sentence), and in it make clear where the listener is: ${isStopped?`settled in at ${ld.city||"this spot"}${ld.state?`, ${ld.state}`:""} — greet them warmly as someone here to enjoy this place ("Ну что ж, раз вы здесь, в ${ld.city||"этих краях"}, расскажу вам кое-что об этом месте...").`:`travelling${ld.highway?` on ${ld.highway}`:""} heading ${toDirWord(hdg,langRef.current)} through ${ld.city||"this area"}${ld.state?`, ${ld.state}`:""} — greet them as a travelling companion and name the road and direction naturally ("Едем с вами${ld.highway?` по трассе ${ld.highway}`:""} на ${toDirWord(hdg,langRef.current)}, и вот что за места вокруг..."). Say the direction as a full word, never a compass letter.`} Do NOT say "С вами радио" or announce a station name — just warmly begin. Then flow straight into the topic.`}
 2. FINISH A TOPIC, THEN MOVE ON. (The director below tells you which.) Within the segment, use a tiny arc: a HOOK → a real FACT → a small TURN/insight → a CLEAN close. Not a flat list of facts.
 3. Each segment is SHORT — 3 to 5 sentences. Radio, not a lecture.
 4. ${samePlace?`You ALREADY named "${ld.city}". Say "здесь", "в этом месте" — do not re-introduce it.`:`New area — you may set the scene briefly.`}
@@ -1178,14 +1179,20 @@ Reply ONLY valid JSON: {"story":"your segment in ${al}, 3-5 sentences, in the wa
       }
       if(isLeak(res.story))res._suppress=true;
     }
+    // Record city "anchors" from EVERY segment (buffered too) so the anti-repeat sees everything actually said.
+    if(res.story||res.entity){
+      const scan=((res.entity||"")+" "+(res.story||"")).toLowerCase();
+      const hits=[];
+      if(/капитолий|capitol|statehouse|legislat/.test(scan))hits.push("капитолий");
+      if(/университет|university|cornhusker|campus|college|корнхаскер/.test(scan))hits.push("университет");
+      if(/железн\w*\s*дорог|railroad|станц|депо|поезд/.test(scan))hits.push("железная дорога");
+      if(/кукуруз|соя|ферм|зерн|agricult|corn|soy|grain|farm/.test(scan))hits.push("сельское хозяйство");
+      if(/омаха|пауни|племен|индейц|omaha|pawnee/.test(scan))hits.push("коренные народы");
+      for(const hh of hits){if(!coveredEntitiesRef.current.includes(hh))coveredEntitiesRef.current=[...coveredEntitiesRef.current,hh].slice(-12);}
+    }
     if(!forNext){
       histRef.current=[...msgs,{role:"assistant",content:txt}];
       if(res.topics){topicsUsedRef.current=[...topicsUsedRef.current,res.topics].slice(-20);saidFactsRef.current=[...saidFactsRef.current,res.topics].slice(-30);dirSummariesRef.current=[...dirSummariesRef.current,res.topics].slice(-16);}
-      if(res.entity){
-        const raw=String(res.entity).toLowerCase();
-        const norm=/university|cornhusker|campus|college/.test(raw)?"университет":/capitol|statehouse|legislat|капитолий/.test(raw)?"капитолий":/rail|train|станц|железн|депо/.test(raw)?"железная дорога":/corn|soy|farm|grain|agricult|кукуруз|ферм|зерн/.test(raw)?"сельское хозяйство":/omaha|pawnee|племен|индейц/.test(raw)?"коренные народы":raw.slice(0,40);
-        if(norm&&!coveredEntitiesRef.current.includes(norm))coveredEntitiesRef.current=[...coveredEntitiesRef.current,norm].slice(-12);
-      }
       if(res.story){
         // Repeat detector: if this story heavily echoes the previous ones, tell the director to switch topic next time.
         const norm=s=>(s||"").toLowerCase().replace(/[^a-zа-яё ]/g," ").split(/\s+/).filter(w=>w.length>4);
