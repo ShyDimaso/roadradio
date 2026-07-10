@@ -289,7 +289,7 @@ body{font-family:'Inter',sans-serif;color:#fff;}
 const {useState,useRef,useEffect}=React;
 const PROXY="https://corsproxy.io/?https://api.anthropic.com/v1/messages";
 const KEY_STORE="rr_key_v3";
-const VER="v77";
+const VER="v78";
 // v76 MEMORY DIAGNOSTIC: prefetch & buffer OFF so every spoken segment goes through one gate.
 const PREFETCH_ENABLED=false;
 const BUFFER_ENABLED=false;
@@ -510,6 +510,42 @@ function App(){
   const topicCooldownRef=useRef({});   // topic -> timestamp until which it's on cooldown
   const lexCooldownRef=useRef([]);     // recent lexical phrases (short-term, last few segments)
   const airLogRef=useRef([]);          // v77: full session transcript with detector notes, for export
+  // v78: persist broadcast memory across accidental reloads (phone calls). New trip if idle > 40 min.
+  const MEM_STORE="rr_mem_v78";
+  const IDLE_NEW_TRIP=40*60*1000;      // 40 min gap = new trip → memory resets
+  const LOG_WINDOW=2*60*60*1000;       // keep last 2 hours of log
+  const persistMemory=()=>{
+    try{
+      const now=Date.now();
+      airLogRef.current=airLogRef.current.filter(r=>!r._ms||now-r._ms<=LOG_WINDOW);
+      const data={
+        savedAt:now,
+        stop:[...semanticStopRef.current],
+        ents:[...entityStopRef.current],
+        ledger:spokenLedgerRef.current.slice(-120).map(p=>({summary:p.summary,sh:[...p.shingles3].slice(0,60),keys:p.keys,entity:p.entity,topic:p.topic})),
+        cooldown:topicCooldownRef.current,
+        fails:topicFailRef.current,
+        log:airLogRef.current.slice(-400),
+      };
+      localStorage.setItem(MEM_STORE,JSON.stringify(data));
+    }catch(e){}
+  };
+  const loadMemory=()=>{
+    try{
+      const raw=localStorage.getItem(MEM_STORE);
+      if(!raw)return;
+      const d=JSON.parse(raw);
+      if(!d||!d.savedAt)return;
+      if(Date.now()-d.savedAt>IDLE_NEW_TRIP){localStorage.removeItem(MEM_STORE);return;}
+      semanticStopRef.current=new Set(d.stop||[]);
+      entityStopRef.current=new Set(d.ents||[]);
+      spokenLedgerRef.current=(d.ledger||[]).map(p=>({summary:p.summary,shingles3:new Set(p.sh||[]),keys:p.keys||[],entity:p.entity||"",topic:p.topic||"",story:""}));
+      topicCooldownRef.current=d.cooldown||{};
+      topicFailRef.current=d.fails||{};
+      airLogRef.current=(d.log||[]);
+      console.log("[RR MEMORY] restored",{stop:semanticStopRef.current.size,ledger:spokenLedgerRef.current.length});
+    }catch(e){}
+  };
   const [debugOn,setDebugOn]=useState(false);
   const [debugLine,setDebugLine]=useState("");
   const dirMoodRef=useRef("normal");   // mood of the next block
@@ -522,6 +558,7 @@ function App(){
   const lastSpokeRef=useRef(Date.now());
 
   useEffect(()=>{const t=setTimeout(()=>setSplash(false),3200);return()=>clearTimeout(t);},[]);
+  useEffect(()=>{loadMemory();},[]); // restore memory+log on load (survives phone-call reloads within 40 min)
   useEffect(()=>{
     try{const last=parseInt(localStorage.getItem("rr_review")||"0");if(localStorage.getItem("rr_started")&&Date.now()-last>3*86400000)setNeedsReview(true);}catch{}
   },[]);
@@ -856,7 +893,7 @@ function App(){
   // ==== v76 MEMORY CORE ====
   // Canonical micro-image keys: many phrasings collapse to one key so paraphrases are caught.
   const CANON=[
-    {key:"ancient-sea-fossils",re:/окаменел|ракушк|раковин|древн\w*\s*мор|морск\w*\s*дн|fossil|seashell|ancient sea|sea ?floor/i},
+    {key:"ancient-sea-fossils",re:/окаменел|ракушк|раковин|древн\w*\s*мор|морск\w*\s*дн|древн\w*\s*озер|bonneville|бонневил|солян\w*\s*равнин|salt ?flat|солян\w*\s*отложени|fossil|seashell|ancient (sea|lake)|sea ?floor|lakebed|lake ?bed/i},
     {key:"railroad-built-town",re:/железн\w*\s*дорог|рельс|поезд|станци|депо|railroad|railway|\btrain\b|depot/i},
     {key:"corn-soy-farming",re:/кукуруз|\bсоя\b|\bсои\b|зерн|фермер|урожай|пашн|\bcorn\b|\bsoy\b|grain|farm/i},
     {key:"local-fishing",re:/рыбалк|рыбак|удочк|окун|\bсом\b|\bсома\b|щук|\bбасс\b|\bbass\b|catfish|fishing|angler/i},
@@ -885,6 +922,17 @@ function App(){
     const keys=canonicalKeys(story+" "+(res.micro_topic_id||"")+" "+((res.images||[]).join(" ")));
     const hard=keys.filter(k=>semanticStopRef.current.has(k));
     if(hard.length)return{isRepeat:true,level:"hard",reason:"semantic key repeat",keys:hard};
+    // Same main entity already featured this session → repeat (Lake Bonneville twice, etc.)
+    const ent=res.entity?String(res.entity).toLowerCase().replace(/ё/g,"е").trim():"";
+    if(ent&&ent.length>3){
+      const entCore=ent.split(/[\/,;]/)[0].trim();
+      for(const seen of entityStopRef.current){
+        const s=seen.split(/[\/,;]/)[0].trim();
+        if(s.length>3&&(s.includes(entCore)||entCore.includes(s))){
+          return{isRepeat:true,level:"entity",reason:"entity repeat",keys:[],duplicateOf:seen};
+        }
+      }
+    }
     const cur=shingles(story,3);
     let max=0,dup=null;
     for(const old of spokenLedgerRef.current){const sc=jaccard(cur,old.shingles3);if(sc>max){max=sc;dup=old.summary;}}
@@ -931,6 +979,7 @@ function App(){
     const ld=locDataRef.current;
     airLogRef.current.push({
       t:new Date().toISOString(),
+      _ms:Date.now(),
       status:"AIRED",
       topic:passport.topic,
       lens:meta.lens||res._dirLens||"",
@@ -941,6 +990,7 @@ function App(){
       stopList:[...semanticStopRef.current],
       story:res.story||"",
     });
+    persistMemory();
   };
 
   // Compact memory block for the prompt (never dump the whole session into the model).
@@ -1456,14 +1506,14 @@ Reply ONLY valid JSON: {"story":"your segment in ${al}, 3-5 sentences, in the wa
           if(hasHallucination(cand.story)||hasGeoError(cand.story)){
             console.warn("[RR REJECT FICTION]",{topic:director.topicKey,story:cand.story});
             if(debugOn)setDebugLine(`✗ вымысел (${director.topicKey}) — перегенерация`);
-            airLogRef.current.push({t:new Date().toISOString(),status:"REJECTED-FICTION",topic:director.topicKey,story:cand.story});
+            airLogRef.current.push({t:new Date().toISOString(),_ms:Date.now(),status:"REJECTED-FICTION",topic:director.topicKey,story:cand.story});
             attempt++;continue;
           }
           const rep=detectRepeat(cand);
           if(rep.isRepeat===true){
             console.warn("[RR REJECT REPEAT]",{reason:rep.reason,keys:rep.keys,score:rep.score,dup:rep.duplicateOf,story:cand.story});
             if(debugOn)setDebugLine(`✗ повтор:${rep.reason} ${rep.keys?.join(",")||rep.score||""} — смена темы`);
-            airLogRef.current.push({t:new Date().toISOString(),status:"REJECTED-REPEAT",topic:director.topicKey,reason:rep.reason,keys:rep.keys||[],score:rep.score||null,duplicateOf:rep.duplicateOf||"",story:cand.story});
+            airLogRef.current.push({t:new Date().toISOString(),_ms:Date.now(),status:"REJECTED-REPEAT",topic:director.topicKey,reason:rep.reason,keys:rep.keys||[],score:rep.score||null,duplicateOf:rep.duplicateOf||"",story:cand.story});
             // teach the director: this topic just produced a repeat
             topicFailRef.current[director.topicKey]=(topicFailRef.current[director.topicKey]||0)+1;
             if(topicFailRef.current[director.topicKey]>=2)topicCooldownRef.current[director.topicKey]=Date.now()+600000;
@@ -1596,6 +1646,7 @@ Reply ONLY valid JSON: {"story":"your segment in ${al}, 3-5 sentences, in the wa
     runRef.current=true;histRef.current=[];nextRef.current=null;topicsUsedRef.current=[];saidFactsRef.current=[];bufferRef.current=[];recentStoriesRef.current=[];
     dirTopicRef.current=null;dirCountRef.current=0;dirTargetRef.current=2;dirRecentTopicsRef.current=[];dirSummariesRef.current=[];coveredEntitiesRef.current=[];dirTopicStartRef.current=0;dirForceSwitchRef.current=false;lastIntroBcastRef.current=bcastRef.current;qaHistRef.current=[];
     spokenLedgerRef.current=[];semanticStopRef.current=new Set();entityStopRef.current=new Set();topicFailRef.current={};topicCooldownRef.current={};lexCooldownRef.current=[];
+    loadMemory(); // restore if the last session was < 40 min ago (same trip after a phone call); else stays clean
     openerIdx.current=0;stoppedSince.current=null;fuelWarnedRef.current=0;tourAckRef.current=false;
     loopBusyRef.current=false;loopGenRef.current++;        // fresh single generation
     parkedRef.current=false;pausedRef.current=false;setPaused(false);
