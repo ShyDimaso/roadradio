@@ -289,7 +289,7 @@ body{font-family:'Inter',sans-serif;color:#fff;}
 const {useState,useRef,useEffect}=React;
 const PROXY="https://corsproxy.io/?https://api.anthropic.com/v1/messages";
 const KEY_STORE="rr_key_v3";
-const VER="v82";
+const VER="v83";
 // v76 MEMORY DIAGNOSTIC: prefetch & buffer OFF so every spoken segment goes through one gate.
 const PREFETCH_ENABLED=false;
 const BUFFER_ENABLED=false;
@@ -737,7 +737,9 @@ function App(){
       const county=a.county||a.municipality||"";
       const state=a.state||"";
       const city=a.city||a.town||a.village||a.hamlet||"";
-      setLocData({name:city||county,highway:hw,county,state,city});
+      const info={name:city||county,highway:hw,county,state,city};
+      locDataRef.current={...locDataRef.current,...info}; // update ref IMMEDIATELY (useEffect is too late for fetchWiki)
+      setLocData(info);
       return{highway:hw,county,state,city};
     }catch{return{highway:"",county:"",state:"",city:""};}
   };
@@ -1087,13 +1089,26 @@ function App(){
   const WIKI_OUTROS_RU=["Вот такие дела в этих краях.","Такое вот место.","Едем дальше.",""];
   const WIKI_OUTROS_EN=["That's this place for you.","And on we go.",""];
   const wikiRadioIdxRef=useRef(0);
-  const buildWikiSegment=async(lat,lng)=>{
+  const buildWikiSegment=async(lat,lng,geo)=>{
     const w=await Promise.race([fetchWiki(lat,lng,langRef.current),new Promise(r=>setTimeout(()=>r(null),6000))]);
     const isRu=["ru","uk"].includes(langRef.current);
+    const g=geo||locDataRef.current||{};
     if(!w||!w.extract){
-      return {story:isRu?"Здесь, в этих краях, отдельной статьи под рукой нет — но места вокруг живописные. Едем дальше, скоро расскажу что-нибудь ещё.":"No article right here, but the area is scenic. On we go.",location:"",topics:"wiki-none",_src:"wikiradio",_wiki:true};
+      // Honest graceful step-up instead of "nothing to say": talk about the wider territory by name.
+      const wl=(["ru","uk","es","de","fr","pt"].includes(langRef.current))?langRef.current:"en";
+      const base=`https://${wl}.wikipedia.org/w/api.php`;
+      for(const nm of [g.county,g.state].filter(Boolean)){
+        const got=await fetchWikiExtractByTitle(base,nm);
+        if(got&&got.extract){
+          const sents=got.extract.replace(/\s+/g," ").match(/[^.!?]+[.!?]+/g)||[got.extract];
+          const take=sents.slice(0,Math.min(4,Math.max(2,sents.length))).join(" ").trim();
+          const lead=isRu?`О конкретно этом месте отдельной статьи нет, так что поднимусь повыше и расскажу про ${nm}. `:`No article for this exact spot, so let me zoom out to ${nm}. `;
+          return {story:lead+take,location:got.title,topics:"wikipedia:"+got.title,entity:got.title,_src:"wikiradio",_wiki:true};
+        }
+      }
+      const where=g.state||g.county||(isRu?"эти края":"this area");
+      return {story:isRu?`О конкретно этом месте статьи под рукой нет, но мы едем по территории ${where} — места вокруг живописные, и скоро впереди будет о чём рассказать. Едем дальше.`:`No article for this exact spot, but we're rolling through ${where} — scenic country, and there'll be more to tell soon. On we go.`,location:where,topics:"wiki-region",_src:"wikiradio",_wiki:true};
     }
-    // Trim article text to a listenable length WITHOUT a model (phone-side): first 2-4 sentences.
     let body=w.extract.replace(/\s+/g," ").trim();
     const sents=body.match(/[^.!?]+[.!?]+/g)||[body];
     const take=sents.slice(0,Math.min(4,Math.max(2,sents.length))).join(" ").trim();
@@ -1554,10 +1569,10 @@ Reply ONLY valid JSON: {"story":"your segment in ${al}. LENGTH IS FLEXIBLE — i
       if(!res&&wikiModeRef.current){
         // ==== WikiRadio: zero-token path. Phone assembles from Wikipedia, no model call. ====
         setStatus("loading");
-        await reverseGeocode(c.lat,c.lng);
-        if(!parkedRef.current)fetchCityAhead(c.lat,c.lng,c.heading??90); // know the town ahead by direction of travel
+        const geo=await reverseGeocode(c.lat,c.lng);
+        if(!parkedRef.current)fetchCityAhead(c.lat,c.lng,c.heading??90);
         if(gen!==loopGenRef.current||!runRef.current)return;
-        res=await buildWikiSegment(c.lat,c.lng);
+        res=await buildWikiSegment(c.lat,c.lng,geo);
         if(gen!==loopGenRef.current||!runRef.current)return;
       }
       if(!res){
