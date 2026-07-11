@@ -289,7 +289,7 @@ body{font-family:'Inter',sans-serif;color:#fff;}
 const {useState,useRef,useEffect}=React;
 const PROXY="https://corsproxy.io/?https://api.anthropic.com/v1/messages";
 const KEY_STORE="rr_key_v3";
-const VER="v78";
+const VER="v79";
 // v76 MEMORY DIAGNOSTIC: prefetch & buffer OFF so every spoken segment goes through one gate.
 const PREFETCH_ENABLED=false;
 const BUFFER_ENABLED=false;
@@ -920,8 +920,14 @@ function App(){
   const detectRepeat=res=>{
     const story=res.story||"";
     const keys=canonicalKeys(story+" "+(res.micro_topic_id||"")+" "+((res.images||[]).join(" ")));
-    const hard=keys.filter(k=>semanticStopRef.current.has(k));
-    if(hard.length)return{isRepeat:true,level:"hard",reason:"semantic key repeat",keys:hard};
+    const hardAll=keys.filter(k=>semanticStopRef.current.has(k));
+    // Soften: a single incidental repeated key on an otherwise-fresh block is NOT a repeat.
+    // Only reject if 2+ known keys repeat, OR the repeated key dominates (it's the block's main subject via micro_topic_id).
+    const microKeys=canonicalKeys(res.micro_topic_id||"");
+    const dominant=hardAll.some(k=>microKeys.includes(k));
+    if(hardAll.length>=2||(hardAll.length>=1&&dominant)){
+      return{isRepeat:true,level:"hard",reason:"semantic key repeat",keys:hardAll};
+    }
     // Same main entity already featured this session → repeat (Lake Bonneville twice, etc.)
     const ent=res.entity?String(res.entity).toLowerCase().replace(/ё/g,"е").trim():"";
     if(ent&&ent.length>3){
@@ -936,8 +942,8 @@ function App(){
     const cur=shingles(story,3);
     let max=0,dup=null;
     for(const old of spokenLedgerRef.current){const sc=jaccard(cur,old.shingles3);if(sc>max){max=sc;dup=old.summary;}}
-    if(max>=0.30)return{isRepeat:true,level:"text",reason:"shingle repeat",score:+max.toFixed(2),duplicateOf:dup,keys};
-    if(max>=0.20)return{isRepeat:"borderline",level:"soft",score:+max.toFixed(2),keys};
+    if(max>=0.32)return{isRepeat:true,level:"text",reason:"shingle repeat",score:+max.toFixed(2),duplicateOf:dup,keys};
+    if(max>=0.22)return{isRepeat:"borderline",level:"soft",score:+max.toFixed(2),keys};
     return{isRepeat:false,score:+max.toFixed(2),keys};
   };
 
@@ -1129,6 +1135,8 @@ function App(){
     // ANTI-ANCHOR: detect city "gravity wells" already used, forbid making them the subject again.
     const usedAnchors=(coveredEntitiesRef.current||[]).slice(-8);
     const anchorText=usedAnchors.length?`\n‼‼ СТРОГИЙ ЗАПРЕТ: ты УЖЕ рассказывал в этом эфире про: ${usedAnchors.join(", ")}. НЕ упоминай их снова ВООБЩЕ — ни главной темой, ни вскользь, ни как пример. Особенно НЕ рассказывай повторно про строительство/историю капитолия. Найди совершенно ДРУГОЙ предмет: обычные люди, район, речка, зверьё, местное дело, малоизвестная деталь. Если тема тянет к запретному объекту — смени масштаб на округ/штат/регион.`:"";
+    // Kill the "everything is farming/cattle" gravity well unless the topic itself is economy/food.
+    const agriGuard=(["economy","food"].includes(topicKey))?"":`\n‼ НЕ своди этот блок к сельскому хозяйству, фермам, кукурузе, сое, скоту, ранчо или скотоводству — это НЕ твоя тема сейчас. Тема требует другого. Если ловишь себя на аграрном — остановись и зайди с совершенно другой стороны.`;
 
     const scopes=["этот город/место","округ вокруг","весь штат "+(ld.state||""),"регион/природную зону"];
     const scope=scopes[Math.floor(Math.random()*scopes.length)];
@@ -1142,7 +1150,7 @@ function App(){
 ЗАДАЧА ЭТОГО БЛОКА: ${job}.
 ТЕМА БЛОКА: говори ТОЛЬКО про ${topicLabel}.
 МАСШТАБ ЭТОГО БЛОКА: смотри на тему через «${scope}» — не зацикливайся вечно на центре города.
-${lensText}${anchorText}
+${lensText}${anchorText}${agriGuard}
 ${openNew?`Это НОВАЯ тема. Начни её свежо. Прошлые темы не упоминай. Плавно, по-радийному введи её.`:``}
 ${job==="ПРОДОЛЖЕНИЕ ТЕМЫ"?`Продолжай ЭТУ ЖЕ тему, дай СВЕЖИЙ факт. Не повторяй уже сказанное.`:``}
 ${mustClose?`Заверши тему красиво, законченной мыслью — дальше сменим тему.`:``}
@@ -1295,7 +1303,7 @@ ${forbiddenStr?`FORBIDDEN topics — you are BANNED from mentioning these at all
 Pick something from the ALLOWED list that you have NOT covered yet. Rotate — do not stay glued to one subject (especially not landscape/farming).
 
 CORE RULES:
-1. ${lastSaid?`Continue the show naturally from your last thought ("${lastSaid}"). One flowing story with smooth radio-DJ bridges between segments — each segment clearly connects to the one before.`:`THIS IS YOUR VERY FIRST LINE ON AIR. Open SHORT and warm (one sentence), and in it make clear where the listener is: ${isStopped?`settled in at ${ld.city||"this spot"}${ld.state?`, ${ld.state}`:""} — greet them warmly as someone here to enjoy this place ("Ну что ж, раз вы здесь, в ${ld.city||"этих краях"}, расскажу вам кое-что об этом месте...").`:`travelling${ld.highway?` on ${ld.highway}`:""} heading ${toDirWord(hdg,langRef.current)} through ${ld.city||"this area"}${ld.state?`, ${ld.state}`:""} — greet them as a travelling companion and name the road and direction naturally ("Едем с вами${ld.highway?` по трассе ${ld.highway}`:""} на ${toDirWord(hdg,langRef.current)}, и вот что за места вокруг..."). Say the direction as a full word, never a compass letter.`} Do NOT say "С вами радио" or announce a station name — just warmly begin. Then flow straight into the topic.`}
+1. ${lastSaid?`Continue the show as ONE flowing conversation. Before diving into the new subject, give a SHORT natural bridge from what you just talked about ("${lastSaid}") — a half-sentence transition like "а вот что ещё любопытно тут...", "раз уж речь зашла об этих местах...", "и знаете, совсем рядом другая история...". Don't start cold or abruptly. Ease in, then tell the new thing. End the segment on a rounded thought, not mid-air.`:`THIS IS YOUR VERY FIRST LINE ON AIR. Open SHORT and warm (one sentence), and in it make clear where the listener is: ${isStopped?`settled in at ${ld.city||"this spot"}${ld.state?`, ${ld.state}`:""} — greet them warmly as someone here to enjoy this place ("Ну что ж, раз вы здесь, в ${ld.city||"этих краях"}, расскажу вам кое-что об этом месте...").`:`travelling${ld.highway?` on ${ld.highway}`:""} heading ${toDirWord(hdg,langRef.current)} through ${ld.city||"this area"}${ld.state?`, ${ld.state}`:""} — greet them as a travelling companion and name the road and direction naturally ("Едем с вами${ld.highway?` по трассе ${ld.highway}`:""} на ${toDirWord(hdg,langRef.current)}, и вот что за места вокруг...."). Say the direction as a full word, never a compass letter.`} Do NOT say "С вами радио" or announce a station name — just warmly begin. Then flow straight into the topic.`}
 2. FINISH A TOPIC, THEN MOVE ON. (The director below tells you which.) Within the segment, use a tiny arc: a HOOK → a real FACT → a small TURN/insight → a CLEAN close. Not a flat list of facts.
 3. Each segment is SHORT — 3 to 5 sentences. Radio, not a lecture.
 4. ${samePlace?`You ALREADY named "${ld.city}". Say "здесь", "в этом месте" — do not re-introduce it.`:`New area — you may set the scene briefly.`}
@@ -1328,7 +1336,7 @@ ALREADY SAID THIS DRIVE (never repeat): ${recentFacts||"nothing yet — first se
 - Keep time-of-day consistent with "${phase}". The exact local time is ${tStr} — if you mention the time at all, state it correctly; do NOT approximate it to a different hour.
 - ‼ LANGUAGE LOCK ‼: write EVERY single word in ${al}. Never switch to English or any other language mid-segment. If you catch yourself starting an English word, stop and use ${al}.
 
-Reply ONLY valid JSON: {"story":"your segment in ${al}, 3-5 sentences, in the warm host voice","location":"exact place in English","topics":"short phrase naming the ONE thing you covered","entity":"the single main named landmark/institution you spoke about, or empty string if none","micro_topic_id":"a short english kebab-case id of the exact micro-subject, e.g. fossil-shells-ancient-sea","images":["1-3 short english tags of the concrete images/motifs you used"]}`;
+Reply ONLY valid JSON: {"story":"your segment in ${al}. LENGTH IS FLEXIBLE — if the subject is rich, tell it fuller (7-9 sentences); if there's little real to say, keep it short (2-3 sentences) and honestly round it off ('вот, пожалуй, и всё, что стоит сказать об этом'). NEVER pad with filler or clichés to reach a length. Keep it lively and specific, not an encyclopedia.","location":"exact place in English","topics":"short phrase naming the ONE thing you covered","entity":"the single main named landmark/institution you spoke about, or empty string if none","micro_topic_id":"a short english kebab-case id of the exact micro-subject, e.g. fossil-shells-ancient-sea","images":["1-3 short english tags of the concrete images/motifs you used"]}`;
   };
 
   const callClaude=async(sys,msg,forNext)=>{
