@@ -289,7 +289,7 @@ body{font-family:'Inter',sans-serif;color:#fff;}
 const {useState,useRef,useEffect}=React;
 const PROXY="https://corsproxy.io/?https://api.anthropic.com/v1/messages";
 const KEY_STORE="rr_key_v3";
-const VER="v80";
+const VER="v81";
 // v76 MEMORY DIAGNOSTIC: prefetch & buffer OFF so every spoken segment goes through one gate.
 const PREFETCH_ENABLED=false;
 const BUFFER_ENABLED=false;
@@ -510,6 +510,8 @@ function App(){
   const topicCooldownRef=useRef({});   // topic -> timestamp until which it's on cooldown
   const lexCooldownRef=useRef([]);     // recent lexical phrases (short-term, last few segments)
   const airLogRef=useRef([]);          // v77: full session transcript with detector notes, for export
+  const tokenCountRef=useRef({in:0,out:0}); // v81: session token counter (server cost)
+  const [tokenDisp,setTokenDisp]=useState({in:0,out:0});
   // v78: persist broadcast memory across accidental reloads (phone calls). New trip if idle > 40 min.
   const MEM_STORE="rr_mem_v78";
   const IDLE_NEW_TRIP=40*60*1000;      // 40 min gap = new trip → memory resets
@@ -547,6 +549,9 @@ function App(){
     }catch(e){}
   };
   const [debugOn,setDebugOn]=useState(false);
+  const [wikiMode,setWikiMode]=useState(false);   // v81: WikiRadio — zero-token mode, telephone assembles from Wikipedia
+  const wikiModeRef=useRef(false);
+  useEffect(()=>{wikiModeRef.current=wikiMode;},[wikiMode]);
   const [debugLine,setDebugLine]=useState("");
   const dirMoodRef=useRef("normal");   // mood of the next block
   const callPhaseRef=useRef("idle");
@@ -1042,6 +1047,44 @@ function App(){
     setTimeout(()=>{document.body.removeChild(a);URL.revokeObjectURL(url);},1000);
   };
 
+  // v81 WikiRadio: assemble a segment ON THE PHONE from a real Wikipedia article + template intros.
+  // NO model call → zero server tokens. Honest "reading you Wikipedia" radio.
+  const WIKI_INTROS_RU=[
+    "Вот что рассказывает энциклопедия об этих местах.",
+    "А знаете, что тут интересного? Судите сами.",
+    "Немного фактов об этом месте — как есть, без прикрас.",
+    "Раз уж мы здесь, вот что известно об этих краях.",
+    "Держите справку об этом месте.",
+    "Что говорят про это место — вот, послушайте.",
+  ];
+  const WIKI_INTROS_EN=[
+    "Here's what the encyclopedia says about these parts.",
+    "A few plain facts about this place.",
+    "Since we're here, here's what's known about this area.",
+    "Let me read you a bit about this spot.",
+  ];
+  const WIKI_OUTROS_RU=["Вот такие дела в этих краях.","Такое вот место.","Едем дальше.",""];
+  const WIKI_OUTROS_EN=["That's this place for you.","And on we go.",""];
+  const wikiRadioIdxRef=useRef(0);
+  const buildWikiSegment=async(lat,lng)=>{
+    const w=await Promise.race([fetchWiki(lat,lng,langRef.current),new Promise(r=>setTimeout(()=>r(null),6000))]);
+    const isRu=["ru","uk"].includes(langRef.current);
+    if(!w||!w.extract){
+      return {story:isRu?"Здесь, в этих краях, отдельной статьи под рукой нет — но места вокруг живописные. Едем дальше, скоро расскажу что-нибудь ещё.":"No article right here, but the area is scenic. On we go.",location:"",topics:"wiki-none",_src:"wikiradio",_wiki:true};
+    }
+    // Trim article text to a listenable length WITHOUT a model (phone-side): first 2-4 sentences.
+    let body=w.extract.replace(/\s+/g," ").trim();
+    const sents=body.match(/[^.!?]+[.!?]+/g)||[body];
+    const take=sents.slice(0,Math.min(4,Math.max(2,sents.length))).join(" ").trim();
+    const intros=isRu?WIKI_INTROS_RU:WIKI_INTROS_EN;
+    const outros=isRu?WIKI_OUTROS_RU:WIKI_OUTROS_EN;
+    const intro=intros[wikiRadioIdxRef.current%intros.length];wikiRadioIdxRef.current++;
+    const outro=outros[Math.floor(Math.random()*outros.length)];
+    const namePart=isRu?`«${w.title}». `:`"${w.title}". `;
+    const story=`${intro} ${namePart}${take}${outro?" "+outro:""}`.trim();
+    return {story,location:w.title,topics:"wikipedia:"+w.title,entity:w.title,_src:"wikiradio",_wiki:true};
+  };
+
   const memoryBlockForPrompt=()=>{
     const recent=spokenLedgerRef.current.slice(-10).map(x=>x.summary);
     const hard=[...semanticStopRef.current].slice(-40);
@@ -1352,6 +1395,7 @@ Reply ONLY valid JSON: {"story":"your segment in ${al}. LENGTH IS FLEXIBLE — i
       const r=await fetch(PROXY,{method:"POST",headers:{"Content-Type":"application/json","x-api-key":key,"anthropic-version":"2023-06-01","anthropic-dangerous-direct-browser-access":"true"},body:JSON.stringify({model:"claude-haiku-4-5-20251001",max_tokens:700,system:extra?sys+extra:sys,messages:msgs})});
       if(!r.ok)throw new Error(await r.text());
       const d=await r.json();
+      try{if(d.usage){tokenCountRef.current.in+=(d.usage.input_tokens||0);tokenCountRef.current.out+=(d.usage.output_tokens||0);setTokenDisp({...tokenCountRef.current});}}catch{}
       const txt=(d.content?.[0]?.text||"{}").replace(/```json|```/g,"").trim();
       return {res:extract(txt),txt};
     };
@@ -1486,6 +1530,14 @@ Reply ONLY valid JSON: {"story":"your segment in ${al}. LENGTH IS FLEXIBLE — i
         if(moved<=3){res=nx;nextRef.current=null;setStatus("ready");}
         else nextRef.current=null;   // stale — drop it, generate fresh below
       }
+      if(!res&&wikiModeRef.current){
+        // ==== WikiRadio: zero-token path. Phone assembles from Wikipedia, no model call. ====
+        setStatus("loading");
+        await reverseGeocode(c.lat,c.lng);
+        if(gen!==loopGenRef.current||!runRef.current)return;
+        res=await buildWikiSegment(c.lat,c.lng);
+        if(gen!==loopGenRef.current||!runRef.current)return;
+      }
       if(!res){
         setStatus("loading");
         const[geo,pois]=await Promise.all([reverseGeocode(c.lat,c.lng),fetchPOI(c.lat,c.lng,c.heading??90)]);
@@ -1521,6 +1573,7 @@ Reply ONLY valid JSON: {"story":"your segment in ${al}. LENGTH IS FLEXIBLE — i
         if(sourceLevel==="model_general"){
           wikiBlock=`\n\n‼ РЕЖИМ НИЗКОЙ УВЕРЕННОСТИ: у тебя НЕТ проверенного источника об этом конкретном месте. Поэтому НЕ называй конкретных имён людей, точных годов, названий учреждений и событий — ты можешь их выдумать. Говори осторожно и общо о регионе (природа, ландшафт, чем известен штат в целом), честно и без выдуманной конкретики. Лучше меньше деталей, но правда.`;
         }
+        let attempt=0,accepted=null,fallbackCand=null;
         while(attempt<3){
           if(gen!==loopGenRef.current||!runRef.current)return;
           const director=directNextBlock();
@@ -1528,6 +1581,7 @@ Reply ONLY valid JSON: {"story":"your segment in ${al}. LENGTH IS FLEXIBLE — i
           const cand=await callClaude(sys+"\n\n"+director.text+poiLine+wikiBlock+memoryBlockForPrompt()+styleReminder,"Produce ONLY the director's assigned block, IN PERSONA.",false);
           cand._dirTopic=director.topicKey;cand._dirLens=director.lens;cand._dirScope=director.scope;cand._src=sourceLevel;
           if(cand._suppress){attempt++;continue;}
+          if(cand.story&&!fallbackCand)fallbackCand=cand; // safety net
           // Fabrication / geo-error guards — never air these.
           if(hasHallucination(cand.story)||hasGeoError(cand.story)){
             console.warn("[RR REJECT FICTION]",{topic:director.topicKey,story:cand.story});
@@ -1549,10 +1603,11 @@ Reply ONLY valid JSON: {"story":"your segment in ${al}. LENGTH IS FLEXIBLE — i
           }
           accepted=cand;break;
         }
+        // Never hang: if every attempt was rejected, air the safety-net candidate rather than showing nothing forever.
+        if(!accepted)accepted=fallbackCand;
         if(!accepted){
-          // Couldn't get a fresh non-repeat — wait briefly and try again rather than airing a repeat.
           setStatus("loading");
-          if(gen===loopGenRef.current&&runRef.current&&!parkedRef.current)scheduleNext(gen,3500);
+          if(gen===loopGenRef.current&&runRef.current)scheduleNext(gen,parkedRef.current?4000:3000);
           return;
         }
         res=accepted;
@@ -2263,6 +2318,7 @@ Reply ONLY valid JSON: {"story":"your segment in ${al}. LENGTH IS FLEXIBLE — i
             </div>
             {showTxt&&story&&<div className="stxt">{story}</div>}
             {debugOn&&debugLine&&<div style={{margin:"6px 14px",padding:"6px 10px",background:"#0a0f1a",border:"1px solid #244",borderRadius:8,fontSize:12,color:"#6fa",fontFamily:"monospace",wordBreak:"break-word"}}>{debugLine}</div>}
+            {debugOn&&<div style={{margin:"4px 14px",padding:"6px 10px",background:"#0a0f1a",border:"1px solid #354",borderRadius:8,fontSize:12,color:"#fc8",fontFamily:"monospace"}}>🎫 токены: вход {tokenDisp.in} · выход {tokenDisp.out} · всего {tokenDisp.in+tokenDisp.out}</div>}
             {micTranscript&&<div className="mic-transcript">🎤 {micTranscript}</div>}
           </div>
           </>)}
@@ -2345,6 +2401,7 @@ Reply ONLY valid JSON: {"story":"your segment in ${al}. LENGTH IS FLEXIBLE — i
             <div className="sec-btns">
               <button className={`sbtn big${showTxt?" act":""}`} onClick={()=>{setShowTxt(t=>{const n=!t;if(n)setRadioFocus(false);return n;});}}>{showTxt?(isRu?"📄 Текст ✓":"📄 Text ✓"):(isRu?"📄 Текст":"📄 Text")}</button>
               <button className={`sbtn big${debugOn?" act":""}`} onClick={()=>setDebugOn(d=>!d)}>{debugOn?"🐞 Debug ✓":"🐞 Debug"}</button>
+              <button className={`sbtn big${wikiMode?" act":""}`} onClick={()=>setWikiMode(w=>!w)}>{wikiMode?"📚 WikiRadio ✓":"📚 WikiRadio"}</button>
               <button className="sbtn big" onClick={downloadAirLog}>{isRu?"⬇ Лог эфира":"⬇ Air log"}</button>
               <button className="sbtn big" onClick={()=>{revealMenu();setRadioFocus(true);}}>{isRu?"📻 Только радио":"📻 Radio only"}</button>
               <button className="sbtn" onClick={()=>setSettingsOpen(true)}>⚙️</button>
