@@ -289,7 +289,7 @@ body{font-family:'Inter',sans-serif;color:#fff;}
 const {useState,useRef,useEffect}=React;
 const PROXY="https://corsproxy.io/?https://api.anthropic.com/v1/messages";
 const KEY_STORE="rr_key_v3";
-const VER="v81";
+const VER="v82";
 // v76 MEMORY DIAGNOSTIC: prefetch & buffer OFF so every spoken segment goes through one gate.
 const PREFETCH_ENABLED=false;
 const BUFFER_ENABLED=false;
@@ -745,11 +745,24 @@ function App(){
   // Wikipedia: find real articles near the coords and fetch a short extract to retell. Cached per session.
   const wikiCacheRef=useRef({});
   const wikiRecentTitlesRef=useRef([]);
+  const fetchWikiExtractByTitle=async(base,title)=>{
+    try{
+      const u=`${base}?action=query&prop=extracts&exintro=1&explaintext=1&redirects=1&titles=${encodeURIComponent(title)}&format=json&origin=*`;
+      const r=await fetch(u);const d=await r.json();
+      const pages=d.query&&d.query.pages;if(!pages)return null;
+      const pid=Object.keys(pages)[0];
+      if(!pid||pid==="-1")return null;
+      let extract=(pages[pid].extract||"").trim();
+      if(!extract)return null;
+      if(extract.length>1500)extract=extract.slice(0,1500);
+      return{title:pages[pid].title||title,extract,pageid:pages[pid].pageid};
+    }catch{return null;}
+  };
   const fetchWiki=async(lat,lng,langCode)=>{
     try{
       const wl=(["ru","uk","es","de","fr","pt"].includes(langCode))?langCode:"en";
       const base=`https://${wl}.wikipedia.org/w/api.php`;
-      // Gather candidates from progressively wider rings so a sparse area still yields variety.
+      // 1) Geosearch by rings (nearby real articles).
       let pages=[];
       for(const radius of [10000,25000,50000,90000]){
         const u=`${base}?action=query&list=geosearch&gscoord=${lat}%7C${lng}&gsradius=${radius}&gslimit=20&format=json&origin=*`;
@@ -758,21 +771,29 @@ function App(){
         }catch{}
         if(pages.length>=8)break;
       }
-      if(!pages.length)return null;
       const used=wikiCacheRef.current;
-      // Prefer an article we have NOT used yet this session. If every nearby article is used up,
-      // return null so the host talks about the wider region instead of re-reading the same page.
       let fresh=pages.find(p=>!used[p.pageid]);
-      if(!fresh)return null;
-      used[fresh.pageid]=true;
-      const exUrl=`${base}?action=query&prop=extracts&exintro=1&explaintext=1&pageids=${fresh.pageid}&format=json&origin=*`;
-      const er=await fetch(exUrl);const ed=await er.json();
-      const page=ed.query&&ed.query.pages&&ed.query.pages[fresh.pageid];
-      let extract=(page&&page.extract)||"";
-      if(extract.length>1500)extract=extract.slice(0,1500);
-      if(!extract)return null;
-      wikiRecentTitlesRef.current=[...wikiRecentTitlesRef.current,fresh.title].slice(-12);
-      return {title:fresh.title,dist:fresh.dist,extract};
+      if(fresh){
+        used[fresh.pageid]=true;
+        const got=await fetchWikiExtractByTitle(base,fresh.title);
+        if(got&&got.extract){wikiRecentTitlesRef.current=[...wikiRecentTitlesRef.current,got.title].slice(-12);return{title:got.title,dist:fresh.dist,extract:got.extract};}
+      }
+      // 2) FALLBACK by name so we NEVER come up empty: nearest town → county → state.
+      const ld=locDataRef.current||{};
+      const cands=[];
+      if(ld.city)cands.push(`${ld.city}, ${ld.state||""}`.replace(/, $/,""),ld.city);
+      const ca=cityAheadRef.current;
+      if(ca&&ca.name)cands.push(`${ca.name}, ${ld.state||""}`.replace(/, $/,""),ca.name);
+      if(ld.county)cands.push(`${ld.county}, ${ld.state||""}`.replace(/, $/,""),ld.county);
+      if(ld.state)cands.push(ld.state);
+      for(const name of cands){
+        if(!name||name.length<2)continue;
+        const key="title:"+name.toLowerCase();
+        if(used[key])continue;
+        const got=await fetchWikiExtractByTitle(base,name);
+        if(got&&got.extract){used[key]=true;wikiRecentTitlesRef.current=[...wikiRecentTitlesRef.current,got.title].slice(-12);return{title:got.title,dist:null,extract:got.extract};}
+      }
+      return null;
     }catch{return null;}
   };
 
@@ -1534,6 +1555,7 @@ Reply ONLY valid JSON: {"story":"your segment in ${al}. LENGTH IS FLEXIBLE — i
         // ==== WikiRadio: zero-token path. Phone assembles from Wikipedia, no model call. ====
         setStatus("loading");
         await reverseGeocode(c.lat,c.lng);
+        if(!parkedRef.current)fetchCityAhead(c.lat,c.lng,c.heading??90); // know the town ahead by direction of travel
         if(gen!==loopGenRef.current||!runRef.current)return;
         res=await buildWikiSegment(c.lat,c.lng);
         if(gen!==loopGenRef.current||!runRef.current)return;
