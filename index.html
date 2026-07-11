@@ -289,7 +289,7 @@ body{font-family:'Inter',sans-serif;color:#fff;}
 const {useState,useRef,useEffect}=React;
 const PROXY="https://corsproxy.io/?https://api.anthropic.com/v1/messages";
 const KEY_STORE="rr_key_v3";
-const VER="v79";
+const VER="v80";
 // v76 MEMORY DIAGNOSTIC: prefetch & buffer OFF so every spoken segment goes through one gate.
 const PREFETCH_ENABLED=false;
 const BUFFER_ENABLED=false;
@@ -723,7 +723,12 @@ function App(){
     try{
       const r=await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat.toFixed(5)}&lon=${lng.toFixed(5)}&zoom=14&addressdetails=1`,{headers:{"Accept-Language":"en"}});
       const d=await r.json();const a=d.address||{};
-      const hw=(a.ref||a.road||"").replace(/;.*/,"").trim();
+      // Prefer an Interstate ref if present (avoids picking a crossing US/State route like US-34 when on I-76).
+      const rawRef=(a.ref||"").trim();
+      const refs=rawRef.split(/[;,]/).map(s=>s.trim()).filter(Boolean);
+      const interstate=refs.find(r=>/^I[\s-]?\d/i.test(r));
+      const usRoute=refs.find(r=>/^US[\s-]?\d/i.test(r));
+      const hw=(interstate||usRoute||refs[0]||a.road||"").replace(/;.*/,"").trim();
       const county=a.county||a.municipality||"";
       const state=a.state||"";
       const city=a.city||a.town||a.village||a.hamlet||"";
@@ -992,6 +997,7 @@ function App(){
       scope:meta.scope||res._dirScope||"",
       city:ld.city||"",state:ld.state||"",
       lat:c?+c.lat.toFixed(5):null,lng:c?+c.lng.toFixed(5):null,
+      src:res._src||"",
       keys,entity:passport.entity,
       stopList:[...semanticStopRef.current],
       story:res.story||"",
@@ -1014,7 +1020,7 @@ function App(){
       if(r.status==="AIRED"){
         lines.push(`[${r.t}]  AIRED`);
         lines.push(`  place: ${r.city||"?"}${r.state?", "+r.state:""}   coords: ${r.lat},${r.lng}`);
-        lines.push(`  topic: ${r.topic||"?"} | lens: ${r.lens||"-"} | scope: ${r.scope||"-"}`);
+        lines.push(`  topic: ${r.topic||"?"} | lens: ${r.lens||"-"} | scope: ${r.scope||"-"} | source: ${r.src||"?"}`);
         lines.push(`  keys: ${(r.keys||[]).join(", ")||"—"}${r.entity?"  | entity: "+r.entity:""}`);
         lines.push(`  stop-list so far: ${(r.stopList||[]).join(", ")||"—"}`);
         lines.push(`  TEXT: ${r.story||""}`);
@@ -1501,14 +1507,26 @@ Reply ONLY valid JSON: {"story":"your segment in ${al}. LENGTH IS FLEXIBLE — i
           if(noGeo.length)poiLine+=`\nKnown in the general area (mention only generally, NO distance, NO side): ${noGeo.join(", ")}.`;
           poiLine+=`\nIf an object is not in the list above, you MUST NOT say how far it is or which side it's on.`;
         }
-        // ==== v76 SINGLE GATE: generate → validate → detect repeat → (retry/switch) → accept → speak ====
-        let attempt=0,accepted=null;
+        // ==== v80 WIKIPEDIA GROUNDING: fetch a real nearby article and hand its facts to the model ====
+        let wikiBlock="";
+        let sourceLevel="model_general";
+        try{
+          const w=await Promise.race([fetchWiki(c.lat,c.lng,langRef.current),new Promise(r=>setTimeout(()=>r(null),6000))]);
+          if(gen!==loopGenRef.current||!runRef.current)return;
+          if(w&&w.extract){
+            sourceLevel="wikipedia";
+            wikiBlock=`\n\n=== РЕАЛЬНЫЕ ФАКТЫ ИЗ ВИКИПЕДИИ (об этом месте — ОПИРАЙСЯ ТОЛЬКО НА НИХ) ===\nСтатья: "${w.title}".\n${w.extract}\n‼ Возьми из этого текста 2-3 конкретных проверяемых факта и перескажи их СВОИМИ словами, тепло и живо. НЕ добавляй имён, годов, событий, которых НЕТ в этом тексте. НЕ выдумывай. Если текст не про текущую тему блока — всё равно расскажи об этом реальном месте, а тему считай второстепенной.\n========================`;
+          }
+        }catch{}
+        if(sourceLevel==="model_general"){
+          wikiBlock=`\n\n‼ РЕЖИМ НИЗКОЙ УВЕРЕННОСТИ: у тебя НЕТ проверенного источника об этом конкретном месте. Поэтому НЕ называй конкретных имён людей, точных годов, названий учреждений и событий — ты можешь их выдумать. Говори осторожно и общо о регионе (природа, ландшафт, чем известен штат в целом), честно и без выдуманной конкретики. Лучше меньше деталей, но правда.`;
+        }
         while(attempt<3){
           if(gen!==loopGenRef.current||!runRef.current)return;
           const director=directNextBlock();
           const sys=buildSys(false,null,tourist||false);
-          const cand=await callClaude(sys+"\n\n"+director.text+poiLine+memoryBlockForPrompt()+styleReminder,"Produce ONLY the director's assigned block, IN PERSONA.",false);
-          cand._dirTopic=director.topicKey;cand._dirLens=director.lens;cand._dirScope=director.scope;
+          const cand=await callClaude(sys+"\n\n"+director.text+poiLine+wikiBlock+memoryBlockForPrompt()+styleReminder,"Produce ONLY the director's assigned block, IN PERSONA.",false);
+          cand._dirTopic=director.topicKey;cand._dirLens=director.lens;cand._dirScope=director.scope;cand._src=sourceLevel;
           if(cand._suppress){attempt++;continue;}
           // Fabrication / geo-error guards — never air these.
           if(hasHallucination(cand.story)||hasGeoError(cand.story)){
