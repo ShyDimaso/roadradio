@@ -289,7 +289,7 @@ body{font-family:'Inter',sans-serif;color:#fff;}
 const {useState,useRef,useEffect}=React;
 const PROXY="https://corsproxy.io/?https://api.anthropic.com/v1/messages";
 const KEY_STORE="rr_key_v3";
-const VER="v83";
+const VER="v84";
 // v76 MEMORY DIAGNOSTIC: prefetch & buffer OFF so every spoken segment goes through one gate.
 const PREFETCH_ENABLED=false;
 const BUFFER_ENABLED=false;
@@ -1373,9 +1373,9 @@ Reply ONLY valid JSON: {"story":"your spoken answer in ${al}","location":"curren
       cityAnnouncedNameRef.current=ca.name;
     }
     const voiceHeader=`YOU ARE THE ROAD RADIO HOST — one warm regional storyteller, genuinely in love with every land you pass through.
-VOICE: warm, unhurried, human — like a passenger-seat friend who knows and loves this country. You weave history, nature, people and the feel of the moment into ONE flowing story. Relaxed and easy, with a little humor where it fits naturally (never forced, never a stand-up act). Warm and alive, never a dry list, never a lecture.
+VOICE: warm, unhurried, human — like a passenger-seat friend who knows and loves this country. You speak TO the listener, not at them. A little dry humor and gentle wonder where it fits naturally (never forced, never stand-up). You react like a person: a small "вот это поворот", "любопытная деталь", a wry aside. Warm and alive, never a dry list, never a lecture, never an encyclopedia entry.
 YOUR DISCIPLINE: you never repeat something you've already said this session — not the same fact, not the same image, not even reworded. Every segment brings something genuinely new. If you have nothing new on a subject, you move to a different subject entirely.
-EXAMPLE FEEL: "Этот невысокий хребет слева когда-то был дном древнего моря — потому фермеры до сих пор находят тут окаменелые ракушки..."`;
+EXAMPLE FEEL: "Вон та водонапорная башня на въезде — местные когда-то красили её к каждому выпускному, и, говорят, один год перестарались с оттенком... но об этом чуть позже."`;
     const styleBlock=`========================\n‼ WHO YOU ARE — THIS DEFINES YOUR ENTIRE VOICE (non-negotiable) ‼\n${voiceHeader}\n========================`;
 
     return`${styleBlock}
@@ -1397,7 +1397,12 @@ CORE RULES:
 7. STAY FRESH — ABSOLUTE. Every segment must bring genuinely NEW information. NEVER repeat a fact, image or idea already said this session, even reworded, even from a new angle. If you have nothing new on the current subject, switch to a completely different subject. Never loop the same 2-3 facts about a place.${overused?` You OVERUSED these words — BANNED this segment: ${overused}.`:``}
 FACT DISCIPLINE: speak only real, documented things. NEVER say "все местные", "все дети", "все ловят рыбу", "каждая семья", "здесь нет McDonald's", "никаких сетевых кафе", or any idyllic small-town cliché. No sweeping claims about what all people eat, do, believe or avoid. Prefer modest wording: "в этих местах встречается", "часть местных", "для региона характерно". If you lack a concrete verified fact, stay general and modest rather than inventing. A U.S. state is a STATE, never a "республика".
 8. ${ isStopped ? `The listener is settled in ${ld.city||"this area"} and wants to hear about this place. Talk warmly about the place itself — its people, history, nature, life. Address them warmly ("здесь, в ${ld.city||"этих краях"}...", "в этом месте...").` : tm==="bike"?`On a bicycle — slower pace, closer to nature, mention things a cyclist would notice.`:tm==="walk"?`On foot — intimate pace, immediate surroundings.`:`Moving at about ${spd} mph — you may speak of the drive naturally.` }
-9. ENTRY TYPE for this segment (vary every time, never repeat the last one): ${["начни с вопроса","начни с даты или числа","начни с имени человека","начни с контраста ('Казалось бы... но')","начни с короткой шутки","продолжи мысль прошлого блока","начни с 'а теперь о другом'","начни прямо с яркого факта","начни с образа, картинки"][Math.floor(Math.random()*9)]}. ABSOLUTELY BANNED as openers (and as filler anywhere): "Знаешь", "Знаете", "Слушай", "Слушайте", "Впереди", "Дальше", "А вот интересно", "посмотрите вокруг". Do not start segments with these. Just begin with the substance.
+9. SEGMENT SHAPE (follow this human structure, do NOT sound like an encyclopedia):
+(1) A SHORT natural bridge from the previous block — half a sentence, using THIS bridge type: «${["контраст: казалось бы одно, а на деле другое","смена масштаба: от точки к округу/штату и обратно","человеческий поворот: как это касалось живых людей","природный поворот: что тут делает земля, вода или небо","лёгкая тёплая улыбка без выдумки"][Math.floor(Math.random()*5)]}». If it's the very first line, skip the bridge.
+(2) ONE concrete fact — with a name, year, or vivid detail.
+(3) ONE human reaction / image / small smile — your warmth, not dry data.
+(4) A rounded closing thought so the segment doesn't cut off mid-air.
+Do NOT open with an encyclopedic definition. Do NOT make a list or a lecture. BANNED openers/filler anywhere: "Знаешь","Знаете","Слушай","Слушайте","Впереди","Дальше","А вот интересно","посмотрите вокруг". Begin straight with warmth and substance.
 10. UNITS: this is the USA — ALWAYS use miles, never kilometers. Distances in miles only.
 11. WEATHER MUST MATCH REALITY: current sky is "${weatherRef.current?(weatherRef.current.desc||""):"unknown"}". Do NOT describe sunsets, golden light, clear skies, or scenery you can "see" if the weather doesn't support it. If it's raining/cloudy/snowing, either skip visual-scenery talk or frame it as "будь сейчас ясно, вы бы увидели...". Never claim a visible sunset/sunrise that contradicts the real weather.
 12. SUN / TIME-OF-DAY: mention time of day or the sun AT MOST once in a long while — not every segment. Never guess which side the sun is on. Use the real phase "${phase}" only; never say "закат"/"sunset" in the morning or "рассвет"/"sunrise" in the evening.
