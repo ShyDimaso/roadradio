@@ -289,7 +289,7 @@ body{font-family:'Inter',sans-serif;color:#fff;}
 const {useState,useRef,useEffect}=React;
 const PROXY="https://corsproxy.io/?https://api.anthropic.com/v1/messages";
 const KEY_STORE="rr_key_v3";
-const VER="v84";
+const VER="v85";
 // v76 MEMORY DIAGNOSTIC: prefetch & buffer OFF so every spoken segment goes through one gate.
 const PREFETCH_ENABLED=false;
 const BUFFER_ENABLED=false;
@@ -937,6 +937,11 @@ function App(){
     {key:"prairie-storms",re:/торнад|гроз\w*\s*прери|смерч|прери\w*\s*ветер|tornado|prairie storm|twister/i},
     {key:"bison-mammoth",re:/бизон|зубр|мамонт|мастодонт|bison|buffalo|mammoth|mastodon/i},
     {key:"pure-water-river",re:/река\s+платт|платт|плоск\w*\s*река|platte|\briver\b runs|meandering river/i},
+    {key:"night-sky-milkyway",re:/ночн\w*\s*неб|млечн\w*\s*пут|звёздн|звездн|созвезди|метеор|метеорит|падающ\w*\s*звёзд|northern lights|milky ?way|star ?gaz|meteor|night sky|aurora/i},
+    {key:"mississippi-river-life",re:/миссисипи|mississippi|речн\w*\s*торговл|баржи|пароход|riverboat|steamboat/i},
+    {key:"river-music-tradition",re:/блюз|джаз|кантри|банджо|скрипач|музыкальн\w*\s*традици|blues|jazz|country music|fiddle|banjo/i},
+    {key:"rural-weekend-life",re:/по выходн|фермерск\w*\s*рынок|ярмарк|местн\w*\s*бар|городск\w*\s*праздник|county fair|farmers market|weekend/i},
+    {key:"cowboy-cattle-drive",re:/ковбо|перегон\w*\s*скот|стад\w*\s*коров|ранчо|погонщик|cattle drive|cowboy|ranch|cattle/i},
     {key:"small-town-charm",re:/тих\w*\s*городок|провинциальн\w*\s*ую|глубинк|small ?town charm|sleepy town/i},
   ];
   const canonicalKeys=text=>{
@@ -985,6 +990,51 @@ function App(){
   const hasHallucination=s=>HALLUCINATION.some(re=>re.test(s||""));
   const hasGeoError=s=>{const t=s||"";if(/республик/i.test(t)&&/(небраск|штат)/i.test(t))return true;return/state\s+republic/i.test(t);};
 
+  // ==== v85 RUSSIAN CLEANUP + VALIDATORS ====
+  const RU_STATES={Nebraska:"Небраска",Iowa:"Айова",Kansas:"Канзас",Missouri:"Миссури",Illinois:"Иллинойс",Colorado:"Колорадо",Wyoming:"Вайоминг",Oklahoma:"Оклахома",Texas:"Техас",Arizona:"Аризона","New Mexico":"Нью-Мексико",Indiana:"Индиана",Ohio:"Огайо",Pennsylvania:"Пенсильвания",Kentucky:"Кентукки",Tennessee:"Теннесси",Minnesota:"Миннесота","South Dakota":"Южная Дакота","North Dakota":"Северная Дакота",Wisconsin:"Висконсин",Michigan:"Мичиган"};
+  const cleanRussianStory=s=>{
+    if(!s)return s;
+    let t=s;
+    // едем/едим confusion
+    t=t.replace(/\bЕдим\s+(с\s+вами|на|по|через|сквозь|дальше)/g,"Едем $1").replace(/\bедим\s+(с\s+вами|на|по|через|сквозь|дальше)/g,"едем $1").replace(/\bвы\s+едите\b/g,"вы едете");
+    // common broken forms seen in logs
+    t=t.replace(/каждого квадратного мили/gi,"каждой квадратной мили").replace(/по выхода[мх]\b/gi,"по выходным").replace(/небосводств\w*/gi,"небосвод").replace(/расцепля\w*\s+небо/gi,"рассекает небо").replace(/жид[её]шь/gi,"ждёшь");
+    t=t.replace(/\bграфств([оаеы])\b/gi,(m,e)=>"округ"+(e==="а"?"а":e==="е"?"е":e==="ы"?"а":""));
+    // common english leaks → russian
+    t=t.replace(/\bMeteor showers?\b/gi,"метеорные потоки").replace(/\bfossils?\b/gi,"окаменелости").replace(/три?lobites?/gi,"трилобиты").replace(/mississippian culture/gi,"миссисипская культура").replace(/\bAmerica\b/g,"Америка").replace(/\bcounty\b/gi,"округ");
+    for(const[en,ru]of Object.entries(RU_STATES)){t=t.replace(new RegExp("\\b"+en+"\\b","g"),ru);}
+    return t.replace(/\s{2,}/g," ").trim();
+  };
+  // After cleanup, any remaining latin word (3+ letters) in RU mode → block & regenerate (allow road codes).
+  const hasLatinLeak=s=>{
+    if(!(["ru","uk"].includes(langRef.current)))return false;
+    const latin=(s||"").match(/[A-Za-z]{3,}/g)||[];
+    return latin.some(w=>!/^(GPS|API|FM|USA|RV)$/i.test(w));
+  };
+  // Exact-duplicate guard: same normalized text must never air twice, even if it slipped past detectRepeat.
+  const spokenHashRef=useRef(new Set());
+  const normHash=s=>(s||"").toLowerCase().replace(/ё/g,"е").replace(/[^a-zа-я0-9]/gi,"").slice(0,400);
+  // Topic-text contract — MILD: only flag if the topic clearly demands a subject and the whole block is about a different banned motif.
+  const TOPIC_CONTRACTS={
+    films:{must:/фильм|кино|сериал|снима|съёмк|съемк|актёр|актер|режисс|кинематограф|экран/i,banned:/млечн|звёзд|звезд|метеор|гроза|рыбалк|кукуруз|ковбо/i},
+    music:{must:/музык|песн|блюз|джаз|кантри|гитар|банджо|оркестр|музыкант|мелоди|композитор/i,banned:/млечн|звёзд|звезд|метеор|рыбалк|кукуруз/i},
+    sports:{must:/спорт|команд|матч|турнир|соревн|игрок|атлет|стадион|гонк|чемпион/i,banned:/млечн|звёзд|звезд|метеор|гроза|рыбалк|кукуруз/i},
+  };
+  const topicMismatch=(topicKey,story)=>{
+    const c=TOPIC_CONTRACTS[topicKey];if(!c)return false;
+    const s=story||"";
+    // mismatch only if the block does NOT touch the topic AND is dominated by a banned motif
+    return !c.must.test(s)&&c.banned.test(s);
+  };
+  // Motif cooldown: heavy motifs go on a timed pause so they can't dominate every few minutes.
+  const motifCooldownRef=useRef({});
+  const MOTIF_COOLDOWN={"night-sky-milkyway":1800000,"prairie-storms":1500000,"local-fishing":1800000,"corn-soy-farming":1500000,"ancient-sea-fossils":1800000,"mississippi-river-life":1500000,"river-music-tradition":1500000,"cowboy-cattle-drive":1500000};
+  const motifsOnCooldown=()=>{
+    const now=Date.now();const out=[];
+    for(const[k,until]of Object.entries(motifCooldownRef.current)){if(until>now)out.push(k);}
+    return out;
+  };
+
   // Build a code-made summary (never trust the model to name its own meaning).
   const buildSummary=(res,meta)=>{
     const keys=canonicalKeys(res.story||"");
@@ -1009,6 +1059,9 @@ function App(){
     if(spokenLedgerRef.current.length>300)spokenLedgerRef.current.shift();
     for(const k of keys)semanticStopRef.current.add(k);
     if(passport.entity)entityStopRef.current.add(passport.entity);
+    // v85: exact-duplicate hash + motif cooldowns
+    const nh=normHash(res.story);if(nh)spokenHashRef.current.add(nh);
+    for(const k of keys){const cd=MOTIF_COOLDOWN[k];if(cd)motifCooldownRef.current[k]=Date.now()+cd;}
     recentStoriesRef.current=[...recentStoriesRef.current,res.story].slice(-50);
     dirSummariesRef.current=[...dirSummariesRef.current,passport.summary].slice(-80);
     if(debugOn)setDebugLine(`✓ ${passport.summary} | stop:${semanticStopRef.current.size}`);
@@ -1125,8 +1178,11 @@ function App(){
     const recent=spokenLedgerRef.current.slice(-10).map(x=>x.summary);
     const hard=[...semanticStopRef.current].slice(-40);
     const ents=[...entityStopRef.current].slice(-24);
-    if(!recent.length&&!hard.length)return "";
-    return `\n\n=== ПАМЯТЬ ЭФИРА (СТРОГО НЕ ПОВТОРЯТЬ) ===\nУЖЕ РАСКРЫТЫЕ ОБРАЗЫ (не возвращайся к ним ВООБЩЕ): ${hard.join("; ")||"—"}.\nУЖЕ БЫЛИ ГЛАВНЫМИ (не делай их снова центром): ${ents.join("; ")||"—"}.\nПОСЛЕДНИЕ СЕГМЕНТЫ (не повторяй их смысл): ${recent.join(" || ")||"—"}.\n========================`;
+    const cooled=motifsOnCooldown();
+    const motifRu={"night-sky-milkyway":"ночное небо/Млечный Путь/звёзды/метеоры","prairie-storms":"грозы прерий/торнадо","local-fishing":"рыбалка/сом/окунь","corn-soy-farming":"кукуруза/соя/фермеры","ancient-sea-fossils":"древнее море/окаменелости","mississippi-river-life":"река Миссисипи/баржи","river-music-tradition":"блюз/джаз/кантри","cowboy-cattle-drive":"ковбои/перегон скота"};
+    const cooledText=cooled.length?cooled.map(k=>motifRu[k]||k).join("; "):"";
+    if(!recent.length&&!hard.length&&!cooledText)return "";
+    return `\n\n=== ПАМЯТЬ ЭФИРА (СТРОГО НЕ ПОВТОРЯТЬ) ===${cooledText?`\n‼ ЗАПРЕЩЁННЫЕ МОТИВЫ ПРЯМО СЕЙЧАС (НЕ упоминай их вообще, даже вскользь): ${cooledText}.`:""}\nУЖЕ РАСКРЫТЫЕ ОБРАЗЫ (не возвращайся к ним ВООБЩЕ): ${hard.join("; ")||"—"}.\nУЖЕ БЫЛИ ГЛАВНЫМИ (не делай их снова центром): ${ents.join("; ")||"—"}.\nПОСЛЕДНИЕ СЕГМЕНТЫ (не повторяй их смысл): ${recent.join(" || ")||"—"}.\n========================`;
   };
 
   const getOpener=()=>{
@@ -1615,42 +1671,64 @@ Reply ONLY valid JSON: {"story":"your segment in ${al}. LENGTH IS FLEXIBLE — i
         if(sourceLevel==="model_general"){
           wikiBlock=`\n\n‼ РЕЖИМ НИЗКОЙ УВЕРЕННОСТИ: у тебя НЕТ проверенного источника об этом конкретном месте. Поэтому НЕ называй конкретных имён людей, точных годов, названий учреждений и событий — ты можешь их выдумать. Говори осторожно и общо о регионе (природа, ландшафт, чем известен штат в целом), честно и без выдуманной конкретики. Лучше меньше деталей, но правда.`;
         }
-        let attempt=0,accepted=null,fallbackCand=null;
-        while(attempt<3){
+        let attempt=0,accepted=null;
+        while(attempt<4){
           if(gen!==loopGenRef.current||!runRef.current)return;
           const director=directNextBlock();
           const sys=buildSys(false,null,tourist||false);
           const cand=await callClaude(sys+"\n\n"+director.text+poiLine+wikiBlock+memoryBlockForPrompt()+styleReminder,"Produce ONLY the director's assigned block, IN PERSONA.",false);
           cand._dirTopic=director.topicKey;cand._dirLens=director.lens;cand._dirScope=director.scope;cand._src=sourceLevel;
           if(cand._suppress){attempt++;continue;}
-          if(cand.story&&!fallbackCand)fallbackCand=cand; // safety net
-          // Fabrication / geo-error guards — never air these.
+          // 1) Clean Russian grammar/leaks BEFORE any check or airing.
+          cand.story=cleanRussianStory(cand.story);
+          // 2) Latin leak in RU mode → regenerate.
+          if(hasLatinLeak(cand.story)){
+            if(debugOn)setDebugLine(`✗ латиница — перегенерация`);
+            attempt++;continue;
+          }
+          // 3) Fabrication / geo-error → never air.
           if(hasHallucination(cand.story)||hasGeoError(cand.story)){
-            console.warn("[RR REJECT FICTION]",{topic:director.topicKey,story:cand.story});
             if(debugOn)setDebugLine(`✗ вымысел (${director.topicKey}) — перегенерация`);
             airLogRef.current.push({t:new Date().toISOString(),_ms:Date.now(),status:"REJECTED-FICTION",topic:director.topicKey,story:cand.story});
             attempt++;continue;
           }
+          // 4) Topic/text mismatch (mild) → regenerate.
+          if(topicMismatch(director.topicKey,cand.story)){
+            if(debugOn)setDebugLine(`✗ тема≠текст (${director.topicKey}) — смена`);
+            airLogRef.current.push({t:new Date().toISOString(),_ms:Date.now(),status:"REJECTED-TOPIC-MISMATCH",topic:director.topicKey,story:cand.story});
+            dirForceSwitchRef.current=true;attempt++;continue;
+          }
+          // 5) Motif on cooldown → treat as repeat.
+          const candKeys=canonicalKeys(cand.story+" "+(cand.micro_topic_id||""));
+          const cooled=candKeys.filter(k=>(motifCooldownRef.current[k]||0)>Date.now());
+          if(cooled.length){
+            if(debugOn)setDebugLine(`✗ мотив на паузе:${cooled.join(",")} — смена`);
+            airLogRef.current.push({t:new Date().toISOString(),_ms:Date.now(),status:"REJECTED-MOTIF",topic:director.topicKey,keys:cooled,story:cand.story});
+            dirForceSwitchRef.current=true;attempt++;continue;
+          }
+          // 6) Semantic/entity/shingle repeat → never air.
           const rep=detectRepeat(cand);
           if(rep.isRepeat===true){
-            console.warn("[RR REJECT REPEAT]",{reason:rep.reason,keys:rep.keys,score:rep.score,dup:rep.duplicateOf,story:cand.story});
             if(debugOn)setDebugLine(`✗ повтор:${rep.reason} ${rep.keys?.join(",")||rep.score||""} — смена темы`);
             airLogRef.current.push({t:new Date().toISOString(),_ms:Date.now(),status:"REJECTED-REPEAT",topic:director.topicKey,reason:rep.reason,keys:rep.keys||[],score:rep.score||null,duplicateOf:rep.duplicateOf||"",story:cand.story});
-            // teach the director: this topic just produced a repeat
             topicFailRef.current[director.topicKey]=(topicFailRef.current[director.topicKey]||0)+1;
             if(topicFailRef.current[director.topicKey]>=2)topicCooldownRef.current[director.topicKey]=Date.now()+600000;
             for(const k of rep.keys||[])semanticStopRef.current.add(k);
             dirForceSwitchRef.current=true;nextRef.current=null;bufferRef.current=[];
             attempt++;continue;
           }
+          // 7) Exact normalized duplicate → never air.
+          const nh=normHash(cand.story);
+          if(nh&&spokenHashRef.current.has(nh)){
+            if(debugOn)setDebugLine(`✗ точный дубль — смена`);
+            dirForceSwitchRef.current=true;attempt++;continue;
+          }
           accepted=cand;break;
         }
-        // Never hang: if every attempt was rejected, air the safety-net candidate rather than showing nothing forever.
-        if(!accepted)accepted=fallbackCand;
+        // NEVER air a rejected candidate. If all attempts failed, air a short honest neutral bridge instead.
         if(!accepted){
-          setStatus("loading");
-          if(gen===loopGenRef.current&&runRef.current)scheduleNext(gen,parkedRef.current?4000:3000);
-          return;
+          const isRu=["ru","uk"].includes(langRef.current);
+          accepted={story:isRu?"Пусть эта дорога пока помолчит секунду — впереди наверняка найдётся, о чём рассказать. Держим курс.":"Let the road breathe for a second — there'll be a good story just ahead. Keep rolling.",location:"",topics:"road-pause",entity:"",_src:"pause",_dirTopic:"road"};
         }
         res=accepted;
       }
@@ -1769,6 +1847,7 @@ Reply ONLY valid JSON: {"story":"your segment in ${al}. LENGTH IS FLEXIBLE — i
     runRef.current=true;histRef.current=[];nextRef.current=null;topicsUsedRef.current=[];saidFactsRef.current=[];bufferRef.current=[];recentStoriesRef.current=[];
     dirTopicRef.current=null;dirCountRef.current=0;dirTargetRef.current=2;dirRecentTopicsRef.current=[];dirSummariesRef.current=[];coveredEntitiesRef.current=[];dirTopicStartRef.current=0;dirForceSwitchRef.current=false;lastIntroBcastRef.current=bcastRef.current;qaHistRef.current=[];
     spokenLedgerRef.current=[];semanticStopRef.current=new Set();entityStopRef.current=new Set();topicFailRef.current={};topicCooldownRef.current={};lexCooldownRef.current=[];
+    spokenHashRef.current=new Set();motifCooldownRef.current={};
     loadMemory(); // restore if the last session was < 40 min ago (same trip after a phone call); else stays clean
     openerIdx.current=0;stoppedSince.current=null;fuelWarnedRef.current=0;tourAckRef.current=false;
     loopBusyRef.current=false;loopGenRef.current++;        // fresh single generation
