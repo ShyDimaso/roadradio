@@ -289,7 +289,7 @@ body{font-family:'Inter',sans-serif;color:#fff;}
 const {useState,useRef,useEffect}=React;
 const PROXY="https://corsproxy.io/?https://api.anthropic.com/v1/messages";
 const KEY_STORE="rr_key_v3";
-const VER="v87";
+const VER="v88";
 // v76 MEMORY DIAGNOSTIC: prefetch & buffer OFF so every spoken segment goes through one gate.
 const PREFETCH_ENABLED=false;
 const BUFFER_ENABLED=false;
@@ -1501,12 +1501,22 @@ Reply ONLY valid JSON: {"story":"your segment in ${al}. LENGTH IS FLEXIBLE — i
           generationConfig:{maxOutputTokens:900,temperature:0.9},
         };
         let r;
+        const savedModel=localStorage.getItem("rr_gemini_model")||"";
+        const candidates=savedModel?[savedModel]:["gemini-3-flash","gemini-3.5-flash","gemini-flash-latest","gemini-2.5-flash-lite","gemini-2.0-flash"];
+        let lastErr="";
         try{
-          r=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent`,{method:"POST",headers:{"Content-Type":"application/json","x-goog-api-key":gemKey},body:JSON.stringify(gm)});
+          for(const mdl of candidates){
+            const rr=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${mdl}:generateContent`,{method:"POST",headers:{"Content-Type":"application/json","x-goog-api-key":gemKey},body:JSON.stringify(gm)});
+            if(rr.ok){r=rr;localStorage.setItem("rr_gemini_model",mdl);break;}
+            lastErr=mdl+" → "+rr.status+": "+(await rr.text()).slice(0,120);
+            // 404 = wrong model name, try next. Other errors (403/429) are key/quota — stop and report.
+            if(rr.status!==404){r=rr;break;}
+          }
         }catch(netErr){
           setErr("Gemini network: "+String(netErr.message||netErr).slice(0,120));
           throw netErr;
         }
+        if(!r){setErr("Gemini: ни одна модель не подошла. "+lastErr);throw new Error(lastErr);}
         if(!r.ok){
           const et=await r.text();
           setErr("Gemini "+r.status+": "+et.slice(0,160));
