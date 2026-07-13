@@ -289,7 +289,7 @@ body{font-family:'Inter',sans-serif;color:#fff;}
 const {useState,useRef,useEffect}=React;
 const PROXY="https://corsproxy.io/?https://api.anthropic.com/v1/messages";
 const KEY_STORE="rr_key_v3";
-const VER="v85";
+const VER="v86";
 // v76 MEMORY DIAGNOSTIC: prefetch & buffer OFF so every spoken segment goes through one gate.
 const PREFETCH_ENABLED=false;
 const BUFFER_ENABLED=false;
@@ -550,6 +550,7 @@ function App(){
   };
   const [debugOn,setDebugOn]=useState(false);
   const [wikiMode,setWikiMode]=useState(false);   // v81: WikiRadio — zero-token mode, telephone assembles from Wikipedia
+  const [provider,setProvider]=useState(localStorage.getItem("rr_provider")||"haiku"); // v86: model switch haiku/gemini
   const wikiModeRef=useRef(false);
   useEffect(()=>{wikiModeRef.current=wikiMode;},[wikiMode]);
   const [debugLine,setDebugLine]=useState("");
@@ -1488,8 +1489,26 @@ Reply ONLY valid JSON: {"story":"your segment in ${al}. LENGTH IS FLEXIBLE — i
   const callClaude=async(sys,msg,forNext)=>{
     const key=localStorage.getItem(KEY_STORE);
     const msgs=forNext?[{role:"user",content:msg}]:[...histRef.current.slice(-4),{role:"user",content:msg}];
+    const provider=localStorage.getItem("rr_provider")||"haiku";
+    const gemKey=localStorage.getItem("rr_gemini_key")||"";
     const doCall=async(extra)=>{
-      const r=await fetch(PROXY,{method:"POST",headers:{"Content-Type":"application/json","x-api-key":key,"anthropic-version":"2023-06-01","anthropic-dangerous-direct-browser-access":"true"},body:JSON.stringify({model:"claude-haiku-4-5-20251001",max_tokens:700,system:extra?sys+extra:sys,messages:msgs})});
+      const sysFull=extra?sys+extra:sys;
+      if(provider==="gemini"&&gemKey){
+        // Google Gemini API (v1beta generateContent). No CORS proxy needed — Google allows browser calls.
+        const gm={
+          system_instruction:{parts:[{text:sysFull}]},
+          contents:msgs.map(m=>({role:m.role==="assistant"?"model":"user",parts:[{text:m.content}]})),
+          generationConfig:{maxOutputTokens:900,temperature:0.9},
+        };
+        const r=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${encodeURIComponent(gemKey)}`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(gm)});
+        if(!r.ok)throw new Error(await r.text());
+        const d=await r.json();
+        try{const u=d.usageMetadata;if(u){tokenCountRef.current.in+=(u.promptTokenCount||0);tokenCountRef.current.out+=(u.candidatesTokenCount||0);setTokenDisp({...tokenCountRef.current});}}catch{}
+        const txt=(d.candidates?.[0]?.content?.parts?.[0]?.text||"{}").replace(/```json|```/g,"").trim();
+        return {res:extract(txt),txt};
+      }
+      // Default: Anthropic Haiku via CORS proxy.
+      const r=await fetch(PROXY,{method:"POST",headers:{"Content-Type":"application/json","x-api-key":key,"anthropic-version":"2023-06-01","anthropic-dangerous-direct-browser-access":"true"},body:JSON.stringify({model:"claude-haiku-4-5-20251001",max_tokens:700,system:sysFull,messages:msgs})});
       if(!r.ok)throw new Error(await r.text());
       const d=await r.json();
       try{if(d.usage){tokenCountRef.current.in+=(d.usage.input_tokens||0);tokenCountRef.current.out+=(d.usage.output_tokens||0);setTokenDisp({...tokenCountRef.current});}}catch{}
@@ -2523,6 +2542,13 @@ Reply ONLY valid JSON: {"story":"your segment in ${al}. LENGTH IS FLEXIBLE — i
               <button className={`sbtn big${showTxt?" act":""}`} onClick={()=>{setShowTxt(t=>{const n=!t;if(n)setRadioFocus(false);return n;});}}>{showTxt?(isRu?"📄 Текст ✓":"📄 Text ✓"):(isRu?"📄 Текст":"📄 Text")}</button>
               <button className={`sbtn big${debugOn?" act":""}`} onClick={()=>setDebugOn(d=>!d)}>{debugOn?"🐞 Debug ✓":"🐞 Debug"}</button>
               <button className={`sbtn big${wikiMode?" act":""}`} onClick={()=>setWikiMode(w=>!w)}>{wikiMode?"📚 WikiRadio ✓":"📚 WikiRadio"}</button>
+              <button className={`sbtn big${provider==="gemini"?" act":""}`} onClick={()=>{
+                if(provider==="haiku"){
+                  let gk=localStorage.getItem("rr_gemini_key")||"";
+                  if(!gk){gk=prompt(isRu?"Вставь Gemini API-ключ (aistudio.google.com → Get API key):":"Paste Gemini API key (aistudio.google.com → Get API key):")||"";if(!gk)return;localStorage.setItem("rr_gemini_key",gk.trim());}
+                  localStorage.setItem("rr_provider","gemini");setProvider("gemini");
+                }else{localStorage.setItem("rr_provider","haiku");setProvider("haiku");}
+              }}>{provider==="gemini"?"🤖 Gemini ✓":"🤖 Haiku"}</button>
               <button className="sbtn big" onClick={downloadAirLog}>{isRu?"⬇ Лог эфира":"⬇ Air log"}</button>
               <button className="sbtn big" onClick={()=>{revealMenu();setRadioFocus(true);}}>{isRu?"📻 Только радио":"📻 Radio only"}</button>
               <button className="sbtn" onClick={()=>setSettingsOpen(true)}>⚙️</button>
