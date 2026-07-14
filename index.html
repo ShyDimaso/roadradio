@@ -289,7 +289,7 @@ body{font-family:'Inter',sans-serif;color:#fff;}
 const {useState,useRef,useEffect}=React;
 const PROXY="https://corsproxy.io/?https://api.anthropic.com/v1/messages";
 const KEY_STORE="rr_key_v3";
-const VER="v96";
+const VER="v97";
 // v76 MEMORY DIAGNOSTIC: prefetch & buffer OFF so every spoken segment goes through one gate.
 const PREFETCH_ENABLED=false;
 const BUFFER_ENABLED=false;
@@ -1540,7 +1540,7 @@ Reply ONLY valid JSON: {"story":"your segment in ${al}. LENGTH IS FLEXIBLE — i
         };
         let r;
         // v90: актуальные живые модели (2.5/3-flash закрыты Google). 3.5-flash — основная, без даты закрытия.
-        const FALLBACK_MODELS=["gemini-2.0-flash","gemini-flash-latest"];
+        const FALLBACK_MODELS=["gemini-3.5-flash","gemini-flash-latest"];
         const savedModel=localStorage.getItem("rr_gemini_model")||"";
         // Сохранённую модель пробуем первой, но затем ВСЕГДА идём по списку (fix: раньше застревали на мёртвой модели).
         const candidates=savedModel?[savedModel,...FALLBACK_MODELS.filter(m=>m!==savedModel)]:FALLBACK_MODELS;
