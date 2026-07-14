@@ -289,7 +289,7 @@ body{font-family:'Inter',sans-serif;color:#fff;}
 const {useState,useRef,useEffect}=React;
 const PROXY="https://corsproxy.io/?https://api.anthropic.com/v1/messages";
 const KEY_STORE="rr_key_v3";
-const VER="v92";
+const VER="v93";
 // v76 MEMORY DIAGNOSTIC: prefetch & buffer OFF so every spoken segment goes through one gate.
 const PREFETCH_ENABLED=false;
 const BUFFER_ENABLED=false;
@@ -864,9 +864,11 @@ function App(){
   const startCd=s=>{cdTotalRef.current=s;setCd(s);if(cdRef.current)clearInterval(cdRef.current);cdRef.current=setInterval(()=>setCd(p=>{if(p<=1){clearInterval(cdRef.current);return 0;}return p-1;}),1000);};
 
   const speakTokenRef=useRef(0);
+  const currentGeminiAbortRef=useRef(null); // v93: отмена зависшего Gemini-запроса
 
   const hardStop=()=>{
     speakTokenRef.current++; // invalidate any in-flight utterance
+    try{currentGeminiAbortRef.current?.abort();currentGeminiAbortRef.current=null;}catch{} // v93: kill stuck Gemini fetch
     try{
       const s=window.speechSynthesis;
       if(s){s.cancel();setTimeout(()=>{try{s.cancel();}catch{}},30);setTimeout(()=>{try{s.cancel();}catch{}},120);}
@@ -901,6 +903,7 @@ function App(){
       setSpeaking(true);speakingRef.current=true;lastSpokeRef.current=Date.now();
       // Split into sentence-sized chunks (Android Chrome silently truncates long utterances).
       const chunks=text.match(/[^.!?…]+[.!?…]+|\S[^.!?…]*$/g)||[text];
+      try{airLogRef.current.push({t:new Date().toISOString(),_ms:Date.now(),status:"TTS_START",textLen:text.length,chunks:chunks.length,firstChunk:(chunks[0]||"").slice(0,120),voice:(window.speechSynthesis?.getVoices?.().find(v=>v.default)||{}).name||"?"});}catch{}
       await new Promise(r=>setTimeout(r,60)); // let cancel() settle
       for(const ch of chunks){
         if(speakTokenRef.current!==myToken)break;   // interrupted (mic/stop/new gen)
@@ -1129,6 +1132,23 @@ function App(){
       }else if(r.status==="REJECTED-FICTION"){
         lines.push(`[${r.t}]  x REJECTED-FICTION  topic:${r.topic}`);
         lines.push(`  (not aired) TEXT: ${r.story||""}`);
+      }else if(r.status==="GEMINI_RAW"){
+        lines.push(`[${r.t}]  ⚙ GEMINI_RAW  model:${r.model} finish:${r.finishReason} cand:${r.candCount} promptTok:${r.promptTokens} outTok:${r.outputTokens} thoughtsTok:${r.thoughtsTokens} rawLen:${r.rawTextLen}`);
+        if(r.promptFeedback&&r.promptFeedback!=="{}")lines.push(`  promptFeedback: ${r.promptFeedback}`);
+        lines.push(`  RAW: ${r.rawTextPreview||""}`);
+      }else if(r.status==="GEMINI_PARSED"){
+        lines.push(`[${r.t}]  ⚙ GEMINI_PARSED  storyLen:${r.storyLen} loc:${r.location||""}`);
+        lines.push(`  STORY: ${r.storyPreview||""}`);
+      }else if(r.status==="GEMINI_TIMEOUT"){
+        lines.push(`[${r.t}]  ⏱ GEMINI_TIMEOUT  model:${r.model} ${r.note||""}`);
+      }else if(r.status==="GEMINI_FAIL"){
+        lines.push(`[${r.t}]  ✗ GEMINI_FAIL  model:${r.model} ${r.note||""}`);
+      }else if(r.status==="GEMINI_HTTP_ERR"){
+        lines.push(`[${r.t}]  ✗ GEMINI_HTTP_ERR  status:${r.httpStatus}`);
+        lines.push(`  raw: ${r.raw||""}`);
+      }else if(r.status==="TTS_START"){
+        lines.push(`[${r.t}]  🔊 TTS_START  textLen:${r.textLen} chunks:${r.chunks} voice:${r.voice||"?"}`);
+        lines.push(`  firstChunk: ${r.firstChunk||""}`);
       }
     }
     lines.push("");lines.push("=".repeat(60));lines.push("END OF LOG");
@@ -1525,9 +1545,29 @@ Reply ONLY valid JSON: {"story":"your segment in ${al}. LENGTH IS FLEXIBLE — i
         // Сохранённую модель пробуем первой, но затем ВСЕГДА идём по списку (fix: раньше застревали на мёртвой модели).
         const candidates=savedModel?[savedModel,...FALLBACK_MODELS.filter(m=>m!==savedModel)]:FALLBACK_MODELS;
         let lastErr="";
+        // v93: fetch с таймаутом через AbortController — чтобы «ЗАГРУЗКА» не висела вечно на медленном 5G.
+        const gemFetch=async(mdl,cfgOverride,timeoutMs)=>{
+          const ctrl=new AbortController();
+          try{currentGeminiAbortRef.current?.abort();}catch{}
+          currentGeminiAbortRef.current=ctrl;
+          const timer=setTimeout(()=>{try{ctrl.abort();}catch{}},timeoutMs);
+          const body=cfgOverride?JSON.stringify({...gm,generationConfig:{...gm.generationConfig,...cfgOverride}}):JSON.stringify(gm);
+          try{
+            const res=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${mdl}:generateContent`,{method:"POST",headers:{"Content-Type":"application/json","x-goog-api-key":gemKey},body,signal:ctrl.signal});
+            clearTimeout(timer);return res;
+          }catch(e){clearTimeout(timer);if(e.name==="AbortError")throw new Error("GEMINI_TIMEOUT");throw e;}
+        };
         try{
           for(const mdl of candidates){
-            const rr=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${mdl}:generateContent`,{method:"POST",headers:{"Content-Type":"application/json","x-goog-api-key":gemKey},body:JSON.stringify(gm)});
+            let rr;
+            try{rr=await gemFetch(mdl,null,25000);}
+            catch(e){
+              if(String(e.message)==="GEMINI_TIMEOUT"){
+                airLogRef.current.push({t:new Date().toISOString(),_ms:Date.now(),status:"GEMINI_TIMEOUT",model:mdl,note:"retry once (18s, 700tok)"});
+                try{rr=await gemFetch(mdl,{maxOutputTokens:700,temperature:0.7},18000);}
+                catch(e2){airLogRef.current.push({t:new Date().toISOString(),_ms:Date.now(),status:"GEMINI_FAIL",model:mdl,note:String(e2.message||e2).slice(0,120)});lastErr=mdl+" → "+(e2.message||e2);continue;}
+              }else{lastErr=mdl+" → "+(e.message||e);continue;}
+            }
             if(rr.ok){r=rr;localStorage.setItem("rr_gemini_model",mdl);break;}
             lastErr=mdl+" → "+rr.status+": "+(await rr.text()).slice(0,120);
             // 404 = модель мертва/неверна: сбрасываем запомненную и пробуем следующую.
@@ -1543,12 +1583,26 @@ Reply ONLY valid JSON: {"story":"your segment in ${al}. LENGTH IS FLEXIBLE — i
         if(!r.ok){
           const et=await r.text();
           setErr("Gemini "+r.status+": "+et.slice(0,160));
+          airLogRef.current.push({t:new Date().toISOString(),_ms:Date.now(),status:"GEMINI_HTTP_ERR",httpStatus:r.status,raw:et.slice(0,400)});
           throw new Error(et);
         }
         const d=await r.json();
         try{const u=d.usageMetadata;if(u){tokenCountRef.current.in+=(u.promptTokenCount||0);tokenCountRef.current.out+=(u.candidatesTokenCount||0);setTokenDisp({...tokenCountRef.current});}}catch{}
-        const txt=(d.candidates?.[0]?.content?.parts?.[0]?.text||"{}").replace(/```json|```/g,"").trim();
-        return {res:extract(txt),txt};
+        // v93-diagnostic: собрать текст из ВСЕХ parts, не только [0].
+        const cand0=d.candidates?.[0];
+        const finish=cand0?.finishReason||"";
+        const parts=cand0?.content?.parts||[];
+        const rawTxt=parts.map(p=>p.text||"").join("\n").trim();
+        const txt=rawTxt.replace(/```json|```/g,"").trim();
+        // Diagnostic record: shows exactly what Gemini returned before parse.
+        airLogRef.current.push({t:new Date().toISOString(),_ms:Date.now(),status:"GEMINI_RAW",model:localStorage.getItem("rr_gemini_model")||"?",finishReason:finish,promptTokens:d.usageMetadata?.promptTokenCount||0,outputTokens:d.usageMetadata?.candidatesTokenCount||0,thoughtsTokens:d.usageMetadata?.thoughtsTokenCount||0,candCount:(d.candidates||[]).length,rawTextLen:txt.length,rawTextPreview:txt.slice(0,500),promptFeedback:JSON.stringify(d.promptFeedback||{}).slice(0,200)});
+        try{console.log("[GEMINI RAW]",d);console.log("[GEMINI FINISH]",finish,"len",txt.length);}catch{}
+        // If no candidates or empty text — surface it loudly instead of silent {}.
+        if(!d.candidates||!d.candidates.length){throw new Error("GEMINI_NO_CANDIDATES: pf="+JSON.stringify(d.promptFeedback||{}).slice(0,200));}
+        if(!txt){throw new Error("GEMINI_EMPTY_TEXT: finish="+finish);}
+        const parsedG=extract(txt);
+        airLogRef.current.push({t:new Date().toISOString(),_ms:Date.now(),status:"GEMINI_PARSED",storyLen:(parsedG.story||"").length,storyPreview:(parsedG.story||"").slice(0,500),location:parsedG.location||""});
+        return {res:parsedG,txt};
       }
       // Default: Anthropic Haiku via CORS proxy.
       const r=await fetch(PROXY,{method:"POST",headers:{"Content-Type":"application/json","x-api-key":key,"anthropic-version":"2023-06-01","anthropic-dangerous-direct-browser-access":"true"},body:JSON.stringify({model:"claude-haiku-4-5-20251001",max_tokens:700,system:sysFull,messages:msgs})});
