@@ -289,7 +289,7 @@ body{font-family:'Inter',sans-serif;color:#fff;}
 const {useState,useRef,useEffect}=React;
 const PROXY="https://corsproxy.io/?https://api.anthropic.com/v1/messages";
 const KEY_STORE="rr_key_v3";
-const VER="v90";
+const VER="v91";
 // v76 MEMORY DIAGNOSTIC: prefetch & buffer OFF so every spoken segment goes through one gate.
 const PREFETCH_ENABLED=false;
 const BUFFER_ENABLED=false;
@@ -1004,14 +1004,29 @@ function App(){
     // common english leaks → russian
     t=t.replace(/\bMeteor showers?\b/gi,"метеорные потоки").replace(/\bfossils?\b/gi,"окаменелости").replace(/три?lobites?/gi,"трилобиты").replace(/mississippian culture/gi,"миссисипская культура").replace(/\bAmerica\b/g,"Америка").replace(/\bcounty\b/gi,"округ");
     for(const[en,ru]of Object.entries(RU_STATES)){t=t.replace(new RegExp("\\b"+en+"\\b","g"),ru);}
+    // v91: любую ОСТАВШУЮСЯ латиницу транслитерируем в кириллицу (город/река/фамилия), чтобы не бортить блок в бесконечную перегенерацию. Дорожные коды (US 36, I-72, GPS, FM) не трогаем.
+    t=translitLatin(t);
     return t.replace(/\s{2,}/g," ").trim();
   };
-  // After cleanup, any remaining latin word (3+ letters) in RU mode → block & regenerate (allow road codes).
-  const hasLatinLeak=s=>{
-    if(!(["ru","uk"].includes(langRef.current)))return false;
-    const latin=(s||"").match(/[A-Za-z]{3,}/g)||[];
-    return latin.some(w=>!/^(GPS|API|FM|USA|RV)$/i.test(w));
+  // v91: транслитерация латинского слова в кириллицу. Сохраняет дорожные коды и короткие аббревиатуры как есть.
+  const KEEP_LATIN=/^(US|I|GPS|API|FM|USA|RV|SR|CR|GPS)$/i;
+  const translitOne=w=>{
+    if(KEEP_LATIN.test(w))return w;
+    if(/^[A-Z]{2,5}$/.test(w)&&w.length<=4)return w; // аббревиатуры вроде NASA, USA — оставляем
+    const map=[["shch","щ"],["sch","ш"],["tch","ч"],["ch","ч"],["sh","ш"],["th","т"],["ph","ф"],["ck","к"],["kh","х"],["zh","ж"],["ya","я"],["yu","ю"],["yo","ё"],["ye","е"],["ee","и"],["oo","у"],["ou","у"],["a","а"],["b","б"],["c","к"],["d","д"],["e","е"],["f","ф"],["g","г"],["h","х"],["i","и"],["j","дж"],["k","к"],["l","л"],["m","м"],["n","н"],["o","о"],["p","п"],["q","к"],["r","р"],["s","с"],["t","т"],["u","у"],["v","в"],["w","в"],["x","кс"],["y","й"],["z","з"]];
+    let out="",rest=w;
+    while(rest.length){
+      const lower=rest.toLowerCase();let hit=null;
+      for(const[en,ru]of map){if(lower.startsWith(en)){hit=[en,ru];break;}}
+      if(hit){const isUp=rest[0]===rest[0].toUpperCase()&&/[A-Z]/.test(rest[0]);let ru=hit[1];if(isUp&&out==="")ru=ru.charAt(0).toUpperCase()+ru.slice(1);out+=ru;rest=rest.slice(hit[0].length);}
+      else{out+=rest[0];rest=rest.slice(1);}
+    }
+    return out;
   };
+  const translitLatin=s=>(s||"").replace(/[A-Za-z][A-Za-z'.-]*/g,m=>translitOne(m));
+  // After cleanup, any remaining latin word (3+ letters) in RU mode → block & regenerate (allow road codes).
+  // v91: латиница больше НЕ бракует блок — cleanRussianStory её транслитерирует. Оставлено как no-op, чтобы не трогать вызовы ниже.
+  const hasLatinLeak=s=>false;
   // Exact-duplicate guard: same normalized text must never air twice, even if it slipped past detectRepeat.
   const spokenHashRef=useRef(new Set());
   const normHash=s=>(s||"").toLowerCase().replace(/ё/g,"е").replace(/[^a-zа-я0-9]/gi,"").slice(0,400);
