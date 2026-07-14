@@ -289,7 +289,7 @@ body{font-family:'Inter',sans-serif;color:#fff;}
 const {useState,useRef,useEffect}=React;
 const PROXY="https://corsproxy.io/?https://api.anthropic.com/v1/messages";
 const KEY_STORE="rr_key_v3";
-const VER="v94";
+const VER="v95";
 // v76 MEMORY DIAGNOSTIC: prefetch & buffer OFF so every spoken segment goes through one gate.
 const PREFETCH_ENABLED=false;
 const BUFFER_ENABLED=false;
@@ -1536,7 +1536,7 @@ Reply ONLY valid JSON: {"story":"your segment in ${al}. LENGTH IS FLEXIBLE — i
           system_instruction:{parts:[{text:sysFull}]},
           contents:msgs.map(m=>({role:m.role==="assistant"?"model":"user",parts:[{text:m.content}]})),
           // v92: thinkingBudget:0 — выключаем «раздумья» Gemini 3.5 (иначе они съедают весь бюджет и текст обрывается). responseMimeType — гарантированно валидный JSON, без мусора в парсере.
-          generationConfig:{maxOutputTokens:1200,temperature:0.9,responseMimeType:"application/json"},
+          generationConfig:{maxOutputTokens:2048,temperature:0.9},
         };
         let r;
         // v90: актуальные живые модели (2.5/3-flash закрыты Google). 3.5-flash — основная, без даты закрытия.
