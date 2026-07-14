@@ -289,7 +289,7 @@ body{font-family:'Inter',sans-serif;color:#fff;}
 const {useState,useRef,useEffect}=React;
 const PROXY="https://corsproxy.io/?https://api.anthropic.com/v1/messages";
 const KEY_STORE="rr_key_v3";
-const VER="v89";
+const VER="v90";
 // v76 MEMORY DIAGNOSTIC: prefetch & buffer OFF so every spoken segment goes through one gate.
 const PREFETCH_ENABLED=false;
 const BUFFER_ENABLED=false;
@@ -1501,16 +1501,21 @@ Reply ONLY valid JSON: {"story":"your segment in ${al}. LENGTH IS FLEXIBLE — i
           generationConfig:{maxOutputTokens:900,temperature:0.9},
         };
         let r;
+        // v90: актуальные живые модели (2.5/3-flash закрыты Google). 3.5-flash — основная, без даты закрытия.
+        const FALLBACK_MODELS=["gemini-3.5-flash","gemini-flash-latest"];
         const savedModel=localStorage.getItem("rr_gemini_model")||"";
-        const candidates=savedModel?[savedModel]:["gemini-3-flash","gemini-3.5-flash","gemini-flash-latest","gemini-2.5-flash-lite","gemini-2.0-flash"];
+        // Сохранённую модель пробуем первой, но затем ВСЕГДА идём по списку (fix: раньше застревали на мёртвой модели).
+        const candidates=savedModel?[savedModel,...FALLBACK_MODELS.filter(m=>m!==savedModel)]:FALLBACK_MODELS;
         let lastErr="";
         try{
           for(const mdl of candidates){
             const rr=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${mdl}:generateContent`,{method:"POST",headers:{"Content-Type":"application/json","x-goog-api-key":gemKey},body:JSON.stringify(gm)});
             if(rr.ok){r=rr;localStorage.setItem("rr_gemini_model",mdl);break;}
             lastErr=mdl+" → "+rr.status+": "+(await rr.text()).slice(0,120);
-            // 404 = wrong model name, try next. Other errors (403/429) are key/quota — stop and report.
-            if(rr.status!==404){r=rr;break;}
+            // 404 = модель мертва/неверна: сбрасываем запомненную и пробуем следующую.
+            if(rr.status===404){if(mdl===savedModel)localStorage.removeItem("rr_gemini_model");continue;}
+            // 403/429 = ключ/квота — нет смысла перебирать, сообщаем.
+            r=rr;break;
           }
         }catch(netErr){
           setErr("Gemini network: "+String(netErr.message||netErr).slice(0,120));
@@ -1541,7 +1546,7 @@ Reply ONLY valid JSON: {"story":"your segment in ${al}. LENGTH IS FLEXIBLE — i
     if(wantCyr&&res.story){
       // Retry (up to twice) if the answer is not overwhelmingly Cyrillic.
       let tries=0;
-      while(tries<1){
+      while(tries<2){
         const cyr=(res.story.match(/[а-яёіїєґ]/gi)||[]).length;
         const lat=(res.story.match(/[a-z]/gi)||[]).length;
         if(cyr>=20&&lat<=cyr*0.25)break;
@@ -1720,15 +1725,10 @@ Reply ONLY valid JSON: {"story":"your segment in ${al}. LENGTH IS FLEXIBLE — i
           if(cand._suppress){attempt++;continue;}
           // 1) Clean Russian grammar/leaks BEFORE any check or airing.
           cand.story=cleanRussianStory(cand.story);
-          // 2) Latin leftovers: do NOT reject the block (that caused endless regeneration on Gemini).
-          //    Only ask once for a cleaner rewrite; if still latin, strip stray latin words and air it anyway.
-          if(hasLatinLeak(cand.story)&&attempt===0){
-            if(debugOn)setDebugLine(`✗ латиница — 1 перегенерация`);
-            attempt++;continue;
-          }
+          // 2) Latin leak in RU mode → regenerate.
           if(hasLatinLeak(cand.story)){
-            // strip stray latin words (keep proper-noun capitals as-is inside cyrillic flow is impossible, so drop them)
-            cand.story=cand.story.replace(/[A-Za-z][A-Za-z.\-']{2,}/g,"").replace(/\s{2,}/g," ").replace(/\s+([,.!?])/g,"$1").trim();
+            if(debugOn)setDebugLine(`✗ латиница — перегенерация`);
+            attempt++;continue;
           }
           // 3) Fabrication / geo-error → never air.
           if(hasHallucination(cand.story)||hasGeoError(cand.story)){
