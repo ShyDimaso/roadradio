@@ -289,7 +289,7 @@ body{font-family:'Inter',sans-serif;color:#fff;}
 const {useState,useRef,useEffect}=React;
 const PROXY="https://corsproxy.io/?https://api.anthropic.com/v1/messages";
 const KEY_STORE="rr_key_v3";
-const VER="v95";
+const VER="v93";
 // v76 MEMORY DIAGNOSTIC: prefetch & buffer OFF so every spoken segment goes through one gate.
 const PREFETCH_ENABLED=false;
 const BUFFER_ENABLED=false;
@@ -1536,11 +1536,11 @@ Reply ONLY valid JSON: {"story":"your segment in ${al}. LENGTH IS FLEXIBLE — i
           system_instruction:{parts:[{text:sysFull}]},
           contents:msgs.map(m=>({role:m.role==="assistant"?"model":"user",parts:[{text:m.content}]})),
           // v92: thinkingBudget:0 — выключаем «раздумья» Gemini 3.5 (иначе они съедают весь бюджет и текст обрывается). responseMimeType — гарантированно валидный JSON, без мусора в парсере.
-          generationConfig:{maxOutputTokens:2048,temperature:0.9},
+          generationConfig:{maxOutputTokens:4096,temperature:0.9},
         };
         let r;
         // v90: актуальные живые модели (2.5/3-flash закрыты Google). 3.5-flash — основная, без даты закрытия.
-        const FALLBACK_MODELS=["gemini-2.0-flash","gemini-2.0-flash-001","gemini-flash-latest","gemini-2.5-flash-lite","gemini-3.5-flash"];
+        const FALLBACK_MODELS=["gemini-2.0-flash","gemini-flash-latest"];
         const savedModel=localStorage.getItem("rr_gemini_model")||"";
         // Сохранённую модель пробуем первой, но затем ВСЕГДА идём по списку (fix: раньше застревали на мёртвой модели).
         const candidates=savedModel?[savedModel,...FALLBACK_MODELS.filter(m=>m!==savedModel)]:FALLBACK_MODELS;
@@ -1564,7 +1564,7 @@ Reply ONLY valid JSON: {"story":"your segment in ${al}. LENGTH IS FLEXIBLE — i
             catch(e){
               if(String(e.message)==="GEMINI_TIMEOUT"){
                 airLogRef.current.push({t:new Date().toISOString(),_ms:Date.now(),status:"GEMINI_TIMEOUT",model:mdl,note:"retry once (18s, 700tok)"});
-                try{rr=await gemFetch(mdl,{maxOutputTokens:700,temperature:0.7},18000);}
+                try{rr=await gemFetch(mdl,{maxOutputTokens:2048,temperature:0.7},18000);}
                 catch(e2){airLogRef.current.push({t:new Date().toISOString(),_ms:Date.now(),status:"GEMINI_FAIL",model:mdl,note:String(e2.message||e2).slice(0,120)});lastErr=mdl+" → "+(e2.message||e2);continue;}
               }else{lastErr=mdl+" → "+(e.message||e);continue;}
             }
