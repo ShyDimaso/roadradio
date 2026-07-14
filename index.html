@@ -289,7 +289,7 @@ body{font-family:'Inter',sans-serif;color:#fff;}
 const {useState,useRef,useEffect}=React;
 const PROXY="https://corsproxy.io/?https://api.anthropic.com/v1/messages";
 const KEY_STORE="rr_key_v3";
-const VER="v91";
+const VER="v92";
 // v76 MEMORY DIAGNOSTIC: prefetch & buffer OFF so every spoken segment goes through one gate.
 const PREFETCH_ENABLED=false;
 const BUFFER_ENABLED=false;
@@ -921,7 +921,9 @@ function App(){
     const lm=txt.match(/"location"\s*:\s*"((?:[^"\\]|\\.)*)"/);
     if(sm)return{story:sm[1].replace(/\\"/g,'"').replace(/\\n/g,' '),location:lm?lm[1]:""};
     const clean=txt.replace(/\{[^}]*\}/gs,'').replace(/"[^"]*"\s*:\s*"[^"]*"/g,'').replace(/^\s*[,{}\s]+/,'').trim();
-    return{story:clean||txt,location:""};
+    // v92: если остался торчащий ключ ("story"/"сторй"/"location":) в начале — срезаем.
+    const clean2=clean.replace(/^["']?(story|стори|сторй|location|локация)["']?\s*:?\s*["']?/i,'').replace(/["'\s}]+$/,'').trim();
+    return{story:clean2||txt,location:""};
   };
 
   // ==== v76 MEMORY CORE ====
@@ -1513,7 +1515,8 @@ Reply ONLY valid JSON: {"story":"your segment in ${al}. LENGTH IS FLEXIBLE — i
         const gm={
           system_instruction:{parts:[{text:sysFull}]},
           contents:msgs.map(m=>({role:m.role==="assistant"?"model":"user",parts:[{text:m.content}]})),
-          generationConfig:{maxOutputTokens:900,temperature:0.9},
+          // v92: thinkingBudget:0 — выключаем «раздумья» Gemini 3.5 (иначе они съедают весь бюджет и текст обрывается). responseMimeType — гарантированно валидный JSON, без мусора в парсере.
+          generationConfig:{maxOutputTokens:1200,temperature:0.9,thinkingConfig:{thinkingBudget:0},responseMimeType:"application/json"},
         };
         let r;
         // v90: актуальные живые модели (2.5/3-flash закрыты Google). 3.5-flash — основная, без даты закрытия.
