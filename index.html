@@ -289,7 +289,7 @@ body{font-family:'Inter',sans-serif;color:#fff;}
 const {useState,useRef,useEffect}=React;
 const PROXY="https://corsproxy.io/?https://api.anthropic.com/v1/messages";
 const KEY_STORE="rr_key_v3";
-const VER="v102";
+const VER="v98";
 // v76 MEMORY DIAGNOSTIC: prefetch & buffer OFF so every spoken segment goes through one gate.
 const PREFETCH_ENABLED=false;
 const BUFFER_ENABLED=false;
@@ -455,7 +455,6 @@ function App(){
   const travelRef=useRef(travelMode);
   const destRef=useRef(destination);
   const nextRef=useRef(null);
-  const batchQRef=useRef([]); // v99: queue of pre-generated CONNECTED segments (batch of 3 per request)
   const fetchingNext=useRef(false);
   const excludedRef=useRef(excluded);
   const locDataRef=useRef(locData);
@@ -920,16 +919,7 @@ function App(){
   const stopSpeak=()=>hardStop();
 
   const extract=txt=>{
-    try{
-      const p=JSON.parse(txt);
-      // v100: батч может прийти как массив ИЛИ как обёртка {segments:[...]}/{blocks:[...]}.
-      if(Array.isArray(p))return p;
-      if(p&&typeof p==="object"){
-        const wrap=p.segments||p.blocks||p.arc||p.items;
-        if(Array.isArray(wrap)&&wrap.length)return wrap;
-      }
-      return p;
-    }catch{}
+    try{return JSON.parse(txt);}catch{}
     const sm=txt.match(/"story"\s*:\s*"((?:[^"\\]|\\.)*)"/);
     const lm=txt.match(/"location"\s*:\s*"((?:[^"\\]|\\.)*)"/);
     if(sm)return{story:sm[1].replace(/\\"/g,'"').replace(/\\n/g,' '),location:lm?lm[1]:""};
@@ -1142,10 +1132,6 @@ function App(){
       }else if(r.status==="REJECTED-FICTION"){
         lines.push(`[${r.t}]  x REJECTED-FICTION  topic:${r.topic}`);
         lines.push(`  (not aired) TEXT: ${r.story||""}`);
-      }else if(r.status==="LOOP_ERROR"){
-        lines.push(`[${r.t}]  ‼ LOOP_ERROR (цикл упал — ЭТО ПРИЧИНА ТИШИНЫ)`);
-        lines.push(`  error: ${r.note||""}`);
-        if(r.stack)lines.push(`  stack: ${r.stack}`);
       }else if(r.status==="GEMINI_RAW"){
         lines.push(`[${r.t}]  ⚙ GEMINI_RAW  model:${r.model} finish:${r.finishReason} cand:${r.candCount} promptTok:${r.promptTokens} outTok:${r.outputTokens} thoughtsTok:${r.thoughtsTokens} rawLen:${r.rawTextLen}`);
         if(r.promptFeedback&&r.promptFeedback!=="{}")lines.push(`  promptFeedback: ${r.promptFeedback}`);
@@ -1534,9 +1520,7 @@ ALREADY SAID THIS DRIVE (never repeat): ${recentFacts||"nothing yet — first se
 - Keep time-of-day consistent with "${phase}". The exact local time is ${tStr} — if you mention the time at all, state it correctly; do NOT approximate it to a different hour.
 - ‼ LANGUAGE LOCK ‼: write EVERY single word in ${al}. Never switch to English or any other language mid-segment. If you catch yourself starting an English word, stop and use ${al}.
 
-Reply ONLY valid JSON — an ARRAY of exactly 3 CONNECTED segments (a mini-arc: each flows naturally into the next, one theme handing over to another like real radio):
-[{"story":"segment 1 in ${al}. LENGTH FLEXIBLE — rich subject fuller (7-9 sentences), thin subject short (2-3) and honestly rounded off. NEVER pad with filler. Lively and specific, not an encyclopedia.","location":"exact place in English","topics":"short phrase naming the ONE thing covered","entity":"main named landmark/institution or empty string","micro_topic_id":"short english kebab-case id","images":["1-3 short english tags"]},{...segment 2, a DIFFERENT micro-subject, opening with a natural bridge from segment 1...},{...segment 3, again different, bridging from segment 2...}]
-Segments must NOT repeat each other's facts or images. Each has its own micro_topic_id.`;
+Reply ONLY valid JSON: {"story":"your segment in ${al}. LENGTH IS FLEXIBLE — if the subject is rich, tell it fuller (7-9 sentences); if there's little real to say, keep it short (2-3 sentences) and honestly round it off ('вот, пожалуй, и всё, что стоит сказать об этом'). NEVER pad with filler or clichés to reach a length. Keep it lively and specific, not an encyclopedia.","location":"exact place in English","topics":"short phrase naming the ONE thing you covered","entity":"the single main named landmark/institution you spoke about, or empty string if none","micro_topic_id":"a short english kebab-case id of the exact micro-subject, e.g. fossil-shells-ancient-sea","images":["1-3 short english tags of the concrete images/motifs you used"]}`;
   };
 
   const callClaude=async(sys,msg,forNext)=>{
@@ -1552,8 +1536,6 @@ Segments must NOT repeat each other's facts or images. Each has its own micro_to
           system_instruction:{parts:[{text:sysFull}]},
           contents:msgs.map(m=>({role:m.role==="assistant"?"model":"user",parts:[{text:m.content}]})),
           // v92: thinkingBudget:0 — выключаем «раздумья» Gemini 3.5 (иначе они съедают весь бюджет и текст обрывается). responseMimeType — гарантированно валидный JSON, без мусора в парсере.
-          // v101: возвращаю thinkingBudget:0 — ровно как в РАБОЧЕЙ v98 (она выдавала блок).
-          // thinkingLevel из v100 мог давать 400 → тишина. Меняем по одной переменной за раз.
           generationConfig:{maxOutputTokens:4096,temperature:0.9,thinkingConfig:{thinkingBudget:0}},
         };
         let r;
@@ -1587,23 +1569,23 @@ Segments must NOT repeat each other's facts or images. Each has its own micro_to
               }else{lastErr=mdl+" → "+(e.message||e);continue;}
             }
             if(rr.ok){r=rr;localStorage.setItem("rr_gemini_model",mdl);break;}
-            // v102 FIX: тело Response можно прочитать ТОЛЬКО ОДИН РАЗ. Раньше здесь делали rr.text(),
-            // а ниже ещё раз r.text() → "body stream already read" → цикл падал молча. Читаем один раз и запоминаем.
-            const errBody=await rr.text().catch(()=>"");
-            lastErr=mdl+" → "+rr.status+": "+errBody.slice(0,120);
+            lastErr=mdl+" → "+rr.status+": "+(await rr.text()).slice(0,120);
             // 404 = модель мертва/неверна: сбрасываем запомненную и пробуем следующую.
             if(rr.status===404){if(mdl===savedModel)localStorage.removeItem("rr_gemini_model");continue;}
-            // 403/429 = ключ/квота — сообщаем и выходим (тело уже прочитано, повторно не читаем).
-            setErr("Gemini "+rr.status+": "+errBody.slice(0,160));
-            airLogRef.current.push({t:new Date().toISOString(),_ms:Date.now(),status:"GEMINI_HTTP_ERR",httpStatus:rr.status,raw:errBody.slice(0,400)});
-            throw new Error("GEMINI_HTTP_"+rr.status+": "+errBody.slice(0,200));
+            // 403/429 = ключ/квота — нет смысла перебирать, сообщаем.
+            r=rr;break;
           }
         }catch(netErr){
           setErr("Gemini network: "+String(netErr.message||netErr).slice(0,120));
           throw netErr;
         }
         if(!r){setErr("Gemini: ни одна модель не подошла. "+lastErr);throw new Error(lastErr);}
-        // v102: сюда попадают ТОЛЬКО успешные ответы (rr.ok). Ошибки обработаны выше, тело там уже прочитано.
+        if(!r.ok){
+          const et=await r.text();
+          setErr("Gemini "+r.status+": "+et.slice(0,160));
+          airLogRef.current.push({t:new Date().toISOString(),_ms:Date.now(),status:"GEMINI_HTTP_ERR",httpStatus:r.status,raw:et.slice(0,400)});
+          throw new Error(et);
+        }
         const d=await r.json();
         try{const u=d.usageMetadata;if(u){tokenCountRef.current.in+=(u.promptTokenCount||0);tokenCountRef.current.out+=(u.candidatesTokenCount||0);setTokenDisp({...tokenCountRef.current});}}catch{}
         // v93-diagnostic: собрать текст из ВСЕХ parts, не только [0].
@@ -1631,15 +1613,6 @@ Segments must NOT repeat each other's facts or images. Each has its own micro_to
       return {res:extract(txt),txt};
     };
     let {res,txt}=await doCall("");
-    // v100 BATCH FIX: модель отдаёт МАССИВ из 3 связных сегментов. Валидаторы ниже написаны под ОДИН объект
-    // (res.story), поэтому массив надо развернуть ЗДЕСЬ: первый сегмент — основной, хвост — в _batchTail.
-    // Без этого res.story===undefined → isLeak()===true → _suppress → ни один блок не выходит в эфир (баг v99).
-    if(Array.isArray(res)){
-      const arr=res.filter(x=>x&&x.story);
-      const head=arr[0]||{story:""};
-      head._batchTail=arr.slice(1);
-      res=head;
-    }
     // Language guard: if the UI language is Russian/Ukrainian but the answer came back mostly Latin, regenerate once.
     const wantCyr=["ru","uk"].includes(langRef.current);
     if(wantCyr&&res.story){
@@ -1779,13 +1752,6 @@ Segments must NOT repeat each other's facts or images. Each has its own micro_to
         res=await buildWikiSegment(c.lat,c.lng,geo);
         if(gen!==loopGenRef.current||!runRef.current)return;
       }
-      // ==== BATCH QUEUE: serve a pre-generated connected segment if we have one and haven't moved far ====
-      if(!res&&batchQRef.current.length){
-        const bq=batchQRef.current[0];
-        const moved=(bq._lat!=null)?milesBetween(bq._lat,bq._lng,c.lat,c.lng):0;
-        if(moved<=4){res=batchQRef.current.shift();setStatus("ready");}
-        else batchQRef.current=[]; // drove far — queue is stale
-      }
       if(!res){
         setStatus("loading");
         const[geo,pois]=await Promise.all([reverseGeocode(c.lat,c.lng),fetchPOI(c.lat,c.lng,c.heading??90)]);
@@ -1826,13 +1792,7 @@ Segments must NOT repeat each other's facts or images. Each has its own micro_to
           if(gen!==loopGenRef.current||!runRef.current)return;
           const director=directNextBlock();
           const sys=buildSys(false,null,tourist||false);
-          let cand=await callClaude(sys+"\n\n"+director.text+poiLine+wikiBlock+memoryBlockForPrompt()+styleReminder,"Produce a connected 3-segment mini-arc, IN PERSONA.",false);
-          // v100 BATCH: callClaude уже развернул массив — сегмент #1 идёт в эфир, хвост кладём в очередь.
-          if(cand&&Array.isArray(cand._batchTail)&&cand._batchTail.length){
-            const tail=cand._batchTail.map(x=>{x.story=cleanRussianStory(x.story);x._dirTopic=director.topicKey;x._src=sourceLevel;x._lat=c.lat;x._lng=c.lng;return x;}).filter(x=>x.story&&!hasHallucination(x.story)&&!hasGeoError(x.story)&&!(detectRepeat(x).isRepeat===true));
-            batchQRef.current=tail;
-            delete cand._batchTail;
-          }
+          const cand=await callClaude(sys+"\n\n"+director.text+poiLine+wikiBlock+memoryBlockForPrompt()+styleReminder,"Produce ONLY the director's assigned block, IN PERSONA.",false);
           cand._dirTopic=director.topicKey;cand._dirLens=director.lens;cand._dirScope=director.scope;cand._src=sourceLevel;
           if(cand._suppress){attempt++;continue;}
           // 1) Clean Russian grammar/leaks BEFORE any check or airing.
@@ -1904,14 +1864,6 @@ Segments must NOT repeat each other's facts or images. Each has its own micro_to
       prefetch();                       // no-op in v76 (flag off), kept for later
       if(storyText)await speak(storyText);
       if(gen!==loopGenRef.current||!runRef.current||parkedRef.current)return;
-    }catch(loopErr){
-      // v101: РАНЬШЕ ошибка цикла улетала молча (был только finally) — лог оставался пустым, эфир стоял.
-      // Теперь причина падения пишется в лог эфира и на экран.
-      const msg=String(loopErr&&(loopErr.message||loopErr)).slice(0,300);
-      airLogRef.current.push({t:new Date().toISOString(),_ms:Date.now(),status:"LOOP_ERROR",note:msg,stack:String(loopErr&&loopErr.stack||"").slice(0,400)});
-      try{console.error("[LOOP ERROR]",loopErr);}catch{}
-      setErr("Сбой цикла: "+msg);
-      if(debugOn)setDebugLine("✗ сбой: "+msg.slice(0,90));
     }finally{
       loopBusyRef.current=false;
     }
@@ -2008,7 +1960,7 @@ Segments must NOT repeat each other's facts or images. Each has its own micro_to
     let c=coordsRef.current||parseCoords();
     if(!c){setErr(lang==="ru"?"Нажмите автоопределение или введите координаты":"Tap auto-detect or enter coordinates");return;}
     coordsRef.current=c;setCoords(c);destRef.current=destination;
-    runRef.current=true;histRef.current=[];nextRef.current=null;batchQRef.current=[];topicsUsedRef.current=[];saidFactsRef.current=[];bufferRef.current=[];recentStoriesRef.current=[];
+    runRef.current=true;histRef.current=[];nextRef.current=null;topicsUsedRef.current=[];saidFactsRef.current=[];bufferRef.current=[];recentStoriesRef.current=[];
     dirTopicRef.current=null;dirCountRef.current=0;dirTargetRef.current=2;dirRecentTopicsRef.current=[];dirSummariesRef.current=[];coveredEntitiesRef.current=[];dirTopicStartRef.current=0;dirForceSwitchRef.current=false;lastIntroBcastRef.current=bcastRef.current;qaHistRef.current=[];
     spokenLedgerRef.current=[];semanticStopRef.current=new Set();entityStopRef.current=new Set();topicFailRef.current={};topicCooldownRef.current={};lexCooldownRef.current=[];
     spokenHashRef.current=new Set();motifCooldownRef.current={};
@@ -2048,7 +2000,7 @@ Segments must NOT repeat each other's facts or images. Each has its own micro_to
     if(!runRef.current)return;
     dirForceSwitchRef.current=true;   // director will open a new topic
     dirTopicStartRef.current=0;       // bypass minimum-dwell so the manual skip is instant
-    nextRef.current=null;bufferRef.current=[];batchQRef.current=[];  // drop any prepared segment
+    nextRef.current=null;bufferRef.current=[];  // drop any prepared segment
     loopGenRef.current++;const g=loopGenRef.current;
     hardStop();setStatus("loading");
     setTimeout(()=>{if(runRef.current&&!pausedRef.current&&loopGenRef.current===g)loopRef.current?.(false,false);},250);
@@ -2078,7 +2030,7 @@ Segments must NOT repeat each other's facts or images. Each has its own micro_to
   const openCall=async()=>{
     hardStop();loopGenRef.current++;
     if(loopRef.current?.scheduled)clearTimeout(loopRef.current.scheduled);
-    nextRef.current=null;bufferRef.current=[];batchQRef.current=[];   // drop any queued road segment
+    nextRef.current=null;bufferRef.current=[];   // drop any queued road segment so it can't play over the answer
     pausedRef.current=true;setPaused(true);   // hold the broadcast during the call
     callTextRef.current="";userDoneRef.current=false;setMicTranscript("");
     setCallMode(true);setCallPhase("greeting");callPhaseRef.current="greeting";
