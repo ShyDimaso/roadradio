@@ -289,7 +289,7 @@ body{font-family:'Inter',sans-serif;color:#fff;}
 const {useState,useRef,useEffect}=React;
 const PROXY="https://corsproxy.io/?https://api.anthropic.com/v1/messages";
 const KEY_STORE="rr_key_v3";
-const VER="v99";
+const VER="v98";
 // v76 MEMORY DIAGNOSTIC: prefetch & buffer OFF so every spoken segment goes through one gate.
 const PREFETCH_ENABLED=false;
 const BUFFER_ENABLED=false;
@@ -455,7 +455,6 @@ function App(){
   const travelRef=useRef(travelMode);
   const destRef=useRef(destination);
   const nextRef=useRef(null);
-  const batchQRef=useRef([]); // v99: queue of pre-generated CONNECTED segments (batch of 3 per request)
   const fetchingNext=useRef(false);
   const excludedRef=useRef(excluded);
   const locDataRef=useRef(locData);
@@ -1521,9 +1520,7 @@ ALREADY SAID THIS DRIVE (never repeat): ${recentFacts||"nothing yet — first se
 - Keep time-of-day consistent with "${phase}". The exact local time is ${tStr} — if you mention the time at all, state it correctly; do NOT approximate it to a different hour.
 - ‼ LANGUAGE LOCK ‼: write EVERY single word in ${al}. Never switch to English or any other language mid-segment. If you catch yourself starting an English word, stop and use ${al}.
 
-Reply ONLY valid JSON — an ARRAY of exactly 3 CONNECTED segments (a mini-arc: each flows naturally into the next, one theme handing over to another like real radio):
-[{"story":"segment 1 in ${al}. LENGTH FLEXIBLE — rich subject fuller (7-9 sentences), thin subject short (2-3) and honestly rounded off. NEVER pad with filler. Lively and specific, not an encyclopedia.","location":"exact place in English","topics":"short phrase naming the ONE thing covered","entity":"main named landmark/institution or empty string","micro_topic_id":"short english kebab-case id","images":["1-3 short english tags"]},{...segment 2, a DIFFERENT micro-subject, opening with a natural bridge from segment 1...},{...segment 3, again different, bridging from segment 2...}]
-Segments must NOT repeat each other's facts or images. Each has its own micro_topic_id.`;
+Reply ONLY valid JSON: {"story":"your segment in ${al}. LENGTH IS FLEXIBLE — if the subject is rich, tell it fuller (7-9 sentences); if there's little real to say, keep it short (2-3 sentences) and honestly round it off ('вот, пожалуй, и всё, что стоит сказать об этом'). NEVER pad with filler or clichés to reach a length. Keep it lively and specific, not an encyclopedia.","location":"exact place in English","topics":"short phrase naming the ONE thing you covered","entity":"the single main named landmark/institution you spoke about, or empty string if none","micro_topic_id":"a short english kebab-case id of the exact micro-subject, e.g. fossil-shells-ancient-sea","images":["1-3 short english tags of the concrete images/motifs you used"]}`;
   };
 
   const callClaude=async(sys,msg,forNext)=>{
@@ -1755,13 +1752,6 @@ Segments must NOT repeat each other's facts or images. Each has its own micro_to
         res=await buildWikiSegment(c.lat,c.lng,geo);
         if(gen!==loopGenRef.current||!runRef.current)return;
       }
-      // ==== BATCH QUEUE: serve a pre-generated connected segment if we have one and haven't moved far ====
-      if(!res&&batchQRef.current.length){
-        const bq=batchQRef.current[0];
-        const moved=(bq._lat!=null)?milesBetween(bq._lat,bq._lng,c.lat,c.lng):0;
-        if(moved<=4){res=batchQRef.current.shift();setStatus("ready");}
-        else batchQRef.current=[]; // drove far — queue is stale
-      }
       if(!res){
         setStatus("loading");
         const[geo,pois]=await Promise.all([reverseGeocode(c.lat,c.lng),fetchPOI(c.lat,c.lng,c.heading??90)]);
@@ -1802,14 +1792,7 @@ Segments must NOT repeat each other's facts or images. Each has its own micro_to
           if(gen!==loopGenRef.current||!runRef.current)return;
           const director=directNextBlock();
           const sys=buildSys(false,null,tourist||false);
-          let cand=await callClaude(sys+"\n\n"+director.text+poiLine+wikiBlock+memoryBlockForPrompt()+styleReminder,"Produce a connected 3-segment mini-arc, IN PERSONA.",false);
-          // BATCH: model returns an array of 3 connected segments — take #1 now, queue the rest.
-          if(Array.isArray(cand)){
-            const arr=cand.filter(x=>x&&x.story);
-            const tail=arr.slice(1).map(x=>{x.story=cleanRussianStory(x.story);x._dirTopic=director.topicKey;x._src=sourceLevel;x._lat=c.lat;x._lng=c.lng;return x;}).filter(x=>!hasHallucination(x.story)&&!hasGeoError(x.story)&&!(detectRepeat(x).isRepeat===true));
-            batchQRef.current=tail;
-            cand=arr[0]||{story:""};
-          }
+          const cand=await callClaude(sys+"\n\n"+director.text+poiLine+wikiBlock+memoryBlockForPrompt()+styleReminder,"Produce ONLY the director's assigned block, IN PERSONA.",false);
           cand._dirTopic=director.topicKey;cand._dirLens=director.lens;cand._dirScope=director.scope;cand._src=sourceLevel;
           if(cand._suppress){attempt++;continue;}
           // 1) Clean Russian grammar/leaks BEFORE any check or airing.
@@ -1977,7 +1960,7 @@ Segments must NOT repeat each other's facts or images. Each has its own micro_to
     let c=coordsRef.current||parseCoords();
     if(!c){setErr(lang==="ru"?"Нажмите автоопределение или введите координаты":"Tap auto-detect or enter coordinates");return;}
     coordsRef.current=c;setCoords(c);destRef.current=destination;
-    runRef.current=true;histRef.current=[];nextRef.current=null;batchQRef.current=[];topicsUsedRef.current=[];saidFactsRef.current=[];bufferRef.current=[];recentStoriesRef.current=[];
+    runRef.current=true;histRef.current=[];nextRef.current=null;topicsUsedRef.current=[];saidFactsRef.current=[];bufferRef.current=[];recentStoriesRef.current=[];
     dirTopicRef.current=null;dirCountRef.current=0;dirTargetRef.current=2;dirRecentTopicsRef.current=[];dirSummariesRef.current=[];coveredEntitiesRef.current=[];dirTopicStartRef.current=0;dirForceSwitchRef.current=false;lastIntroBcastRef.current=bcastRef.current;qaHistRef.current=[];
     spokenLedgerRef.current=[];semanticStopRef.current=new Set();entityStopRef.current=new Set();topicFailRef.current={};topicCooldownRef.current={};lexCooldownRef.current=[];
     spokenHashRef.current=new Set();motifCooldownRef.current={};
@@ -2017,7 +2000,7 @@ Segments must NOT repeat each other's facts or images. Each has its own micro_to
     if(!runRef.current)return;
     dirForceSwitchRef.current=true;   // director will open a new topic
     dirTopicStartRef.current=0;       // bypass minimum-dwell so the manual skip is instant
-    nextRef.current=null;bufferRef.current=[];batchQRef.current=[];  // drop any prepared segment
+    nextRef.current=null;bufferRef.current=[];  // drop any prepared segment
     loopGenRef.current++;const g=loopGenRef.current;
     hardStop();setStatus("loading");
     setTimeout(()=>{if(runRef.current&&!pausedRef.current&&loopGenRef.current===g)loopRef.current?.(false,false);},250);
@@ -2047,7 +2030,7 @@ Segments must NOT repeat each other's facts or images. Each has its own micro_to
   const openCall=async()=>{
     hardStop();loopGenRef.current++;
     if(loopRef.current?.scheduled)clearTimeout(loopRef.current.scheduled);
-    nextRef.current=null;bufferRef.current=[];batchQRef.current=[];   // drop any queued road segment
+    nextRef.current=null;bufferRef.current=[];   // drop any queued road segment so it can't play over the answer
     pausedRef.current=true;setPaused(true);   // hold the broadcast during the call
     callTextRef.current="";userDoneRef.current=false;setMicTranscript("");
     setCallMode(true);setCallPhase("greeting");callPhaseRef.current="greeting";
