@@ -289,7 +289,7 @@ body{font-family:'Inter',sans-serif;color:#fff;}
 const {useState,useRef,useEffect}=React;
 const PROXY="https://corsproxy.io/?https://api.anthropic.com/v1/messages";
 const KEY_STORE="rr_key_v3";
-const VER="v104";
+const VER="v105";
 // v76 MEMORY DIAGNOSTIC: prefetch & buffer OFF so every spoken segment goes through one gate.
 const PREFETCH_ENABLED=false;
 const BUFFER_ENABLED=false;
@@ -457,7 +457,8 @@ function App(){
   const nextRef=useRef(null);
   const batchQRef=useRef([]); // v99: queue of pre-generated CONNECTED segments (batch of 3 per request)
   const batchLoadingRef=useRef(false); // v104: фоновая догрузка тройки уже идёт — не запускать вторую
-  const lastPromptRef=useRef("");      // v104: последний полный промпт для фоновой догрузки
+  const lastPromptRef=useRef("");      // v104: стабильное ядро промпта для фоновой догрузки
+  const lastVarRef=useRef("");         // v105: меняющаяся часть промпта (не кэшируется)
   const fetchingNext=useRef(false);
   const excludedRef=useRef(excluded);
   const locDataRef=useRef(locData);
@@ -1153,7 +1154,7 @@ function App(){
         lines.push(`  error: ${r.note||""}`);
         if(r.stack)lines.push(`  stack: ${r.stack}`);
       }else if(r.status==="GEMINI_RAW"){
-        lines.push(`[${r.t}]  ⚙ GEMINI_RAW  model:${r.model} finish:${r.finishReason} cand:${r.candCount} promptTok:${r.promptTokens} outTok:${r.outputTokens} thoughtsTok:${r.thoughtsTokens} rawLen:${r.rawTextLen}`);
+        lines.push(`[${r.t}]  ⚙ GEMINI_RAW  model:${r.model} finish:${r.finishReason} cand:${r.candCount} promptTok:${r.promptTokens} КЭШ:${r.cachedTokens||0} outTok:${r.outputTokens} thoughtsTok:${r.thoughtsTokens} rawLen:${r.rawTextLen}`);
         if(r.promptFeedback&&r.promptFeedback!=="{}")lines.push(`  promptFeedback: ${r.promptFeedback}`);
         lines.push(`  RAW: ${r.rawTextPreview||""}`);
       }else if(r.status==="GEMINI_PARSED"){
@@ -1545,9 +1546,14 @@ Reply ONLY valid JSON — an ARRAY of exactly 3 CONNECTED segments (a mini-arc: 
 Segments must NOT repeat each other's facts or images. Each has its own micro_topic_id.`;
   };
 
-  const callClaude=async(sys,msg,forNext)=>{
+  // v105 CACHE: Google даёт implicit caching (скидка ~90% на вход) ТОЛЬКО если НАЧАЛО запроса
+  // не меняется между вызовами. Поэтому: стабильное ядро (персона+правила) кладём в system_instruction,
+  // а всё меняющееся (координаты, место, память, директор) — в конец, в contents.
+  // sysCore — постоянная часть, varPart — меняющаяся.
+  const callClaude=async(sys,msg,forNext,varPart)=>{
     const key=localStorage.getItem(KEY_STORE);
-    const msgs=forNext?[{role:"user",content:msg}]:[...histRef.current.slice(-4),{role:"user",content:msg}];
+    const userMsg=varPart?varPart+"\n\n"+msg:msg;
+    const msgs=forNext?[{role:"user",content:userMsg}]:[...histRef.current.slice(-4),{role:"user",content:userMsg}];
     const provider=localStorage.getItem("rr_provider")||"haiku";
     const gemKey=localStorage.getItem("rr_gemini_key")||"";
     const doCall=async(extra)=>{
@@ -1564,14 +1570,13 @@ Segments must NOT repeat each other's facts or images. Each has its own micro_to
         };
         let r;
 
-        // v104: gemini-3-flash дала 503 "high demand" (перегружена у Google) → это и были паузы.
-        // Ставим 3.5-flash первой: дороже (~$1.5/$9), но новее и менее забита. 3-flash остаётся запасной.
-        const FALLBACK_MODELS=["gemini-3.5-flash","gemini-3-flash","gemini-flash-latest"];
-        // Сбрасываем залипшую в localStorage модель, иначе код взял бы старую и настройка не применилась бы.
+        // v105: возвращаем ДЕШЁВУЮ gemini-3-flash ($0.50/$3 — втрое дешевле 3.5-flash).
+        // 503 больше не страшен: при перегрузке код сам уходит на запасную модель (фикс v104).
+        const FALLBACK_MODELS=["gemini-3-flash","gemini-3.5-flash","gemini-flash-latest"];
         try{
-          if(localStorage.getItem("rr_model_reset")!=="v104"){
+          if(localStorage.getItem("rr_model_reset")!=="v105"){
             localStorage.removeItem("rr_gemini_model");
-            localStorage.setItem("rr_model_reset","v104");
+            localStorage.setItem("rr_model_reset","v105");
           }
         }catch{}
         const savedModel=localStorage.getItem("rr_gemini_model")||"";
@@ -1634,7 +1639,7 @@ Segments must NOT repeat each other's facts or images. Each has its own micro_to
         const rawTxt=parts.map(p=>p.text||"").join("\n").trim();
         const txt=rawTxt.replace(/```json|```/g,"").trim();
         // Diagnostic record: shows exactly what Gemini returned before parse.
-        airLogRef.current.push({t:new Date().toISOString(),_ms:Date.now(),status:"GEMINI_RAW",model:localStorage.getItem("rr_gemini_model")||"?",finishReason:finish,promptTokens:d.usageMetadata?.promptTokenCount||0,outputTokens:d.usageMetadata?.candidatesTokenCount||0,thoughtsTokens:d.usageMetadata?.thoughtsTokenCount||0,candCount:(d.candidates||[]).length,rawTextLen:txt.length,rawTextPreview:txt.slice(0,500),promptFeedback:JSON.stringify(d.promptFeedback||{}).slice(0,200)});
+        airLogRef.current.push({t:new Date().toISOString(),_ms:Date.now(),status:"GEMINI_RAW",model:localStorage.getItem("rr_gemini_model")||"?",finishReason:finish,promptTokens:d.usageMetadata?.promptTokenCount||0,outputTokens:d.usageMetadata?.candidatesTokenCount||0,thoughtsTokens:d.usageMetadata?.thoughtsTokenCount||0,cachedTokens:d.usageMetadata?.cachedContentTokenCount||0,candCount:(d.candidates||[]).length,rawTextLen:txt.length,rawTextPreview:txt.slice(0,500),promptFeedback:JSON.stringify(d.promptFeedback||{}).slice(0,200)});
         try{console.log("[GEMINI RAW]",d);console.log("[GEMINI FINISH]",finish,"len",txt.length);}catch{}
         // If no candidates or empty text — surface it loudly instead of silent {}.
         if(!d.candidates||!d.candidates.length){throw new Error("GEMINI_NO_CANDIDATES: pf="+JSON.stringify(d.promptFeedback||{}).slice(0,200));}
@@ -1848,9 +1853,12 @@ Segments must NOT repeat each other's facts or images. Each has its own micro_to
           if(gen!==loopGenRef.current||!runRef.current)return;
           const director=directNextBlock();
           const sys=buildSys(false,null,tourist||false);
-          const fullPrompt=sys+"\n\n"+director.text+poiLine+wikiBlock+memoryBlockForPrompt()+styleReminder;
-          lastPromptRef.current=fullPrompt;   // v104: тот же контекст переиспользует фоновая догрузка
-          let cand=await callClaude(fullPrompt,"Produce a connected 3-segment mini-arc, IN PERSONA.",false);
+          // v105 CACHE: ядро (персона+правила, ~стабильно) идёт в system_instruction и кэшируется Google.
+          // Меняющееся (директор, POI, вики, память) — в конец запроса, в contents. Так кэш реально срабатывает.
+          const varPart=director.text+poiLine+wikiBlock+memoryBlockForPrompt()+styleReminder;
+          lastPromptRef.current=sys;         // ядро для фоновой догрузки
+          lastVarRef.current=varPart;        // меняющаяся часть для фоновой догрузки
+          let cand=await callClaude(sys,"Produce a connected 3-segment mini-arc, IN PERSONA.",false,varPart);
           // v100 BATCH: callClaude уже развернул массив — сегмент #1 идёт в эфир, хвост кладём в очередь.
           if(cand&&Array.isArray(cand._batchTail)&&cand._batchTail.length){
             const tail=cand._batchTail.map(x=>{x.story=cleanRussianStory(x.story);x._dirTopic=director.topicKey;x._src=sourceLevel;x._lat=c.lat;x._lng=c.lng;return x;}).filter(x=>x.story&&!hasHallucination(x.story)&&!hasGeoError(x.story)&&!(detectRepeat(x).isRepeat===true));
@@ -1936,7 +1944,7 @@ Segments must NOT repeat each other's facts or images. Each has its own micro_to
             const cc=coordsRef.current||c;
             const bgSys=lastPromptRef.current||"";
             if(!bgSys){batchLoadingRef.current=false;return;}
-            const bg=await callClaude(bgSys,"Produce a connected 3-segment mini-arc, IN PERSONA.",true);
+            const bg=await callClaude(bgSys,"Produce a connected 3-segment mini-arc, IN PERSONA.",true,lastVarRef.current||"");
             const tail=[];
             if(bg&&bg.story)tail.push(bg);
             if(bg&&Array.isArray(bg._batchTail))tail.push(...bg._batchTail);
