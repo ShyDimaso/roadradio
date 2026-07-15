@@ -289,7 +289,7 @@ body{font-family:'Inter',sans-serif;color:#fff;}
 const {useState,useRef,useEffect}=React;
 const PROXY="https://corsproxy.io/?https://api.anthropic.com/v1/messages";
 const KEY_STORE="rr_key_v3";
-const VER="v103";
+const VER="v104";
 // v76 MEMORY DIAGNOSTIC: prefetch & buffer OFF so every spoken segment goes through one gate.
 const PREFETCH_ENABLED=false;
 const BUFFER_ENABLED=false;
@@ -456,6 +456,8 @@ function App(){
   const destRef=useRef(destination);
   const nextRef=useRef(null);
   const batchQRef=useRef([]); // v99: queue of pre-generated CONNECTED segments (batch of 3 per request)
+  const batchLoadingRef=useRef(false); // v104: фоновая догрузка тройки уже идёт — не запускать вторую
+  const lastPromptRef=useRef("");      // v104: последний полный промпт для фоновой догрузки
   const fetchingNext=useRef(false);
   const excludedRef=useRef(excluded);
   const locDataRef=useRef(locData);
@@ -1142,6 +1144,10 @@ function App(){
       }else if(r.status==="REJECTED-FICTION"){
         lines.push(`[${r.t}]  x REJECTED-FICTION  topic:${r.topic}`);
         lines.push(`  (not aired) TEXT: ${r.story||""}`);
+      }else if(r.status==="BATCH_BG"){
+        lines.push(`[${r.t}]  ⚡ BATCH_BG (фоновая догрузка во время речи)  ${r.note||""}`);
+      }else if(r.status==="BATCH_BG_FAIL"){
+        lines.push(`[${r.t}]  ✗ BATCH_BG_FAIL  ${r.note||""}`);
       }else if(r.status==="LOOP_ERROR"){
         lines.push(`[${r.t}]  ‼ LOOP_ERROR (цикл упал — ЭТО ПРИЧИНА ТИШИНЫ)`);
         lines.push(`  error: ${r.note||""}`);
@@ -1558,15 +1564,14 @@ Segments must NOT repeat each other's facts or images. Each has its own micro_to
         };
         let r;
 
-        // v103: ПЛАТНЫЙ Tier 1. Основная модель — gemini-3-flash ($0.50 вход / $3.00 выход за 1M):
-        // втрое дешевле 3.5-flash при достаточном для эфира качестве (~20 центов за час вещания).
-        const FALLBACK_MODELS=["gemini-3-flash","gemini-3.5-flash","gemini-flash-latest"];
-        // v103: в localStorage могла залипнуть старая/дорогая модель с прошлых версий — сбрасываем один раз,
-        // иначе код взял бы её первой и новая настройка не применилась бы.
+        // v104: gemini-3-flash дала 503 "high demand" (перегружена у Google) → это и были паузы.
+        // Ставим 3.5-flash первой: дороже (~$1.5/$9), но новее и менее забита. 3-flash остаётся запасной.
+        const FALLBACK_MODELS=["gemini-3.5-flash","gemini-3-flash","gemini-flash-latest"];
+        // Сбрасываем залипшую в localStorage модель, иначе код взял бы старую и настройка не применилась бы.
         try{
-          if(localStorage.getItem("rr_model_reset")!=="v103"){
+          if(localStorage.getItem("rr_model_reset")!=="v104"){
             localStorage.removeItem("rr_gemini_model");
-            localStorage.setItem("rr_model_reset","v103");
+            localStorage.setItem("rr_model_reset","v104");
           }
         }catch{}
         const savedModel=localStorage.getItem("rr_gemini_model")||"";
@@ -1597,15 +1602,21 @@ Segments must NOT repeat each other's facts or images. Each has its own micro_to
               }else{lastErr=mdl+" → "+(e.message||e);continue;}
             }
             if(rr.ok){r=rr;localStorage.setItem("rr_gemini_model",mdl);break;}
-            // v102 FIX: тело Response можно прочитать ТОЛЬКО ОДИН РАЗ. Раньше здесь делали rr.text(),
-            // а ниже ещё раз r.text() → "body stream already read" → цикл падал молча. Читаем один раз и запоминаем.
+            // v104 FIX: тело Response читается ОДИН раз (двойное чтение = "body stream already read" → краш).
             const errBody=await rr.text().catch(()=>"");
             lastErr=mdl+" → "+rr.status+": "+errBody.slice(0,120);
-            // 404 = модель мертва/неверна: сбрасываем запомненную и пробуем следующую.
+            airLogRef.current.push({t:new Date().toISOString(),_ms:Date.now(),status:"GEMINI_HTTP_ERR",httpStatus:rr.status,model:mdl,raw:errBody.slice(0,300)});
+            // 404 = модель мертва: сбрасываем запомненную, идём к следующей.
             if(rr.status===404){if(mdl===savedModel)localStorage.removeItem("rr_gemini_model");continue;}
-            // 403/429 = ключ/квота — сообщаем и выходим (тело уже прочитано, повторно не читаем).
+            // v104: 503 (перегружена) / 429 (квота) — НЕ падаем, а короткая пауза и пробуем СЛЕДУЮЩУЮ модель.
+            // Раньше здесь был throw → эфир вставал на 40-60 сек. Это и была главная причина пауз.
+            if(rr.status===503||rr.status===429){
+              if(mdl===savedModel)localStorage.removeItem("rr_gemini_model");
+              await new Promise(rs=>setTimeout(rs,1200));
+              continue;
+            }
+            // Остальное (403 = плохой ключ и т.п.) — сообщаем честно.
             setErr("Gemini "+rr.status+": "+errBody.slice(0,160));
-            airLogRef.current.push({t:new Date().toISOString(),_ms:Date.now(),status:"GEMINI_HTTP_ERR",httpStatus:rr.status,raw:errBody.slice(0,400)});
             throw new Error("GEMINI_HTTP_"+rr.status+": "+errBody.slice(0,200));
           }
         }catch(netErr){
@@ -1790,10 +1801,11 @@ Segments must NOT repeat each other's facts or images. Each has its own micro_to
         if(gen!==loopGenRef.current||!runRef.current)return;
       }
       // ==== BATCH QUEUE: serve a pre-generated connected segment if we have one and haven't moved far ====
+      let servedFromQueue=false;
       if(!res&&batchQRef.current.length){
         const bq=batchQRef.current[0];
         const moved=(bq._lat!=null)?milesBetween(bq._lat,bq._lng,c.lat,c.lng):0;
-        if(moved<=4){res=batchQRef.current.shift();setStatus("ready");}
+        if(moved<=4){res=batchQRef.current.shift();setStatus("ready");servedFromQueue=true;}
         else batchQRef.current=[]; // drove far — queue is stale
       }
       if(!res){
@@ -1836,7 +1848,9 @@ Segments must NOT repeat each other's facts or images. Each has its own micro_to
           if(gen!==loopGenRef.current||!runRef.current)return;
           const director=directNextBlock();
           const sys=buildSys(false,null,tourist||false);
-          let cand=await callClaude(sys+"\n\n"+director.text+poiLine+wikiBlock+memoryBlockForPrompt()+styleReminder,"Produce a connected 3-segment mini-arc, IN PERSONA.",false);
+          const fullPrompt=sys+"\n\n"+director.text+poiLine+wikiBlock+memoryBlockForPrompt()+styleReminder;
+          lastPromptRef.current=fullPrompt;   // v104: тот же контекст переиспользует фоновая догрузка
+          let cand=await callClaude(fullPrompt,"Produce a connected 3-segment mini-arc, IN PERSONA.",false);
           // v100 BATCH: callClaude уже развернул массив — сегмент #1 идёт в эфир, хвост кладём в очередь.
           if(cand&&Array.isArray(cand._batchTail)&&cand._batchTail.length){
             const tail=cand._batchTail.map(x=>{x.story=cleanRussianStory(x.story);x._dirTopic=director.topicKey;x._src=sourceLevel;x._lat=c.lat;x._lng=c.lng;return x;}).filter(x=>x.story&&!hasHallucination(x.story)&&!hasGeoError(x.story)&&!(detectRepeat(x).isRepeat===true));
@@ -1912,6 +1926,29 @@ Segments must NOT repeat each other's facts or images. Each has its own micro_to
       prevPlaceRef.current=locDataRef.current.city||"";
       setStatus("ready");startCd(3);
       prefetch();                       // no-op in v76 (flag off), kept for later
+      // v104 ГЛАВНОЕ ПРОТИВ ПАУЗ: пока диктор ГОВОРИТ этот блок (~40-60 сек), в фоне уже готовим
+      // следующую тройку. Раньше запрос уходил только после того, как очередь опустеет → тишина 40-60 сек.
+      // Запускаем, когда в запасе остался последний блок и фоновая догрузка ещё не идёт.
+      if(runRef.current&&!parkedRef.current&&!wikiModeRef.current&&batchQRef.current.length<=1&&!batchLoadingRef.current){
+        batchLoadingRef.current=true;
+        (async()=>{
+          try{
+            const cc=coordsRef.current||c;
+            const bgSys=lastPromptRef.current||"";
+            if(!bgSys){batchLoadingRef.current=false;return;}
+            const bg=await callClaude(bgSys,"Produce a connected 3-segment mini-arc, IN PERSONA.",true);
+            const tail=[];
+            if(bg&&bg.story)tail.push(bg);
+            if(bg&&Array.isArray(bg._batchTail))tail.push(...bg._batchTail);
+            const clean=tail.map(x=>{try{x.story=cleanRussianStory(x.story);}catch{}x._lat=cc.lat;x._lng=cc.lng;return x;})
+                            .filter(x=>x.story&&!hasHallucination(x.story)&&!hasGeoError(x.story)&&!(detectRepeat(x).isRepeat===true));
+            if(clean.length&&runRef.current)batchQRef.current=[...batchQRef.current,...clean];
+            airLogRef.current.push({t:new Date().toISOString(),_ms:Date.now(),status:"BATCH_BG",note:"догружено в фоне: "+clean.length+" блока, в очереди: "+batchQRef.current.length});
+          }catch(bgErr){
+            airLogRef.current.push({t:new Date().toISOString(),_ms:Date.now(),status:"BATCH_BG_FAIL",note:String(bgErr&&(bgErr.message||bgErr)).slice(0,150)});
+          }finally{batchLoadingRef.current=false;}
+        })();
+      }
       if(storyText)await speak(storyText);
       if(gen!==loopGenRef.current||!runRef.current||parkedRef.current)return;
     }catch(loopErr){
@@ -2018,7 +2055,7 @@ Segments must NOT repeat each other's facts or images. Each has its own micro_to
     let c=coordsRef.current||parseCoords();
     if(!c){setErr(lang==="ru"?"Нажмите автоопределение или введите координаты":"Tap auto-detect or enter coordinates");return;}
     coordsRef.current=c;setCoords(c);destRef.current=destination;
-    runRef.current=true;histRef.current=[];nextRef.current=null;batchQRef.current=[];topicsUsedRef.current=[];saidFactsRef.current=[];bufferRef.current=[];recentStoriesRef.current=[];
+    runRef.current=true;histRef.current=[];nextRef.current=null;batchQRef.current=[];batchLoadingRef.current=false;topicsUsedRef.current=[];saidFactsRef.current=[];bufferRef.current=[];recentStoriesRef.current=[];
     dirTopicRef.current=null;dirCountRef.current=0;dirTargetRef.current=2;dirRecentTopicsRef.current=[];dirSummariesRef.current=[];coveredEntitiesRef.current=[];dirTopicStartRef.current=0;dirForceSwitchRef.current=false;lastIntroBcastRef.current=bcastRef.current;qaHistRef.current=[];
     spokenLedgerRef.current=[];semanticStopRef.current=new Set();entityStopRef.current=new Set();topicFailRef.current={};topicCooldownRef.current={};lexCooldownRef.current=[];
     spokenHashRef.current=new Set();motifCooldownRef.current={};
