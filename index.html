@@ -289,7 +289,7 @@ body{font-family:'Inter',sans-serif;color:#fff;}
 const {useState,useRef,useEffect}=React;
 const PROXY="https://corsproxy.io/?https://api.anthropic.com/v1/messages";
 const KEY_STORE="rr_key_v3";
-const VER="v100";
+const VER="v101";
 // v76 MEMORY DIAGNOSTIC: prefetch & buffer OFF so every spoken segment goes through one gate.
 const PREFETCH_ENABLED=false;
 const BUFFER_ENABLED=false;
@@ -1142,6 +1142,10 @@ function App(){
       }else if(r.status==="REJECTED-FICTION"){
         lines.push(`[${r.t}]  x REJECTED-FICTION  topic:${r.topic}`);
         lines.push(`  (not aired) TEXT: ${r.story||""}`);
+      }else if(r.status==="LOOP_ERROR"){
+        lines.push(`[${r.t}]  ‼ LOOP_ERROR (цикл упал — ЭТО ПРИЧИНА ТИШИНЫ)`);
+        lines.push(`  error: ${r.note||""}`);
+        if(r.stack)lines.push(`  stack: ${r.stack}`);
       }else if(r.status==="GEMINI_RAW"){
         lines.push(`[${r.t}]  ⚙ GEMINI_RAW  model:${r.model} finish:${r.finishReason} cand:${r.candCount} promptTok:${r.promptTokens} outTok:${r.outputTokens} thoughtsTok:${r.thoughtsTokens} rawLen:${r.rawTextLen}`);
         if(r.promptFeedback&&r.promptFeedback!=="{}")lines.push(`  promptFeedback: ${r.promptFeedback}`);
@@ -1548,9 +1552,9 @@ Segments must NOT repeat each other's facts or images. Each has its own micro_to
           system_instruction:{parts:[{text:sysFull}]},
           contents:msgs.map(m=>({role:m.role==="assistant"?"model":"user",parts:[{text:m.content}]})),
           // v92: thinkingBudget:0 — выключаем «раздумья» Gemini 3.5 (иначе они съедают весь бюджет и текст обрывается). responseMimeType — гарантированно валидный JSON, без мусора в парсере.
-          // v100: у Gemini 3.x thinkingBudget ИГНОРИРУЕТСЯ (думанье не отключается budget'ом) — правильный параметр thinkingLevel:"minimal".
-          // Оба параметра вместе слать НЕЛЬЗЯ (400). minimal = почти нулевое думанье → быстрый ответ.
-          generationConfig:{maxOutputTokens:4096,temperature:0.9,thinkingConfig:{thinkingLevel:"minimal"}},
+          // v101: возвращаю thinkingBudget:0 — ровно как в РАБОЧЕЙ v98 (она выдавала блок).
+          // thinkingLevel из v100 мог давать 400 → тишина. Меняем по одной переменной за раз.
+          generationConfig:{maxOutputTokens:4096,temperature:0.9,thinkingConfig:{thinkingBudget:0}},
         };
         let r;
         // v90: актуальные живые модели (2.5/3-flash закрыты Google). 3.5-flash — основная, без даты закрытия.
@@ -1900,6 +1904,14 @@ Segments must NOT repeat each other's facts or images. Each has its own micro_to
       prefetch();                       // no-op in v76 (flag off), kept for later
       if(storyText)await speak(storyText);
       if(gen!==loopGenRef.current||!runRef.current||parkedRef.current)return;
+    }catch(loopErr){
+      // v101: РАНЬШЕ ошибка цикла улетала молча (был только finally) — лог оставался пустым, эфир стоял.
+      // Теперь причина падения пишется в лог эфира и на экран.
+      const msg=String(loopErr&&(loopErr.message||loopErr)).slice(0,300);
+      airLogRef.current.push({t:new Date().toISOString(),_ms:Date.now(),status:"LOOP_ERROR",note:msg,stack:String(loopErr&&loopErr.stack||"").slice(0,400)});
+      try{console.error("[LOOP ERROR]",loopErr);}catch{}
+      setErr("Сбой цикла: "+msg);
+      if(debugOn)setDebugLine("✗ сбой: "+msg.slice(0,90));
     }finally{
       loopBusyRef.current=false;
     }
