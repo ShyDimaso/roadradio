@@ -289,7 +289,7 @@ body{font-family:'Inter',sans-serif;color:#fff;}
 const {useState,useRef,useEffect}=React;
 const PROXY="https://corsproxy.io/?https://api.anthropic.com/v1/messages";
 const KEY_STORE="rr_key_v3";
-const VER="v101";
+const VER="v102";
 // v76 MEMORY DIAGNOSTIC: prefetch & buffer OFF so every spoken segment goes through one gate.
 const PREFETCH_ENABLED=false;
 const BUFFER_ENABLED=false;
@@ -1587,23 +1587,23 @@ Segments must NOT repeat each other's facts or images. Each has its own micro_to
               }else{lastErr=mdl+" → "+(e.message||e);continue;}
             }
             if(rr.ok){r=rr;localStorage.setItem("rr_gemini_model",mdl);break;}
-            lastErr=mdl+" → "+rr.status+": "+(await rr.text()).slice(0,120);
+            // v102 FIX: тело Response можно прочитать ТОЛЬКО ОДИН РАЗ. Раньше здесь делали rr.text(),
+            // а ниже ещё раз r.text() → "body stream already read" → цикл падал молча. Читаем один раз и запоминаем.
+            const errBody=await rr.text().catch(()=>"");
+            lastErr=mdl+" → "+rr.status+": "+errBody.slice(0,120);
             // 404 = модель мертва/неверна: сбрасываем запомненную и пробуем следующую.
             if(rr.status===404){if(mdl===savedModel)localStorage.removeItem("rr_gemini_model");continue;}
-            // 403/429 = ключ/квота — нет смысла перебирать, сообщаем.
-            r=rr;break;
+            // 403/429 = ключ/квота — сообщаем и выходим (тело уже прочитано, повторно не читаем).
+            setErr("Gemini "+rr.status+": "+errBody.slice(0,160));
+            airLogRef.current.push({t:new Date().toISOString(),_ms:Date.now(),status:"GEMINI_HTTP_ERR",httpStatus:rr.status,raw:errBody.slice(0,400)});
+            throw new Error("GEMINI_HTTP_"+rr.status+": "+errBody.slice(0,200));
           }
         }catch(netErr){
           setErr("Gemini network: "+String(netErr.message||netErr).slice(0,120));
           throw netErr;
         }
         if(!r){setErr("Gemini: ни одна модель не подошла. "+lastErr);throw new Error(lastErr);}
-        if(!r.ok){
-          const et=await r.text();
-          setErr("Gemini "+r.status+": "+et.slice(0,160));
-          airLogRef.current.push({t:new Date().toISOString(),_ms:Date.now(),status:"GEMINI_HTTP_ERR",httpStatus:r.status,raw:et.slice(0,400)});
-          throw new Error(et);
-        }
+        // v102: сюда попадают ТОЛЬКО успешные ответы (rr.ok). Ошибки обработаны выше, тело там уже прочитано.
         const d=await r.json();
         try{const u=d.usageMetadata;if(u){tokenCountRef.current.in+=(u.promptTokenCount||0);tokenCountRef.current.out+=(u.candidatesTokenCount||0);setTokenDisp({...tokenCountRef.current});}}catch{}
         // v93-diagnostic: собрать текст из ВСЕХ parts, не только [0].
