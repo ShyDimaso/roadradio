@@ -289,7 +289,7 @@ body{font-family:'Inter',sans-serif;color:#fff;}
 const {useState,useRef,useEffect}=React;
 const PROXY="https://corsproxy.io/?https://api.anthropic.com/v1/messages";
 const KEY_STORE="rr_key_v3";
-const VER="v106";
+const VER="v107";
 // v76 MEMORY DIAGNOSTIC: prefetch & buffer OFF so every spoken segment goes through one gate.
 const PREFETCH_ENABLED=false;
 const BUFFER_ENABLED=false;
@@ -459,6 +459,7 @@ function App(){
   const batchLoadingRef=useRef(false); // v104: фоновая догрузка тройки уже идёт — не запускать вторую
   const lastPromptRef=useRef("");      // v104: стабильное ядро промпта для фоновой догрузки
   const lastVarRef=useRef("");         // v105: меняющаяся часть промпта (не кэшируется)
+  const lastBgAtRef=useRef(0);         // v107: время последнего фонового запроса — защита от частых платных вызовов
   const fetchingNext=useRef(false);
   const excludedRef=useRef(excluded);
   const locDataRef=useRef(locData);
@@ -1158,7 +1159,7 @@ function App(){
         if(r.promptFeedback&&r.promptFeedback!=="{}")lines.push(`  promptFeedback: ${r.promptFeedback}`);
         lines.push(`  RAW: ${r.rawTextPreview||""}`);
       }else if(r.status==="GEMINI_PARSED"){
-        lines.push(`[${r.t}]  ⚙ GEMINI_PARSED  storyLen:${r.storyLen} loc:${r.location||""}`);
+        lines.push(`[${r.t}]  ⚙ GEMINI_PARSED  БЛОКОВ:${r.segCount!=null?r.segCount:"?"} storyLen:${r.storyLen} loc:${r.location||""}`);
         lines.push(`  STORY: ${r.storyPreview||""}`);
       }else if(r.status==="GEMINI_TIMEOUT"){
         lines.push(`[${r.t}]  ⏱ GEMINI_TIMEOUT  model:${r.model} ${r.note||""}`);
@@ -1646,7 +1647,10 @@ Segments must NOT repeat each other's facts or images. Each has its own micro_to
         if(!d.candidates||!d.candidates.length){throw new Error("GEMINI_NO_CANDIDATES: pf="+JSON.stringify(d.promptFeedback||{}).slice(0,200));}
         if(!txt){throw new Error("GEMINI_EMPTY_TEXT: finish="+finish);}
         const parsedG=extract(txt);
-        airLogRef.current.push({t:new Date().toISOString(),_ms:Date.now(),status:"GEMINI_PARSED",storyLen:(parsedG.story||"").length,storyPreview:(parsedG.story||"").slice(0,500),location:parsedG.location||""});
+        // v107: parsedG может быть МАССИВОМ (батч). Логируем реальное число блоков, а не storyLen:0.
+        const nSegs=Array.isArray(parsedG)?parsedG.length:(parsedG&&parsedG.story?1:0);
+        const firstStory=Array.isArray(parsedG)?(parsedG[0]?.story||""):(parsedG?.story||"");
+        airLogRef.current.push({t:new Date().toISOString(),_ms:Date.now(),status:"GEMINI_PARSED",segCount:nSegs,storyLen:firstStory.length,storyPreview:firstStory.slice(0,300),location:(Array.isArray(parsedG)?parsedG[0]?.location:parsedG?.location)||""});
         return {res:parsedG,txt};
       }
       // Default: Anthropic Haiku via CORS proxy.
@@ -1862,7 +1866,9 @@ Segments must NOT repeat each other's facts or images. Each has its own micro_to
           let cand=await callClaude(sys,"Produce a connected 3-segment mini-arc, IN PERSONA.",false,varPart);
           // v100 BATCH: callClaude уже развернул массив — сегмент #1 идёт в эфир, хвост кладём в очередь.
           if(cand&&Array.isArray(cand._batchTail)&&cand._batchTail.length){
-            const tail=cand._batchTail.map(x=>{x.story=cleanRussianStory(x.story);x._dirTopic=director.topicKey;x._src=sourceLevel;x._lat=c.lat;x._lng=c.lng;return x;}).filter(x=>x.story&&!hasHallucination(x.story)&&!hasGeoError(x.story)&&!(detectRepeat(x).isRepeat===true));
+            // v107: без detectRepeat — он выбрасывал оплаченные блоки (все про одно место), очередь пустела
+            // мгновенно и летел новый платный запрос. Повтор ловится позже, перед озвучкой конкретного блока.
+            const tail=cand._batchTail.map(x=>{x.story=cleanRussianStory(x.story);x._dirTopic=director.topicKey;x._src=sourceLevel;x._lat=c.lat;x._lng=c.lng;return x;}).filter(x=>x.story&&x.story.length>40&&!hasHallucination(x.story)&&!hasGeoError(x.story));
             batchQRef.current=tail;
             delete cand._batchTail;
           }
@@ -1938,19 +1944,23 @@ Segments must NOT repeat each other's facts or images. Each has its own micro_to
       // v104 ГЛАВНОЕ ПРОТИВ ПАУЗ: пока диктор ГОВОРИТ этот блок (~40-60 сек), в фоне уже готовим
       // следующую тройку. Раньше запрос уходил только после того, как очередь опустеет → тишина 40-60 сек.
       // Запускаем, когда в запасе остался последний блок и фоновая догрузка ещё не идёт.
-      if(runRef.current&&!parkedRef.current&&!wikiModeRef.current&&batchQRef.current.length<=2&&!batchLoadingRef.current){
+      if(runRef.current&&!parkedRef.current&&!wikiModeRef.current&&batchQRef.current.length<=2&&!batchLoadingRef.current&&(Date.now()-lastBgAtRef.current>25000)){
         batchLoadingRef.current=true;
+        lastBgAtRef.current=Date.now();   // v107: не чаще 1 фонового запроса в 25 сек — защита кошелька
         (async()=>{
           try{
             const cc=coordsRef.current||c;
             const bgSys=lastPromptRef.current||"";
             if(!bgSys){batchLoadingRef.current=false;return;}
-            const bg=await callClaude(bgSys,"Produce a connected 3-segment mini-arc, IN PERSONA.",true,lastVarRef.current||"");
+            const bg=await callClaude(bgSys,"Produce a connected 6-segment mini-arc, IN PERSONA.",true,lastVarRef.current||"");
             const tail=[];
             if(bg&&bg.story)tail.push(bg);
             if(bg&&Array.isArray(bg._batchTail))tail.push(...bg._batchTail);
+            // v107: НЕ прогоняем очередь через detectRepeat — он выбрасывал почти все блоки (они про одно место),
+            // из 6 оплаченных доходило 1-2, очередь пустела за 30 сек и летел новый запрос. Это и жгло деньги.
+            // Повторы ловятся позже, перед самой озвучкой.
             const clean=tail.map(x=>{try{x.story=cleanRussianStory(x.story);}catch{}x._lat=cc.lat;x._lng=cc.lng;return x;})
-                            .filter(x=>x.story&&!hasHallucination(x.story)&&!hasGeoError(x.story)&&!(detectRepeat(x).isRepeat===true));
+                            .filter(x=>x.story&&x.story.length>40&&!hasHallucination(x.story)&&!hasGeoError(x.story));
             if(clean.length&&runRef.current)batchQRef.current=[...batchQRef.current,...clean];
             airLogRef.current.push({t:new Date().toISOString(),_ms:Date.now(),status:"BATCH_BG",note:"догружено в фоне: "+clean.length+" блока, в очереди: "+batchQRef.current.length});
           }catch(bgErr){
