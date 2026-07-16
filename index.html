@@ -289,7 +289,7 @@ body{font-family:'Inter',sans-serif;color:#fff;}
 const {useState,useRef,useEffect}=React;
 const PROXY="https://corsproxy.io/?https://api.anthropic.com/v1/messages";
 const KEY_STORE="rr_key_v3";
-const VER="v107";
+const VER="v108";
 // v76 MEMORY DIAGNOSTIC: prefetch & buffer OFF so every spoken segment goes through one gate.
 const PREFETCH_ENABLED=false;
 const BUFFER_ENABLED=false;
@@ -1074,7 +1074,7 @@ function App(){
   const buildSummary=(res,meta)=>{
     const keys=canonicalKeys(res.story||"");
     const ent=res.entity?String(res.entity).slice(0,40):"";
-    return `${meta.topic||res._dirTopic||"?"}: ${keys.join(",")||"—"}${ent?" / "+ent:""}`;
+    return `${meta.topic||res.topic_key||res._dirTopic||"?"}: ${keys.join(",")||"—"}${ent?" / "+ent:""}`;
   };
 
   // THE SINGLE PLACE a segment is recorded as spoken. Called right before speak().
@@ -1083,7 +1083,7 @@ function App(){
     const keys=canonicalKeys(res.story);
     const passport={
       id:Date.now(),
-      topic:meta.topic||res._dirTopic||"",
+      topic:meta.topic||res.topic_key||res._dirTopic||"",
       story:res.story,
       summary:buildSummary(res,meta),
       shingles3:shingles(res.story,3),
@@ -1241,8 +1241,21 @@ function App(){
     const cooled=motifsOnCooldown();
     const motifRu={"night-sky-milkyway":"ночное небо/Млечный Путь/звёзды/метеоры","prairie-storms":"грозы прерий/торнадо","local-fishing":"рыбалка/сом/окунь","corn-soy-farming":"кукуруза/соя/фермеры","ancient-sea-fossils":"древнее море/окаменелости","mississippi-river-life":"река Миссисипи/баржи","river-music-tradition":"блюз/джаз/кантри","cowboy-cattle-drive":"ковбои/перегон скота"};
     const cooledText=cooled.length?cooled.map(k=>motifRu[k]||k).join("; "):"";
-    if(!recent.length&&!hard.length&&!cooledText)return "";
-    return `\n\n=== ПАМЯТЬ ЭФИРА (СТРОГО НЕ ПОВТОРЯТЬ) ===${cooledText?`\n‼ ЗАПРЕЩЁННЫЕ МОТИВЫ ПРЯМО СЕЙЧАС (НЕ упоминай их вообще, даже вскользь): ${cooledText}.`:""}\nУЖЕ РАСКРЫТЫЕ ОБРАЗЫ (не возвращайся к ним ВООБЩЕ): ${hard.join("; ")||"—"}.\nУЖЕ БЫЛИ ГЛАВНЫМИ (не делай их снова центром): ${ents.join("; ")||"—"}.\nПОСЛЕДНИЕ СЕГМЕНТЫ (не повторяй их смысл): ${recent.join(" || ")||"—"}.\n========================`;
+    // v108 АНТИ-ЗАЛИПАНИЕ: считаем, какие темы уже звучали за последние 30 минут.
+    // Тема, прозвучавшая 2+ раза, уходит в жёсткий бан — иначе модель бесконечно крутит одно и то же
+    // (индейцы, ночное небо, рыбалка). Это не про конкретную тему — залипать нельзя НИ НА ЧЁМ.
+    let hotBan="";
+    try{
+      const since=Date.now()-30*60*1000;
+      const counts={};
+      (spokenLedgerRef.current||[]).forEach(p=>{
+        if(p&&p.id>since&&p.topic)counts[p.topic]=(counts[p.topic]||0)+1;
+      });
+      const hot=Object.entries(counts).filter(([,n])=>n>=2).map(([k])=>k);
+      if(hot.length)hotBan=`\n‼‼ ЭТИ ТЕМЫ УЖЕ ЗВУЧАЛИ И ЗАПРЕЩЕНЫ НА БЛИЖАЙШИЕ ПОЛЧАСА — не бери их ни в один из шести блоков, даже вскользь: ${hot.join(", ")}. Возьми ДРУГИЕ темы из списка.`;
+    }catch{}
+    if(!recent.length&&!hard.length&&!cooledText&&!hotBan)return "";
+    return `\n\n=== ПАМЯТЬ ЭФИРА (СТРОГО НЕ ПОВТОРЯТЬ) ===${hotBan}${cooledText?`\n‼ ЗАПРЕЩЁННЫЕ МОТИВЫ ПРЯМО СЕЙЧАС (НЕ упоминай их вообще, даже вскользь): ${cooledText}.`:""}\nУЖЕ РАСКРЫТЫЕ ОБРАЗЫ (не возвращайся к ним ВООБЩЕ): ${hard.join("; ")||"—"}.\nУЖЕ БЫЛИ ГЛАВНЫМИ (не делай их снова центром): ${ents.join("; ")||"—"}.\nПОСЛЕДНИЕ СЕГМЕНТЫ (не повторяй их смысл): ${recent.join(" || ")||"—"}.\n========================`;
   };
 
   const getOpener=()=>{
@@ -1542,9 +1555,16 @@ ALREADY SAID THIS DRIVE (never repeat): ${recentFacts||"nothing yet — first se
 - Keep time-of-day consistent with "${phase}". The exact local time is ${tStr} — if you mention the time at all, state it correctly; do NOT approximate it to a different hour.
 - ‼ LANGUAGE LOCK ‼: write EVERY single word in ${al}. Never switch to English or any other language mid-segment. If you catch yourself starting an English word, stop and use ${al}.
 
-Reply ONLY valid JSON — an ARRAY of exactly 6 CONNECTED segments (a mini-arc: each flows naturally into the next, one theme handing over to another like real radio). Each segment is a DIFFERENT micro-subject — no two may share a theme, an image, or a fact:
-[{"story":"segment 1 in ${al}. LENGTH FLEXIBLE — rich subject fuller (7-9 sentences), thin subject short (2-3) and honestly rounded off. NEVER pad with filler. Lively and specific, not an encyclopedia.","location":"exact place in English","topics":"short phrase naming the ONE thing covered","entity":"main named landmark/institution or empty string","micro_topic_id":"short english kebab-case id","images":["1-3 short english tags"]},{...segment 2, a DIFFERENT micro-subject, opening with a natural bridge from segment 1...},{...segment 3...},{...segment 4...},{...segment 5...},{...segment 6, again different, bridging from segment 5...}]
-Segments must NOT repeat each other's facts or images. Each has its own micro_topic_id. All 6 must be genuinely different subjects — if you catch yourself circling one theme (natives, bison, night sky, fishing, farming), STOP and pick something else entirely.`;
+Reply ONLY valid JSON — an ARRAY of exactly 6 CONNECTED segments (a mini-arc: each flows naturally into the next, one theme handing over to another like real radio).
+
+‼ CRITICAL — SIX DIFFERENT WORLDS, NOT SIX ANGLES ON ONE:
+Each of the 6 segments MUST take a DIFFERENT topic from this list: history, native, land, wildlife, water, people, life, food, music, films, sports, economy, mystery, oddity, sky, crafts.
+NO topic may appear twice in these 6. If segment 1 is "native", then segments 2-6 must NOT touch native peoples at all — not even a mention.
+This is the #1 rule. A listener must hear six genuinely different subjects, linked by graceful bridges — like a real radio host moving through an evening: a bit of history, then a local dish, then a strange story, then music, then the land itself.
+The bridges make it beautiful; the variety makes it listenable. Both are required.
+
+[{"story":"segment 1 in ${al}. LENGTH FLEXIBLE — rich subject fuller (7-9 sentences), thin subject short (2-3) and honestly rounded off. NEVER pad with filler. Lively and specific, not an encyclopedia.","location":"exact place in English","topics":"short phrase naming the ONE thing covered","topic_key":"which topic from the list above this segment uses","entity":"main named landmark/institution or empty string","micro_topic_id":"short english kebab-case id","images":["1-3 short english tags"]},{...segment 2, a DIFFERENT topic_key, opening with a natural bridge from segment 1...},{...segment 3, another topic_key...},{...segment 4...},{...segment 5...},{...segment 6, again a new topic_key, bridging from segment 5...}]
+Segments must NOT repeat each other's facts or images. Each has its own micro_topic_id and its own topic_key.`;
   };
 
   // v105 CACHE: Google даёт implicit caching (скидка ~90% на вход) ТОЛЬКО если НАЧАЛО запроса
@@ -1847,7 +1867,7 @@ Segments must NOT repeat each other's facts or images. Each has its own micro_to
           if(gen!==loopGenRef.current||!runRef.current)return;
           if(w&&w.extract){
             sourceLevel="wikipedia";
-            wikiBlock=`\n\n=== РЕАЛЬНЫЕ ФАКТЫ ИЗ ВИКИПЕДИИ (об этом месте — ОПИРАЙСЯ ТОЛЬКО НА НИХ) ===\nСтатья: "${w.title}".\n${w.extract}\n‼ Возьми из этого текста 2-3 конкретных проверяемых факта и перескажи их СВОИМИ словами, тепло и живо. НЕ добавляй имён, годов, событий, которых НЕТ в этом тексте. НЕ выдумывай. Если текст не про текущую тему блока — всё равно расскажи об этом реальном месте, а тему считай второстепенной.\n========================`;
+            wikiBlock=`\n\n=== РЕАЛЬНЫЕ ФАКТЫ ИЗ ВИКИПЕДИИ (об этом месте) ===\nСтатья: "${w.title}".\n${w.extract}\n‼ ВАЖНО: эта статья — материал ТОЛЬКО ДЛЯ ОДНОГО из шести блоков (того, чьей теме она подходит). Возьми из неё 2-3 конкретных факта и перескажи СВОИМИ словами, тепло и живо, БЕЗ выдуманных имён и годов.\n‼ ОСТАЛЬНЫЕ ПЯТЬ БЛОКОВ НЕ ДОЛЖНЫ КАСАТЬСЯ ЭТОЙ СТАТЬИ ВООБЩЕ. Не тяни её тему в каждый блок — это главная ошибка. У них свои темы из списка.\n========================`;
           }
         }catch{}
         if(sourceLevel==="model_general"){
@@ -1959,7 +1979,10 @@ Segments must NOT repeat each other's facts or images. Each has its own micro_to
             // v107: НЕ прогоняем очередь через detectRepeat — он выбрасывал почти все блоки (они про одно место),
             // из 6 оплаченных доходило 1-2, очередь пустела за 30 сек и летел новый запрос. Это и жгло деньги.
             // Повторы ловятся позже, перед самой озвучкой.
-            const clean=tail.map(x=>{try{x.story=cleanRussianStory(x.story);}catch{}x._lat=cc.lat;x._lng=cc.lng;return x;})
+            // v108: проставляем тему и источник — раньше блоки очереди шли в эфир с topic:"?",
+            // из-за чего память не понимала, о чём был блок, и не ловила повторы.
+            const bgTopic=dirTopicRef.current||"";
+            const clean=tail.map(x=>{try{x.story=cleanRussianStory(x.story);}catch{}x._lat=cc.lat;x._lng=cc.lng;x._dirTopic=x._dirTopic||bgTopic;x._src=x._src||"model_general";return x;})
                             .filter(x=>x.story&&x.story.length>40&&!hasHallucination(x.story)&&!hasGeoError(x.story));
             if(clean.length&&runRef.current)batchQRef.current=[...batchQRef.current,...clean];
             airLogRef.current.push({t:new Date().toISOString(),_ms:Date.now(),status:"BATCH_BG",note:"догружено в фоне: "+clean.length+" блока, в очереди: "+batchQRef.current.length});
