@@ -289,7 +289,7 @@ body{font-family:'Inter',sans-serif;color:#fff;}
 const {useState,useRef,useEffect}=React;
 const PROXY="https://corsproxy.io/?https://api.anthropic.com/v1/messages";
 const KEY_STORE="rr_key_v3";
-const VER="v109";
+const VER="v110";
 // v76 MEMORY DIAGNOSTIC: prefetch & buffer OFF so every spoken segment goes through one gate.
 const PREFETCH_ENABLED=false;
 const BUFFER_ENABLED=false;
@@ -1087,6 +1087,11 @@ function App(){
 
   const motifCooldownRef=useRef({});
   const rejectedHashRef=useRef(new Set()); // v109: отвергнутый блок умирает НАВСЕГДА — обратно в эфир не попадёт
+  const usedOpenersRef=useRef([]); // v110: первые слова уже прозвучавших блоков — одинаковые зачины в бан
+
+  // v110: речевые паразиты, которыми модель злоупотребляла (из лога: «Контраст» 11 раз, «казалось бы» 9).
+  const BANNED_OPENERS=/^(контраст|казалось бы|ну что ж|а если|раз уж|напоследок|завершая|стоит упомянуть|нельзя не|интересно, что|кстати говоря)/i;
+  const openerOf=s=>(s||"").trim().toLowerCase().replace(/[^а-яёa-z ]/gi,"").split(/\s+/).slice(0,3).join(" ");
 
   // ==== v109: ЕДИНЫЕ ВОРОТА ПЕРЕД ЭФИРОМ ====
   // Любой блок (свежий из Gemini, из очереди батча, фоновый, fallback, Wiki) обязан пройти здесь
@@ -1102,6 +1107,17 @@ function App(){
     if(nh&&rejectedHashRef.current.has(nh))return{ok:false,reason:"already_rejected"};
     const cooled=canonicalKeys(res.story).filter(k=>(motifCooldownRef.current[k]||0)>Date.now());
     if(cooled.length)return{ok:false,reason:"motif_cooldown:"+cooled.join(",")};
+    // v110: шаблонный зачин. Сначала пробуем ВЫЛЕЧИТЬ (срезать первую фразу-паразита), выбрасываем только если не лечится —
+    // блок оплачен, факты в нём хорошие, жалко терять из-за трёх первых слов.
+    let op=openerOf(res.story);
+    if(BANNED_OPENERS.test(res.story.trim())||usedOpenersRef.current.includes(op)){
+      const cut=res.story.replace(/^[^.!?…]{0,160}[.!?…]\s*/,"");
+      if(cut.length>=80&&!BANNED_OPENERS.test(cut.trim())&&!usedOpenersRef.current.includes(openerOf(cut))){
+        res.story=cut; op=openerOf(cut);
+      }else{
+        return{ok:false,reason:"stale_opener:"+op};
+      }
+    }
     const rep=detectRepeat(res);
     if(rep&&rep.isRepeat===true)return{ok:false,reason:"repeat:"+(rep.why||"")};
     const topic=meta.topic||res._dirTopic||res.topic_key||"";
@@ -1155,6 +1171,8 @@ function App(){
     if(passport.entity)entityStopRef.current.add(passport.entity);
     // v85: exact-duplicate hash + motif cooldowns
     const nh=normHash(res.story);if(nh)spokenHashRef.current.add(nh);
+    // v110: зачин в память — следующий блок не сможет начаться так же.
+    try{const op=openerOf(res.story);if(op){usedOpenersRef.current.push(op);if(usedOpenersRef.current.length>20)usedOpenersRef.current.shift();}}catch{}
     for(const k of keys){const cd=MOTIF_COOLDOWN[k];if(cd)motifCooldownRef.current[k]=Date.now()+cd;}
     recentStoriesRef.current=[...recentStoriesRef.current,res.story].slice(-50);
     dirSummariesRef.current=[...dirSummariesRef.current,passport.summary].slice(-80);
@@ -1570,8 +1588,23 @@ Reply ONLY valid JSON: {"story":"your spoken answer in ${al}","location":"curren
     }
     const voiceHeader=`YOU ARE THE ROAD RADIO HOST — one warm regional storyteller, genuinely in love with every land you pass through.
 VOICE: warm, unhurried, human — like a passenger-seat friend who knows and loves this country. You speak TO the listener, not at them. A little dry humor and gentle wonder where it fits naturally (never forced, never stand-up). You react like a person: a small "вот это поворот", "любопытная деталь", a wry aside. Warm and alive, never a dry list, never a lecture, never an encyclopedia entry.
-YOUR DISCIPLINE: you never repeat something you've already said this session — not the same fact, not the same image, not even reworded. Every segment brings something genuinely new. If you have nothing new on a subject, you move to a different subject entirely.
-EXAMPLE FEEL: "Вон та водонапорная башня на въезде — местные когда-то красили её к каждому выпускному, и, говорят, один год перестарались с оттенком... но об этом чуть позже."`;
+
+‼‼ БАН РЕЧЕВЫХ ШТАМПОВ — ЭТО ГЛАВНОЕ ПРАВИЛО ГОЛОСА ‼‼
+Слушатель жаловался: ты начинаешь блоки ОДИНАКОВО и гоняешь одни приёмы. ЗАПРЕЩЕНО НАВСЕГДА:
+— начинать блок со слов: "Контраст", "Казалось бы", "Ну что ж", "А если", "Раз уж", "Напоследок", "Завершая", "Стоит упомянуть", "Нельзя не", "Интересно, что", "Кстати говоря";
+— приём "казалось бы X, а на деле Y" — ты им злоупотребил, он в бане;
+— слово "контраст" в любом виде;
+— две одинаковых первых фразы за сессию. КАЖДЫЙ блок начинается ПО-СВОЕМУ.
+КАК начинать вместо этого — С СЕРЕДИНЫ МЫСЛИ, как живой человек: с имени ("Джон Роулингс держал тут кузницу..."), с даты ("В сорок седьмом здесь..."), с детали ("Красная водокачка справа..."), с вопроса ("Знаете, чем пахла эта долина сто лет назад?"), с признания ("Честно говоря, я долго не верил, что..."), со звука ("Если приглушить радио, здесь слышно..."), с числа ("Семьдесят вагонов в день..."). Пятьдесят способов начать — и ни один не повторяется.
+
+ОЧЕЛОВЕЧИВАНИЕ — ты живой диктор, а не диктофон:
+— изредка (не в каждом блоке!) можешь оговориться и поправиться: "в тридцать втором... нет, вру, в тридцать четвёртом";
+— можешь честно сомневаться: "если память не изменяет", "местные рассказывают по-разному";
+— можешь коротко отреагировать на собственный рассказ: "меня эта деталь всегда цепляет";
+— иногда недосказать и вернуться: "но об этом через минуту, сначала...".
+Это специи — щепотка на несколько блоков, не в каждом. Пересолишь — станет манерно.
+
+YOUR DISCIPLINE: you never repeat something you've already said this session — not the same fact, not the same image, not even reworded. Every segment brings something genuinely new. If you have nothing new on a subject, you move to a different subject entirely.`;
     const styleBlock=`========================\n‼ WHO YOU ARE — THIS DEFINES YOUR ENTIRE VOICE (non-negotiable) ‼\n${voiceHeader}\n========================`;
 
     return`${styleBlock}
@@ -2031,6 +2064,19 @@ ${planStr}
         setStatus("loading");
         if(gen===loopGenRef.current&&runRef.current&&!parkedRef.current)scheduleNext(gen,3000);
         return;
+      }
+      // v110: ФИНАЛЬНЫЕ ВОРОТА для любого блока (свежий/очередь/fallback) — если блок не из очереди,
+      // он мог пройти мимо validateBeforeAir. Здесь ловим шаблонный зачин и дубль в последний момент.
+      if(res._src!=="pause"){
+        const gate=validateBeforeAir(res,{topic:res._dirTopic||"",source:servedFromQueue?"queue":"fresh"});
+        if(!gate.ok){
+          airLogRef.current.push({t:new Date().toISOString(),_ms:Date.now(),status:"REJECTED-QUEUE",reason:gate.reason,topic:res._dirTopic||"?",story:(res.story||"").slice(0,140)});
+          const nh2=normHash(res.story||"");if(nh2)rejectedHashRef.current.add(nh2);
+          // Пробуем взять замену из очереди; если пусто — короткая пауза, НЕ платный запрос.
+          const alt=takeNextUsableFromQueue(c);
+          if(alt){res=alt;}
+          else{res={story:isRu?"Секундная пауза на этой дороге — впереди найдётся, о чём рассказать.":"A brief pause — a good story is just ahead.",location:"",topics:"road-pause",entity:"",_src:"pause",_dirTopic:"road"};}
+        }else{res=gate.res;}
       }
       storyText=res.story||"";
       lastIntroBcastRef.current=bcastRef.current;
