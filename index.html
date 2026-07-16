@@ -289,7 +289,7 @@ body{font-family:'Inter',sans-serif;color:#fff;}
 const {useState,useRef,useEffect}=React;
 const PROXY="https://corsproxy.io/?https://api.anthropic.com/v1/messages";
 const KEY_STORE="rr_key_v3";
-const VER="v105";
+const VER="v106";
 // v76 MEMORY DIAGNOSTIC: prefetch & buffer OFF so every spoken segment goes through one gate.
 const PREFETCH_ENABLED=false;
 const BUFFER_ENABLED=false;
@@ -1541,9 +1541,9 @@ ALREADY SAID THIS DRIVE (never repeat): ${recentFacts||"nothing yet — first se
 - Keep time-of-day consistent with "${phase}". The exact local time is ${tStr} — if you mention the time at all, state it correctly; do NOT approximate it to a different hour.
 - ‼ LANGUAGE LOCK ‼: write EVERY single word in ${al}. Never switch to English or any other language mid-segment. If you catch yourself starting an English word, stop and use ${al}.
 
-Reply ONLY valid JSON — an ARRAY of exactly 3 CONNECTED segments (a mini-arc: each flows naturally into the next, one theme handing over to another like real radio):
-[{"story":"segment 1 in ${al}. LENGTH FLEXIBLE — rich subject fuller (7-9 sentences), thin subject short (2-3) and honestly rounded off. NEVER pad with filler. Lively and specific, not an encyclopedia.","location":"exact place in English","topics":"short phrase naming the ONE thing covered","entity":"main named landmark/institution or empty string","micro_topic_id":"short english kebab-case id","images":["1-3 short english tags"]},{...segment 2, a DIFFERENT micro-subject, opening with a natural bridge from segment 1...},{...segment 3, again different, bridging from segment 2...}]
-Segments must NOT repeat each other's facts or images. Each has its own micro_topic_id.`;
+Reply ONLY valid JSON — an ARRAY of exactly 6 CONNECTED segments (a mini-arc: each flows naturally into the next, one theme handing over to another like real radio). Each segment is a DIFFERENT micro-subject — no two may share a theme, an image, or a fact:
+[{"story":"segment 1 in ${al}. LENGTH FLEXIBLE — rich subject fuller (7-9 sentences), thin subject short (2-3) and honestly rounded off. NEVER pad with filler. Lively and specific, not an encyclopedia.","location":"exact place in English","topics":"short phrase naming the ONE thing covered","entity":"main named landmark/institution or empty string","micro_topic_id":"short english kebab-case id","images":["1-3 short english tags"]},{...segment 2, a DIFFERENT micro-subject, opening with a natural bridge from segment 1...},{...segment 3...},{...segment 4...},{...segment 5...},{...segment 6, again different, bridging from segment 5...}]
+Segments must NOT repeat each other's facts or images. Each has its own micro_topic_id. All 6 must be genuinely different subjects — if you catch yourself circling one theme (natives, bison, night sky, fishing, farming), STOP and pick something else entirely.`;
   };
 
   // v105 CACHE: Google даёт implicit caching (скидка ~90% на вход) ТОЛЬКО если НАЧАЛО запроса
@@ -1566,17 +1566,18 @@ Segments must NOT repeat each other's facts or images. Each has its own micro_to
           // v92: thinkingBudget:0 — выключаем «раздумья» Gemini 3.5 (иначе они съедают весь бюджет и текст обрывается). responseMimeType — гарантированно валидный JSON, без мусора в парсере.
           // v101: возвращаю thinkingBudget:0 — ровно как в РАБОЧЕЙ v98 (она выдавала блок).
           // thinkingLevel из v100 мог давать 400 → тишина. Меняем по одной переменной за раз.
-          generationConfig:{maxOutputTokens:4096,temperature:0.9,thinkingConfig:{thinkingBudget:0}},
+          // v106: 8192 — под 6 блоков за запрос (3 блока укладывались в 4096, шести нужно вдвое больше).
+          generationConfig:{maxOutputTokens:8192,temperature:0.9,thinkingConfig:{thinkingBudget:0}},
         };
         let r;
 
-        // v105: возвращаем ДЕШЁВУЮ gemini-3-flash ($0.50/$3 — втрое дешевле 3.5-flash).
-        // 503 больше не страшен: при перегрузке код сам уходит на запасную модель (фикс v104).
-        const FALLBACK_MODELS=["gemini-3-flash","gemini-3.5-flash","gemini-flash-latest"];
+        // v106: gemini-3.1-flash-lite ($0.25 вход / $1.50 выход) — ВДВОЕ дешевле 3-flash.
+        // Для пересказа готовых фактов из Википедии её хватает; 3-flash остаётся запасной.
+        const FALLBACK_MODELS=["gemini-3.1-flash-lite","gemini-3-flash","gemini-3.5-flash","gemini-flash-latest"];
         try{
-          if(localStorage.getItem("rr_model_reset")!=="v105"){
+          if(localStorage.getItem("rr_model_reset")!=="v106"){
             localStorage.removeItem("rr_gemini_model");
-            localStorage.setItem("rr_model_reset","v105");
+            localStorage.setItem("rr_model_reset","v106");
           }
         }catch{}
         const savedModel=localStorage.getItem("rr_gemini_model")||"";
@@ -1937,7 +1938,7 @@ Segments must NOT repeat each other's facts or images. Each has its own micro_to
       // v104 ГЛАВНОЕ ПРОТИВ ПАУЗ: пока диктор ГОВОРИТ этот блок (~40-60 сек), в фоне уже готовим
       // следующую тройку. Раньше запрос уходил только после того, как очередь опустеет → тишина 40-60 сек.
       // Запускаем, когда в запасе остался последний блок и фоновая догрузка ещё не идёт.
-      if(runRef.current&&!parkedRef.current&&!wikiModeRef.current&&batchQRef.current.length<=1&&!batchLoadingRef.current){
+      if(runRef.current&&!parkedRef.current&&!wikiModeRef.current&&batchQRef.current.length<=2&&!batchLoadingRef.current){
         batchLoadingRef.current=true;
         (async()=>{
           try{
@@ -2079,15 +2080,16 @@ Segments must NOT repeat each other's facts or images. Each has its own micro_to
     const everStarted=localStorage.getItem("rr_started");
     const hw=locDataRef.current.highway;const dir=toDirWord(coordsRef.current?.heading||90,langRef.current);
     const roadPart=hw?(isRu?` Едем по трассе ${hw} на ${dir}.`:` We're on ${hw} heading ${dir}.`):(isRu?` Едем на ${dir}.`:` Heading ${dir}.`);
-    const tagline=isRu?" Я расскажу всё самое интересное о местах, мимо которых вы едете. В настройках можно выбрать один из стилей ведущего и темы для эфира по этой местности. Приятного путешествия!":" I'll tell you the most interesting things about the places you pass. In settings you can choose a host style and the topics for the broadcast in this area. Enjoy the trip!";
-    const greet=everStarted
-      ?(isRu?`Вы снова на Дорожном Радио.${roadPart}${tagline}`:`You're back on Road Radio.${roadPart}${tagline}`)
-      :(isRu?`Здравствуйте, вы на Дорожном Радио.${roadPart}${tagline}`:`Hello, you're on Road Radio.${roadPart}${tagline}`);
+    // v106: короткий джингл. Убрано длинное вступление про «выбор стиля ведущего и тем» —
+    // такого меню нет, и слушать это перед каждым эфиром незачем.
+    const greet=isRu?`Дорожное радио.${roadPart} Поехали!`:`Road Radio.${roadPart} Let's go!`;
     roadReminderRef.current=Date.now();
     localStorage.setItem("rr_started","1");localStorage.setItem("rr_review",String(Date.now()));setNeedsReview(false);
     const g=loopGenRef.current;
-    await speak(greet);
+    // v106 БЫСТРЫЙ СТАРТ: раньше ждали, пока джингл ДОГОВОРИТ, и только потом слали запрос —
+    // отсюда пауза ~минуту на старте. Теперь генерация стартует ПАРАЛЛЕЛЬНО джинглу.
     if(runRef.current&&loopGenRef.current===g)loopRef.current?.(false,false);
+    await speak(greet);
   };
 
   const stop=()=>{
