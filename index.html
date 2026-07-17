@@ -289,7 +289,7 @@ body{font-family:'Inter',sans-serif;color:#fff;}
 const {useState,useRef,useEffect}=React;
 const PROXY="https://corsproxy.io/?https://api.anthropic.com/v1/messages";
 const KEY_STORE="rr_key_v3";
-const VER="v112";
+const VER="v113";
 // v76 MEMORY DIAGNOSTIC: prefetch & buffer OFF so every spoken segment goes through one gate.
 const PREFETCH_ENABLED=false;
 const BUFFER_ENABLED=false;
@@ -1085,14 +1085,34 @@ function App(){
     const SCOPES=["этот округ","эта местность","весь штат","этот регион"];
     const plan=[];
     let guard=0;
-    while(plan.length<n&&guard++<100){
-      if(!topicQueueRef.current.length)refill();
+    const parked=[];   // v113: перегретые темы — не теряем, вернём в хвост очереди
+    while(plan.length<n&&guard++<200){
+      if(!topicQueueRef.current.length){
+        // Круг закончился честно — возвращаем отложенные и мешаем заново.
+        if(parked.length){topicQueueRef.current=parked.splice(0);}
+        else refill();
+      }
       const key=topicQueueRef.current.shift();
       if(!key)break;
-      if((counts[key]||0)>=2&&guard<50)continue;      // перегретую пропускаем (вернётся в след. круге)
-      if(plan.some(p=>p.topic===key))continue;         // в одном батче тема не повторяется
+      if(plan.some(p=>p.topic===key)){parked.push(key);continue;}          // в одном батче тема не повторяется
+      // v113 ГЛАВНЫЙ ФИКС: перегретую тему раньше выбрасывали (continue) — очередь пустела досрочно,
+      // шёл refill, и «удобные» темы (films/crafts) выпадали опять и опять. Теперь откладываем в хвост:
+      // тема своё возьмёт позже, а круг честно доходит до всех 16.
+      if((counts[key]||0)>=2&&topicQueueRef.current.length+parked.length>=n){parked.push(key);continue;}
       const i=plan.length;
       plan.push({slot:i+1,topic:key,label:(labels&&labels[key])||key,lens:LENSES[i%LENSES.length],scope:SCOPES[i%SCOPES.length]});
+    }
+    // Отложенные возвращаем в ХВОСТ — они отработают в следующих кругах.
+    if(parked.length)topicQueueRef.current=topicQueueRef.current.concat(parked);
+    // v113 СТРАХОВКА: если за длинную поездку все темы стали «перегретыми», план мог выйти пустым
+    // и эфир бы встал. Добираем наименее использованными темами — эфир важнее идеальной свежести.
+    if(plan.length<n){
+      const rest=allowedKeys.filter(k=>!plan.some(p=>p.topic===k)).sort((a,b)=>(counts[a]||0)-(counts[b]||0));
+      for(const k of rest){
+        if(plan.length>=n)break;
+        const i=plan.length;
+        plan.push({slot:i+1,topic:k,label:(labels&&labels[k])||k,lens:LENSES[i%LENSES.length],scope:SCOPES[i%SCOPES.length]});
+      }
     }
     return plan;
   };
@@ -1762,7 +1782,8 @@ ${planStr}
             // Раньше здесь был throw → эфир вставал на 40-60 сек. Это и была главная причина пауз.
             if(rr.status===503||rr.status===429){
               if(mdl===savedModel)localStorage.removeItem("rr_gemini_model");
-              await new Promise(rs=>setTimeout(rs,1200));
+              // v113: 503 = «модель перегружена». Пауза подлиннее, чем при 429 — Google просит подождать.
+              await new Promise(rs=>setTimeout(rs,rr.status===503?2500:1200));
               continue;
             }
             // Остальное (403 = плохой ключ и т.п.) — сообщаем честно.
