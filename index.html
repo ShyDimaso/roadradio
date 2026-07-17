@@ -289,7 +289,7 @@ body{font-family:'Inter',sans-serif;color:#fff;}
 const {useState,useRef,useEffect}=React;
 const PROXY="https://corsproxy.io/?https://api.anthropic.com/v1/messages";
 const KEY_STORE="rr_key_v3";
-const VER="v110";
+const VER="v111";
 // v76 MEMORY DIAGNOSTIC: prefetch & buffer OFF so every spoken segment goes through one gate.
 const PREFETCH_ENABLED=false;
 const BUFFER_ENABLED=false;
@@ -1554,7 +1554,7 @@ Reply ONLY valid JSON: {"story":"your spoken answer in ${al}","location":"curren
     const allowed=TOPIC_DEFS.filter(t=>cfg[t.key]!==false).filter(t=>!(t.key==="road"&&isStopped));
     // v109: директор составляет план 6 слотов ЗДЕСЬ. Модель получает готовые темы и не выбирает сама.
     const labelMap={};TOPIC_DEFS.forEach(t=>{labelMap[t.key]=t.label;});
-    const bPlan=makeBatchPlan(6,allowed.map(t=>t.key),labelMap);
+    const bPlan=makeBatchPlan(4,allowed.map(t=>t.key),labelMap);
     lastBatchPlanRef.current=bPlan;
     const planStr=bPlan.map(p=>`${p.slot}. topic_key="${p.topic}" — ${p.label} | взгляд: ${p.lens} | масштаб: ${p.scope}`).join("\n");
     const forbidden=TOPIC_DEFS.filter(t=>cfg[t.key]===false);
@@ -1655,14 +1655,14 @@ ALREADY SAID THIS DRIVE (never repeat): ${recentFacts||"nothing yet — first se
 - Keep time-of-day consistent with "${phase}". The exact local time is ${tStr} — if you mention the time at all, state it correctly; do NOT approximate it to a different hour.
 - ‼ LANGUAGE LOCK ‼: write EVERY single word in ${al}. Never switch to English or any other language mid-segment. If you catch yourself starting an English word, stop and use ${al}.
 
-Reply ONLY valid JSON — an ARRAY of exactly 6 segments.
+Reply ONLY valid JSON — an ARRAY of exactly 4 segments.
 
 ‼ ТЕМЫ УЖЕ НАЗНАЧЕНЫ РЕЖИССЁРОМ. Ты их НЕ выбираешь. Твоя работа — написать живой текст по каждому слоту:
 ${planStr}
 
 Порядок не менять. topic_key в ответе — ровно тот, что указан для слота. Каждый блок — про СВОЮ тему и ни про что другое: если слот 1 про коренные народы, то в слотах 2-6 о них ни слова, даже вскользь. Между блоками — короткий естественный мостик, как у живого радиоведущего, но предмет разговора каждый раз НОВЫЙ.
 
-[{"story":"segment 1 in ${al}. LENGTH FLEXIBLE — rich subject fuller (7-9 sentences), thin subject short (2-3) and honestly rounded off. NEVER pad with filler. Lively and specific, not an encyclopedia.","location":"exact place in English","topics":"short phrase naming the ONE thing covered","topic_key":"тема слота 1 из плана выше","entity":"main named landmark/institution or empty string","micro_topic_id":"short english kebab-case id","images":["1-3 short english tags"]},{...слот 2 по плану, мостик от слота 1...},{...слот 3...},{...слот 4...},{...слот 5...},{...слот 6...}]
+[{"story":"segment 1 in ${al}. LENGTH FLEXIBLE — rich subject fuller (7-9 sentences), thin subject short (2-3) and honestly rounded off. NEVER pad with filler. Lively and specific, not an encyclopedia.","location":"exact place in English","topics":"short phrase naming the ONE thing covered","topic_key":"тема слота 1 из плана выше","entity":"main named landmark/institution or empty string","micro_topic_id":"short english kebab-case id","images":["1-3 short english tags"]},{...слот 2 по плану, мостик от слота 1...},{...слот 3...},{...слот 4...}]
 Ни один блок не повторяет факты или образы другого.`;
   };
 
@@ -1686,8 +1686,8 @@ ${planStr}
           // v92: thinkingBudget:0 — выключаем «раздумья» Gemini 3.5 (иначе они съедают весь бюджет и текст обрывается). responseMimeType — гарантированно валидный JSON, без мусора в парсере.
           // v101: возвращаю thinkingBudget:0 — ровно как в РАБОЧЕЙ v98 (она выдавала блок).
           // thinkingLevel из v100 мог давать 400 → тишина. Меняем по одной переменной за раз.
-          // v106: 8192 — под 6 блоков за запрос (3 блока укладывались в 4096, шести нужно вдвое больше).
-          generationConfig:{maxOutputTokens:8192,temperature:0.9,thinkingConfig:{thinkingBudget:0}},
+          // v111: 5000 — под 4 блока. Меньше объём → flash-lite успевает ответить, меньше таймаутов, дешевле выход.
+          generationConfig:{maxOutputTokens:5000,temperature:0.9,thinkingConfig:{thinkingBudget:0}},
         };
         let r;
 
@@ -1719,11 +1719,11 @@ ${planStr}
         try{
           for(const mdl of candidates){
             let rr;
-            try{rr=await gemFetch(mdl,null,25000);}
+            try{rr=await gemFetch(mdl,null,45000);}
             catch(e){
               if(String(e.message)==="GEMINI_TIMEOUT"){
                 airLogRef.current.push({t:new Date().toISOString(),_ms:Date.now(),status:"GEMINI_TIMEOUT",model:mdl,note:"retry once (18s, 700tok)"});
-                try{rr=await gemFetch(mdl,{maxOutputTokens:2048,temperature:0.7},18000);}
+                try{rr=await gemFetch(mdl,{maxOutputTokens:2048,temperature:0.7},30000);}
                 catch(e2){airLogRef.current.push({t:new Date().toISOString(),_ms:Date.now(),status:"GEMINI_FAIL",model:mdl,note:String(e2.message||e2).slice(0,120)});lastErr=mdl+" → "+(e2.message||e2);continue;}
               }else{lastErr=mdl+" → "+(e.message||e);continue;}
             }
@@ -1982,7 +1982,7 @@ ${planStr}
           const varPart=director.text+poiLine+wikiBlock+memoryBlockForPrompt()+styleReminder;
           lastPromptRef.current=sys;         // ядро для фоновой догрузки
           lastVarRef.current=varPart;        // меняющаяся часть для фоновой догрузки
-          let cand=await callClaude(sys,"Produce a connected 3-segment mini-arc, IN PERSONA.",false,varPart);
+          let cand=await callClaude(sys,"Produce a connected 4-segment mini-arc, IN PERSONA.",false,varPart);
           // v109: тему каждому блоку ставит ПЛАН ДИРЕКТОРА (topic_key от модели — только справочно).
           // + отсекаем дубли внутри одного батча (модель может повторить сама себя).
           if(cand&&Array.isArray(cand._batchTail)&&cand._batchTail.length){
@@ -2089,7 +2089,7 @@ ${planStr}
       // v104 ГЛАВНОЕ ПРОТИВ ПАУЗ: пока диктор ГОВОРИТ этот блок (~40-60 сек), в фоне уже готовим
       // следующую тройку. Раньше запрос уходил только после того, как очередь опустеет → тишина 40-60 сек.
       // Запускаем, когда в запасе остался последний блок и фоновая догрузка ещё не идёт.
-      if(runRef.current&&!parkedRef.current&&!wikiModeRef.current&&batchQRef.current.length<=2&&!batchLoadingRef.current&&(Date.now()-lastBgAtRef.current>25000)){
+      if(runRef.current&&!parkedRef.current&&!wikiModeRef.current&&batchQRef.current.length<=1&&!batchLoadingRef.current&&(Date.now()-lastBgAtRef.current>25000)){
         batchLoadingRef.current=true;
         lastBgAtRef.current=Date.now();   // v107: не чаще 1 фонового запроса в 25 сек — защита кошелька
         (async()=>{
@@ -2097,7 +2097,7 @@ ${planStr}
             const cc=coordsRef.current||c;
             const bgSys=lastPromptRef.current||"";
             if(!bgSys){batchLoadingRef.current=false;return;}
-            const bg=await callClaude(bgSys,"Produce a connected 6-segment mini-arc, IN PERSONA.",true,lastVarRef.current||"");
+            const bg=await callClaude(bgSys,"Produce a connected 4-segment mini-arc, IN PERSONA.",true,lastVarRef.current||"");
             const tail=[];
             if(bg&&bg.story)tail.push(bg);
             if(bg&&Array.isArray(bg._batchTail))tail.push(...bg._batchTail);
@@ -2162,7 +2162,8 @@ ${planStr}
     const iv=setInterval(()=>{
       if(!runRef.current||parkedRef.current||pausedRef.current||callPhaseRef.current!=="idle")return;
       const since=Date.now()-(lastSpokeRef.current||0);
-      if(since>45000){           // 45s of total silence while supposedly live = wedged
+      if(since>70000){           // v111: 70s (было 45) — таймаут запроса теперь 45с+повтор 30с,
+                                 // старый watchdog обрывал живой запрос и запускал новый ПЛАТНЫЙ цикл поверх.
         loopBusyRef.current=false;
         try{window.speechSynthesis&&window.speechSynthesis.cancel();}catch{}
         loopGenRef.current++;const g=loopGenRef.current;
