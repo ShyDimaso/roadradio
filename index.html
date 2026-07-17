@@ -289,7 +289,7 @@ body{font-family:'Inter',sans-serif;color:#fff;}
 const {useState,useRef,useEffect}=React;
 const PROXY="https://corsproxy.io/?https://api.anthropic.com/v1/messages";
 const KEY_STORE="rr_key_v3";
-const VER="v111";
+const VER="v112";
 // v76 MEMORY DIAGNOSTIC: prefetch & buffer OFF so every spoken segment goes through one gate.
 const PREFETCH_ENABLED=false;
 const BUFFER_ENABLED=false;
@@ -1066,20 +1066,32 @@ function App(){
   // Модель — актёр, а не режиссёр: она пишет текст по назначенным слотам, тем не выбирает.
   // Раньше просили «будь разнообразным» — это слабая просьба, модель жевала один мотив.
   const lastBatchPlanRef=useRef([]);
+  const topicQueueRef=useRef([]);  // v112: карусель тем — перемешанная очередь, тема не вернётся, пока не пройдут все
   const makeBatchPlan=(n,allowedKeys,labels)=>{
     const now=Date.now();
-    // Темы, звучавшие 2+ раз за полчаса — исключаем из плана (не запрещаем словами, а просто не даём).
+    // Темы, звучавшие 2+ раз за полчаса — временно исключаем.
     const counts={};
     (spokenLedgerRef.current||[]).forEach(p=>{if(p&&p.id>now-30*60*1000&&p.topic)counts[p.topic]=(counts[p.topic]||0)+1;});
-    const cold=allowedKeys.filter(k=>(counts[k]||0)<2);
-    const pool=(cold.length>=n?cold:allowedKeys).slice();
-    // Перемешиваем, чтобы порядок тем каждый раз был новым.
-    for(let i=pool.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[pool[i],pool[j]]=[pool[j],pool[i]];}
+    // v112 КАРУСЕЛЬ: раньше темы брались случайно — и sports/crafts/films захватили эфир (39/37/36),
+    // а history и native получили по 2. Теперь идём по перемешанной очереди: каждая тема отработает
+    // ровно один раз, и только потом круг начнётся заново с новым перемешиванием.
+    const refill=()=>{
+      const pool=allowedKeys.slice();
+      for(let i=pool.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[pool[i],pool[j]]=[pool[j],pool[i]];}
+      topicQueueRef.current=pool;
+    };
+    if(!topicQueueRef.current.length)refill();
     const LENSES=["past","present","nature","people"];
     const SCOPES=["этот округ","эта местность","весь штат","этот регион"];
     const plan=[];
-    for(let i=0;i<n;i++){
-      const key=pool[i%pool.length];
+    let guard=0;
+    while(plan.length<n&&guard++<100){
+      if(!topicQueueRef.current.length)refill();
+      const key=topicQueueRef.current.shift();
+      if(!key)break;
+      if((counts[key]||0)>=2&&guard<50)continue;      // перегретую пропускаем (вернётся в след. круге)
+      if(plan.some(p=>p.topic===key))continue;         // в одном батче тема не повторяется
+      const i=plan.length;
       plan.push({slot:i+1,topic:key,label:(labels&&labels[key])||key,lens:LENSES[i%LENSES.length],scope:SCOPES[i%SCOPES.length]});
     }
     return plan;
@@ -1089,9 +1101,17 @@ function App(){
   const rejectedHashRef=useRef(new Set()); // v109: отвергнутый блок умирает НАВСЕГДА — обратно в эфир не попадёт
   const usedOpenersRef=useRef([]); // v110: первые слова уже прозвучавших блоков — одинаковые зачины в бан
 
-  // v110: речевые паразиты, которыми модель злоупотребляла (из лога: «Контраст» 11 раз, «казалось бы» 9).
-  const BANNED_OPENERS=/^(контраст|казалось бы|ну что ж|а если|раз уж|напоследок|завершая|стоит упомянуть|нельзя не|интересно, что|кстати говоря)/i;
+  // v112: «Если прислушаться», «Если отвлечься», «Если говорить» — это ОДИН приём, а не три разных.
+  // Ловим по первому слову: если оно уже открывало блок недавно — зачин считается заезженным.
+  const BANNED_OPENERS=/^(контраст|казалось бы|ну что ж|а если|раз уж|напоследок|завершая|стоит упомянуть|нельзя не|интересно, что|кстати говоря|если)/i;
   const openerOf=s=>(s||"").trim().toLowerCase().replace(/[^а-яёa-z ]/gi,"").split(/\s+/).slice(0,3).join(" ");
+  // Первое слово — «отпечаток» конструкции. Служебные предлоги не считаем (они безобидны).
+  const SKIP_FIRST=/^(в|на|у|с|за|под|над|от|до|из|по|о|об|и|а|но)$/i;
+  const firstWordOf=s=>{
+    const w=(s||"").trim().toLowerCase().replace(/[^а-яёa-z ]/gi,"").split(/\s+/).filter(Boolean);
+    if(!w.length)return "";
+    return SKIP_FIRST.test(w[0])?(w[0]+" "+(w[1]||"")):w[0];
+  };
 
   // ==== v109: ЕДИНЫЕ ВОРОТА ПЕРЕД ЭФИРОМ ====
   // Любой блок (свежий из Gemini, из очереди батча, фоновый, fallback, Wiki) обязан пройти здесь
@@ -1107,15 +1127,18 @@ function App(){
     if(nh&&rejectedHashRef.current.has(nh))return{ok:false,reason:"already_rejected"};
     const cooled=canonicalKeys(res.story).filter(k=>(motifCooldownRef.current[k]||0)>Date.now());
     if(cooled.length)return{ok:false,reason:"motif_cooldown:"+cooled.join(",")};
-    // v110: шаблонный зачин. Сначала пробуем ВЫЛЕЧИТЬ (срезать первую фразу-паразита), выбрасываем только если не лечится —
+    // v110/112: шаблонный зачин. Сначала пробуем ВЫЛЕЧИТЬ (срезать первую фразу-паразита), выбрасываем только если не лечится —
     // блок оплачен, факты в нём хорошие, жалко терять из-за трёх первых слов.
-    let op=openerOf(res.story);
-    if(BANNED_OPENERS.test(res.story.trim())||usedOpenersRef.current.includes(op)){
+    // v112: сверяем ПЕРВОЕ СЛОВО с последними 6 блоками — «Если прислушаться/отвлечься/говорить» это один приём.
+    const recentFirst=usedOpenersRef.current.slice(-6).map(o=>o.first);
+    let op=openerOf(res.story), fw=firstWordOf(res.story);
+    if(BANNED_OPENERS.test(res.story.trim())||recentFirst.includes(fw)||usedOpenersRef.current.some(o=>o.op===op)){
       const cut=res.story.replace(/^[^.!?…]{0,160}[.!?…]\s*/,"");
-      if(cut.length>=80&&!BANNED_OPENERS.test(cut.trim())&&!usedOpenersRef.current.includes(openerOf(cut))){
-        res.story=cut; op=openerOf(cut);
+      const cf=firstWordOf(cut), co=openerOf(cut);
+      if(cut.length>=80&&!BANNED_OPENERS.test(cut.trim())&&!recentFirst.includes(cf)&&!usedOpenersRef.current.some(o=>o.op===co)){
+        res.story=cut; op=co; fw=cf;
       }else{
-        return{ok:false,reason:"stale_opener:"+op};
+        return{ok:false,reason:"stale_opener:"+fw};
       }
     }
     const rep=detectRepeat(res);
@@ -1171,8 +1194,8 @@ function App(){
     if(passport.entity)entityStopRef.current.add(passport.entity);
     // v85: exact-duplicate hash + motif cooldowns
     const nh=normHash(res.story);if(nh)spokenHashRef.current.add(nh);
-    // v110: зачин в память — следующий блок не сможет начаться так же.
-    try{const op=openerOf(res.story);if(op){usedOpenersRef.current.push(op);if(usedOpenersRef.current.length>20)usedOpenersRef.current.shift();}}catch{}
+    // v110/112: зачин в память — следующий блок не сможет начаться так же (ни тройкой, ни той же конструкцией).
+    try{const op=openerOf(res.story),fw=firstWordOf(res.story);if(op){usedOpenersRef.current.push({op,first:fw});if(usedOpenersRef.current.length>20)usedOpenersRef.current.shift();}}catch{}
     for(const k of keys){const cd=MOTIF_COOLDOWN[k];if(cd)motifCooldownRef.current[k]=Date.now()+cd;}
     recentStoriesRef.current=[...recentStoriesRef.current,res.story].slice(-50);
     dirSummariesRef.current=[...dirSummariesRef.current,passport.summary].slice(-80);
@@ -1591,7 +1614,8 @@ VOICE: warm, unhurried, human — like a passenger-seat friend who knows and lov
 
 ‼‼ БАН РЕЧЕВЫХ ШТАМПОВ — ЭТО ГЛАВНОЕ ПРАВИЛО ГОЛОСА ‼‼
 Слушатель жаловался: ты начинаешь блоки ОДИНАКОВО и гоняешь одни приёмы. ЗАПРЕЩЕНО НАВСЕГДА:
-— начинать блок со слов: "Контраст", "Казалось бы", "Ну что ж", "А если", "Раз уж", "Напоследок", "Завершая", "Стоит упомянуть", "Нельзя не", "Интересно, что", "Кстати говоря";
+— начинать блок со слов: "Контраст", "Казалось бы", "Ну что ж", "Если" (в любом виде: "Если прислушаться", "Если отвлечься", "Если говорить", "Если присмотреться" — это ОДИН заезженный приём, ты им злоупотребил), "А если", "Раз уж", "Напоследок", "Завершая", "Стоит упомянуть", "Нельзя не", "Интересно, что", "Кстати говоря";
+— два блока подряд не могут начинаться с одного и того же СЛОВА. Не с одной фразы — именно со слова.
 — приём "казалось бы X, а на деле Y" — ты им злоупотребил, он в бане;
 — слово "контраст" в любом виде;
 — две одинаковых первых фразы за сессию. КАЖДЫЙ блок начинается ПО-СВОЕМУ.
