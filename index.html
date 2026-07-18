@@ -289,7 +289,7 @@ body{font-family:'Inter',sans-serif;color:#fff;}
 const {useState,useRef,useEffect}=React;
 const PROXY="https://corsproxy.io/?https://api.anthropic.com/v1/messages";
 const KEY_STORE="rr_key_v3";
-const VER="v113";
+const VER="v114";
 // v76 MEMORY DIAGNOSTIC: prefetch & buffer OFF so every spoken segment goes through one gate.
 const PREFETCH_ENABLED=false;
 const BUFFER_ENABLED=false;
@@ -1067,9 +1067,22 @@ function App(){
   // Раньше просили «будь разнообразным» — это слабая просьба, модель жевала один мотив.
   const lastBatchPlanRef=useRef([]);
   const topicQueueRef=useRef([]);  // v112: карусель тем — перемешанная очередь, тема не вернётся, пока не пройдут все
+  const reservedTopicsRef=useRef([]); // v114: темы, отданные в генерацию, но ещё НЕ прозвучавшие
+
+  // v114 SLOT DIRECTOR. Ключевой принцип (GPT прав): тема считается ОТРАБОТАННОЙ только после AIRED.
+  // Раньше: план резервировал 4 темы → ворота выбрасывали 2-3 → но все 4 считались использованными.
+  // Выживали не нужные темы, а те, что легче проходят фильтр (survivor bias) → sports 4 раза из 17.
+  // Теперь: rejected-тема ВОЗВРАЩАЕТСЯ в очередь и получит эфир позже.
+  const releaseTopic=(topic,aired)=>{
+    if(!topic)return;
+    reservedTopicsRef.current=reservedTopicsRef.current.filter(t=>t!==topic);
+    // Не прозвучала — возвращаем в ГОЛОВУ очереди: она своё ещё не отработала.
+    if(!aired&&!topicQueueRef.current.includes(topic))topicQueueRef.current.unshift(topic);
+  };
+
   const makeBatchPlan=(n,allowedKeys,labels)=>{
     const now=Date.now();
-    // Темы, звучавшие 2+ раз за полчаса — временно исключаем.
+    // v114: считаем ТОЛЬКО реально прозвучавшие темы (spokenLedger пишется в acceptSegment, т.е. перед speak).
     const counts={};
     (spokenLedgerRef.current||[]).forEach(p=>{if(p&&p.id>now-30*60*1000&&p.topic)counts[p.topic]=(counts[p.topic]||0)+1;});
     // v112 КАРУСЕЛЬ: раньше темы брались случайно — и sports/crafts/films захватили эфир (39/37/36),
@@ -1101,6 +1114,7 @@ function App(){
       if((counts[key]||0)>=2&&topicQueueRef.current.length+parked.length>=n){parked.push(key);continue;}
       const i=plan.length;
       plan.push({slot:i+1,topic:key,label:(labels&&labels[key])||key,lens:LENSES[i%LENSES.length],scope:SCOPES[i%SCOPES.length]});
+      reservedTopicsRef.current.push(key);  // v114: тема ЗАРЕЗЕРВИРОВАНА, но ещё не отработана — вернётся, если не прозвучит
     }
     // Отложенные возвращаем в ХВОСТ — они отработают в следующих кругах.
     if(parked.length)topicQueueRef.current=topicQueueRef.current.concat(parked);
@@ -1147,20 +1161,19 @@ function App(){
     if(nh&&rejectedHashRef.current.has(nh))return{ok:false,reason:"already_rejected"};
     const cooled=canonicalKeys(res.story).filter(k=>(motifCooldownRef.current[k]||0)>Date.now());
     if(cooled.length)return{ok:false,reason:"motif_cooldown:"+cooled.join(",")};
-    // v110/112: шаблонный зачин. Сначала пробуем ВЫЛЕЧИТЬ (срезать первую фразу-паразита), выбрасываем только если не лечится —
-    // блок оплачен, факты в нём хорошие, жалко терять из-за трёх первых слов.
-    // v112: сверяем ПЕРВОЕ СЛОВО с последними 6 блоками — «Если прислушаться/отвлечься/говорить» это один приём.
+    // v114: шаблонный зачин — БРАКУЕМ, не лечим. Раньше срезали первую фразу, и вместе с ней уходило
+    // подлежащее: в эфир шло «Они настолько привыкли...» — непонятно, о ком. Лучше потерять блок (цена копеечная),
+    // чем безголовый диктор.
     const recentFirst=usedOpenersRef.current.slice(-6).map(o=>o.first);
-    let op=openerOf(res.story), fw=firstWordOf(res.story);
-    if(BANNED_OPENERS.test(res.story.trim())||recentFirst.includes(fw)||usedOpenersRef.current.some(o=>o.op===op)){
-      const cut=res.story.replace(/^[^.!?…]{0,160}[.!?…]\s*/,"");
-      const cf=firstWordOf(cut), co=openerOf(cut);
-      if(cut.length>=80&&!BANNED_OPENERS.test(cut.trim())&&!recentFirst.includes(cf)&&!usedOpenersRef.current.some(o=>o.op===co)){
-        res.story=cut; op=co; fw=cf;
-      }else{
-        return{ok:false,reason:"stale_opener:"+fw};
-      }
-    }
+    const op=openerOf(res.story), fw=firstWordOf(res.story);
+    if(BANNED_OPENERS.test(res.story.trim()))return{ok:false,reason:"banned_opener:"+fw};
+    if(recentFirst.includes(fw))return{ok:false,reason:"stale_opener:"+fw};
+    if(usedOpenersRef.current.some(o=>o.op===op))return{ok:false,reason:"stale_opener3:"+op};
+    // v114: блок не может начинаться с местоимения без антецедента — слушатель не поймёт, о ком речь.
+    if(/^(они|их|им|ими|он|она|оно|эти|эта|этот|такие|такой|такая)\b/i.test(res.story.trim()))return{ok:false,reason:"headless_pronoun"};
+    // v114: ведущий — попутчик, а НЕ местный житель. «У нас здесь» после сотни миль звучит фальшью.
+    if(/\b(у нас здесь|у нас тут|в наших краях|наш город|наш штат|наш округ|наши места|наш день|наши местные|мы здесь живём|мы здесь живем)\b/i.test(res.story)
+       &&!/\b(наш маршрут|наша дорога|мы с вами|мы едем)\b/i.test(res.story))return{ok:false,reason:"local_voice"};
     const rep=detectRepeat(res);
     if(rep&&rep.isRepeat===true)return{ok:false,reason:"repeat:"+(rep.why||"")};
     const topic=meta.topic||res._dirTopic||res.topic_key||"";
@@ -1177,6 +1190,8 @@ function App(){
       const checked=validateBeforeAir(cand,{source:"queue",topic:cand?._dirTopic||""});
       if(checked.ok)return checked.res;
       const nh=normHash(cand?.story||"");if(nh)rejectedHashRef.current.add(nh);
+      // v114: блок не прошёл — его тема НЕ считается отработанной, возвращаем её в очередь.
+      releaseTopic(cand?._dirTopic,false);
       airLogRef.current.push({t:new Date().toISOString(),_ms:Date.now(),status:"REJECTED-QUEUE",reason:checked.reason,topic:cand?._dirTopic||"?",story:(cand?.story||"").slice(0,140)});
     }
     return null;
@@ -1198,6 +1213,8 @@ function App(){
   // THE SINGLE PLACE a segment is recorded as spoken. Called right before speak().
   const acceptSegment=(res,meta={})=>{
     if(!res||!res.story)return;
+    // v114: тема считается ОТРАБОТАННОЙ только здесь — в момент реальной озвучки, не при генерации.
+    try{releaseTopic(meta.topic||res._dirTopic||res.topic_key||"",true);}catch{}
     const keys=canonicalKeys(res.story);
     const passport={
       id:Date.now(),
@@ -1266,6 +1283,8 @@ function App(){
       }else if(r.status==="REJECTED-FICTION"){
         lines.push(`[${r.t}]  x REJECTED-FICTION  topic:${r.topic}`);
         lines.push(`  (not aired) TEXT: ${r.story||""}`);
+      }else if(r.status==="SLOT_PLAN"){
+        lines.push(`[${r.t}]  📋 SLOT_PLAN  ${r.note||""}`);
       }else if(r.status==="REJECTED-QUEUE"){
         lines.push(`[${r.t}]  ⛔ REJECTED-QUEUE (не пущен в эфир)  причина:${r.reason}  topic:${r.topic||"?"}`);
         lines.push(`  (not aired) ${r.story||""}`);
@@ -1595,10 +1614,13 @@ Reply ONLY valid JSON: {"story":"your spoken answer in ${al}","location":"curren
       {key:"road",label:"the road and route — which interstate/highway this is and where it leads, pioneer trails"},
     ];
     const allowed=TOPIC_DEFS.filter(t=>cfg[t.key]!==false).filter(t=>!(t.key==="road"&&isStopped));
-    // v109: директор составляет план 6 слотов ЗДЕСЬ. Модель получает готовые темы и не выбирает сама.
+    // v114: buildSys больше НЕ создаёт план — он его ПОЛУЧАЕТ (план строится один раз на батч, см. reserveSlots).
+    // Раньше makeBatchPlan() жил здесь, а buildSys дёргается на каждый запрос (включая фоновую догрузку) —
+    // план пересоздавался чаще, чем расходовался, и темы разбегались.
     const labelMap={};TOPIC_DEFS.forEach(t=>{labelMap[t.key]=t.label;});
-    const bPlan=makeBatchPlan(4,allowed.map(t=>t.key),labelMap);
-    lastBatchPlanRef.current=bPlan;
+    const bPlan=(lastBatchPlanRef.current&&lastBatchPlanRef.current.length)?lastBatchPlanRef.current:makeBatchPlan(4,allowed.map(t=>t.key),labelMap);
+    // Метки могли не проставиться (план строился в цикле без TOPIC_DEFS) — подставляем здесь.
+    bPlan.forEach(p=>{if(!p.label||p.label===p.topic)p.label=labelMap[p.topic]||p.topic;});
     const planStr=bPlan.map(p=>`${p.slot}. topic_key="${p.topic}" — ${p.label} | взгляд: ${p.lens} | масштаб: ${p.scope}`).join("\n");
     const forbidden=TOPIC_DEFS.filter(t=>cfg[t.key]===false);
     const allowedStr=allowed.length?allowed.map(t=>t.label).join("; "):"general points of interest about this exact place";
@@ -1640,6 +1662,13 @@ VOICE: warm, unhurried, human — like a passenger-seat friend who knows and lov
 — слово "контраст" в любом виде;
 — две одинаковых первых фразы за сессию. КАЖДЫЙ блок начинается ПО-СВОЕМУ.
 КАК начинать вместо этого — С СЕРЕДИНЫ МЫСЛИ, как живой человек: с имени ("Джон Роулингс держал тут кузницу..."), с даты ("В сорок седьмом здесь..."), с детали ("Красная водокачка справа..."), с вопроса ("Знаете, чем пахла эта долина сто лет назад?"), с признания ("Честно говоря, я долго не верил, что..."), со звука ("Если приглушить радио, здесь слышно..."), с числа ("Семьдесят вагонов в день..."). Пятьдесят способов начать — и ни один не повторяется.
+
+‼ ТЫ НЕ МЕСТНЫЙ ЖИТЕЛЬ. Ты дорожный ведущий-попутчик: сегодня здесь, через час за двести миль отсюда.
+ЗАПРЕЩЕНО: «у нас здесь», «в наших краях», «наш город», «наш штат», «наши места», «мы здесь живём».
+ГОВОРИ: «здесь», «в этих краях», «у местных», «для этого региона», «местные рассказывают».
+МОЖНО: «мы едем», «наш маршрут», «мы с вами» — это про дорогу, а не про оседлость.
+
+‼ КАЖДЫЙ БЛОК НАЧИНАЕТСЯ С ПОНЯТНОГО ПОДЛЕЖАЩЕГО. Никаких «Они привыкли...», «Их манера...», «Эти места...» в первой фразе — слушатель включился только что и не знает, о ком речь. Сначала назови, о ком/о чём говоришь.
 
 ОЧЕЛОВЕЧИВАНИЕ — ты живой диктор, а не диктофон:
 — изредка (не в каждом блоке!) можешь оговориться и поправиться: "в тридцать втором... нет, вру, в тридцать четвёртом";
@@ -2021,6 +2050,15 @@ ${planStr}
         while(attempt<4){
           if(gen!==loopGenRef.current||!runRef.current)return;
           const director=directNextBlock();
+          // v114: план строится ОДИН РАЗ на батч, здесь — до buildSys. Раньше buildSys создавал его сам
+          // на каждый запрос, включая фоновый, и темы разбегались.
+          try{
+            const cfgNow=topicsCfgRef.current||{};
+            const ALL_KEYS=["history","native","land","wildlife","water","people","life","food","music","films","sports","economy","mystery","oddity","sky","crafts","road"];
+            const allowedNow=ALL_KEYS.filter(k=>cfgNow[k]!==false);
+            lastBatchPlanRef.current=makeBatchPlan(4,allowedNow.length?allowedNow:ALL_KEYS,{});
+            airLogRef.current.push({t:new Date().toISOString(),_ms:Date.now(),status:"SLOT_PLAN",note:lastBatchPlanRef.current.map(p=>p.slot+":"+p.topic).join(" | ")+"  | тем в очереди: "+topicQueueRef.current.length+" | зарезервировано: "+reservedTopicsRef.current.length});
+          }catch{}
           const sys=buildSys(false,null,tourist||false);
           // v105 CACHE: ядро (персона+правила, ~стабильно) идёт в system_instruction и кэшируется Google.
           // Меняющееся (директор, POI, вики, память) — в конец запроса, в contents. Так кэш реально срабатывает.
@@ -2117,6 +2155,7 @@ ${planStr}
         if(!gate.ok){
           airLogRef.current.push({t:new Date().toISOString(),_ms:Date.now(),status:"REJECTED-QUEUE",reason:gate.reason,topic:res._dirTopic||"?",story:(res.story||"").slice(0,140)});
           const nh2=normHash(res.story||"");if(nh2)rejectedHashRef.current.add(nh2);
+          releaseTopic(res._dirTopic,false);   // v114: тема не отработана — вернём в очередь
           // Пробуем взять замену из очереди; если пусто — короткая пауза, НЕ платный запрос.
           const alt=takeNextUsableFromQueue(c);
           if(alt){res=alt;}
@@ -2278,7 +2317,7 @@ ${planStr}
     let c=coordsRef.current||parseCoords();
     if(!c){setErr(lang==="ru"?"Нажмите автоопределение или введите координаты":"Tap auto-detect or enter coordinates");return;}
     coordsRef.current=c;setCoords(c);destRef.current=destination;
-    runRef.current=true;histRef.current=[];nextRef.current=null;batchQRef.current=[];batchLoadingRef.current=false;topicsUsedRef.current=[];saidFactsRef.current=[];bufferRef.current=[];recentStoriesRef.current=[];
+    runRef.current=true;histRef.current=[];nextRef.current=null;batchQRef.current=[];batchLoadingRef.current=false;topicQueueRef.current=[];reservedTopicsRef.current=[];lastBatchPlanRef.current=[];usedOpenersRef.current=[];topicsUsedRef.current=[];saidFactsRef.current=[];bufferRef.current=[];recentStoriesRef.current=[];
     dirTopicRef.current=null;dirCountRef.current=0;dirTargetRef.current=2;dirRecentTopicsRef.current=[];dirSummariesRef.current=[];coveredEntitiesRef.current=[];dirTopicStartRef.current=0;dirForceSwitchRef.current=false;lastIntroBcastRef.current=bcastRef.current;qaHistRef.current=[];
     spokenLedgerRef.current=[];semanticStopRef.current=new Set();entityStopRef.current=new Set();topicFailRef.current={};topicCooldownRef.current={};lexCooldownRef.current=[];
     spokenHashRef.current=new Set();motifCooldownRef.current={};
