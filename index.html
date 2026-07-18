@@ -289,7 +289,7 @@ body{font-family:'Inter',sans-serif;color:#fff;}
 const {useState,useRef,useEffect}=React;
 const PROXY="https://corsproxy.io/?https://api.anthropic.com/v1/messages";
 const KEY_STORE="rr_key_v3";
-const VER="v114";
+const VER="v115";
 // v76 MEMORY DIAGNOSTIC: prefetch & buffer OFF so every spoken segment goes through one gate.
 const PREFETCH_ENABLED=false;
 const BUFFER_ENABLED=false;
@@ -1068,6 +1068,7 @@ function App(){
   const lastBatchPlanRef=useRef([]);
   const topicQueueRef=useRef([]);  // v112: карусель тем — перемешанная очередь, тема не вернётся, пока не пройдут все
   const reservedTopicsRef=useRef([]); // v114: темы, отданные в генерацию, но ещё НЕ прозвучавшие
+  const topicPauseRef=useRef({});     // v115: тема на паузе до этого времени
 
   // v114 SLOT DIRECTOR. Ключевой принцип (GPT прав): тема считается ОТРАБОТАННОЙ только после AIRED.
   // Раньше: план резервировал 4 темы → ворота выбрасывали 2-3 → но все 4 считались использованными.
@@ -1076,8 +1077,15 @@ function App(){
   const releaseTopic=(topic,aired)=>{
     if(!topic)return;
     reservedTopicsRef.current=reservedTopicsRef.current.filter(t=>t!==topic);
-    // Не прозвучала — возвращаем в ГОЛОВУ очереди: она своё ещё не отработала.
-    if(!aired&&!topicQueueRef.current.includes(topic))topicQueueRef.current.unshift(topic);
+    if(aired){topicFailRef.current[topic]=0;return;}
+    // v115 ФИКС ПЕРЕКОСА: раньше делали unshift — тема вставала ПЕРВОЙ и тут же выпадала снова.
+    // Круг: water → блок про Миссисипи → брак по мотиву → water опять первая → снова Миссисипи (19 раз в логе).
+    // Теперь в ХВОСТ: тема дождётся своей очереди честно.
+    const fails=(topicFailRef.current[topic]||0)+1;
+    topicFailRef.current[topic]=fails;
+    // Тема, дважды подряд не дошедшая до эфира (модель на ней залипает) — на паузу 15 минут.
+    if(fails>=2){topicPauseRef.current[topic]=Date.now()+15*60*1000;topicFailRef.current[topic]=0;}
+    if(!topicQueueRef.current.includes(topic))topicQueueRef.current.push(topic);
   };
 
   const makeBatchPlan=(n,allowedKeys,labels)=>{
@@ -1108,10 +1116,14 @@ function App(){
       const key=topicQueueRef.current.shift();
       if(!key)break;
       if(plan.some(p=>p.topic===key)){parked.push(key);continue;}          // в одном батче тема не повторяется
+      // v115: тема на паузе (дважды залипла) — пропускаем. НО: если тем всего мало (человек оставил 3-4
+      // в настройках), паузы игнорируем — иначе эфир встанет. Свобода выбора тем важнее идеальной свежести.
+      const fewTopics=allowedKeys.length<=5;
+      if(!fewTopics&&(topicPauseRef.current[key]||0)>now){parked.push(key);continue;}
       // v113 ГЛАВНЫЙ ФИКС: перегретую тему раньше выбрасывали (continue) — очередь пустела досрочно,
       // шёл refill, и «удобные» темы (films/crafts) выпадали опять и опять. Теперь откладываем в хвост:
       // тема своё возьмёт позже, а круг честно доходит до всех 16.
-      if((counts[key]||0)>=2&&topicQueueRef.current.length+parked.length>=n){parked.push(key);continue;}
+      if(!fewTopics&&(counts[key]||0)>=2&&topicQueueRef.current.length+parked.length>=n){parked.push(key);continue;}
       const i=plan.length;
       plan.push({slot:i+1,topic:key,label:(labels&&labels[key])||key,lens:LENSES[i%LENSES.length],scope:SCOPES[i%SCOPES.length]});
       reservedTopicsRef.current.push(key);  // v114: тема ЗАРЕЗЕРВИРОВАНА, но ещё не отработана — вернётся, если не прозвучит
@@ -1137,7 +1149,7 @@ function App(){
 
   // v112: «Если прислушаться», «Если отвлечься», «Если говорить» — это ОДИН приём, а не три разных.
   // Ловим по первому слову: если оно уже открывало блок недавно — зачин считается заезженным.
-  const BANNED_OPENERS=/^(контраст|казалось бы|ну что ж|а если|раз уж|напоследок|завершая|стоит упомянуть|нельзя не|интересно, что|кстати говоря|если)/i;
+  const BANNED_OPENERS=/^(контраст|казалось бы|ну что ж|а если|раз уж|напоследок|завершая|стоит упомянуть|нельзя не|интересно, что|кстати говоря|если|едем|посмотрите|вдоль)/i;
   const openerOf=s=>(s||"").trim().toLowerCase().replace(/[^а-яёa-z ]/gi,"").split(/\s+/).slice(0,3).join(" ");
   // Первое слово — «отпечаток» конструкции. Служебные предлоги не считаем (они безобидны).
   const SKIP_FIRST=/^(в|на|у|с|за|под|над|от|до|из|по|о|об|и|а|но)$/i;
@@ -1397,7 +1409,7 @@ function App(){
       if(hot.length)hotBan=`\n‼‼ ЭТИ ТЕМЫ УЖЕ ЗВУЧАЛИ И ЗАПРЕЩЕНЫ НА БЛИЖАЙШИЕ ПОЛЧАСА — не бери их ни в один из шести блоков, даже вскользь: ${hot.join(", ")}. Возьми ДРУГИЕ темы из списка.`;
     }catch{}
     if(!recent.length&&!hard.length&&!cooledText&&!hotBan)return "";
-    return `\n\n=== ПАМЯТЬ ЭФИРА (СТРОГО НЕ ПОВТОРЯТЬ) ===${hotBan}${cooledText?`\n‼ ЗАПРЕЩЁННЫЕ МОТИВЫ ПРЯМО СЕЙЧАС (НЕ упоминай их вообще, даже вскользь): ${cooledText}.`:""}\nУЖЕ РАСКРЫТЫЕ ОБРАЗЫ (не возвращайся к ним ВООБЩЕ): ${hard.join("; ")||"—"}.\nУЖЕ БЫЛИ ГЛАВНЫМИ (не делай их снова центром): ${ents.join("; ")||"—"}.\nПОСЛЕДНИЕ СЕГМЕНТЫ (не повторяй их смысл): ${recent.join(" || ")||"—"}.\n========================`;
+    return `\n\n=== ПАМЯТЬ ЭФИРА (СТРОГО НЕ ПОВТОРЯТЬ) ===${hotBan}${cooledText?`\n‼‼ ЭТИ ОБРАЗЫ УЖЕ ЗВУЧАЛИ И СЕЙЧАС ЗАПРЕЩЕНЫ: ${cooledText}.\nЛюбой блок, где они всплывут даже одной фразой, будет ВЫБРОШЕН и не попадёт в эфир. Если тема слота тянет тебя к ним (например, слот про воду — а ты про большую реку), возьми в этом слоте ДРУГОЙ поворот: не река, а колодцы, дожди, водонапорная башня, паводок, лёд, рыбхоз, мельница.`:""}\nУЖЕ РАСКРЫТЫЕ ОБРАЗЫ (не возвращайся к ним ВООБЩЕ): ${hard.join("; ")||"—"}.\nУЖЕ БЫЛИ ГЛАВНЫМИ (не делай их снова центром): ${ents.join("; ")||"—"}.\nПОСЛЕДНИЕ СЕГМЕНТЫ (не повторяй их смысл): ${recent.join(" || ")||"—"}.\n========================`;
   };
 
   const getOpener=()=>{
@@ -1656,7 +1668,7 @@ VOICE: warm, unhurried, human — like a passenger-seat friend who knows and lov
 
 ‼‼ БАН РЕЧЕВЫХ ШТАМПОВ — ЭТО ГЛАВНОЕ ПРАВИЛО ГОЛОСА ‼‼
 Слушатель жаловался: ты начинаешь блоки ОДИНАКОВО и гоняешь одни приёмы. ЗАПРЕЩЕНО НАВСЕГДА:
-— начинать блок со слов: "Контраст", "Казалось бы", "Ну что ж", "Если" (в любом виде: "Если прислушаться", "Если отвлечься", "Если говорить", "Если присмотреться" — это ОДИН заезженный приём, ты им злоупотребил), "А если", "Раз уж", "Напоследок", "Завершая", "Стоит упомянуть", "Нельзя не", "Интересно, что", "Кстати говоря";
+— начинать блок со слов: "Контраст", "Казалось бы", "Ну что ж", "Если" (в любом виде: "Если прислушаться", "Если отвлечься", "Если говорить", "Если присмотреться" — это ОДИН заезженный приём, ты им злоупотребил), "Едем" / "Едем с вами" / "Едем дальше" (тоже заезжено до дыр), "Посмотрите", "Вдоль", "А если", "Раз уж", "Напоследок", "Завершая", "Стоит упомянуть", "Нельзя не", "Интересно, что", "Кстати говоря";
 — два блока подряд не могут начинаться с одного и того же СЛОВА. Не с одной фразы — именно со слова.
 — приём "казалось бы X, а на деле Y" — ты им злоупотребил, он в бане;
 — слово "контраст" в любом виде;
@@ -2317,7 +2329,7 @@ ${planStr}
     let c=coordsRef.current||parseCoords();
     if(!c){setErr(lang==="ru"?"Нажмите автоопределение или введите координаты":"Tap auto-detect or enter coordinates");return;}
     coordsRef.current=c;setCoords(c);destRef.current=destination;
-    runRef.current=true;histRef.current=[];nextRef.current=null;batchQRef.current=[];batchLoadingRef.current=false;topicQueueRef.current=[];reservedTopicsRef.current=[];lastBatchPlanRef.current=[];usedOpenersRef.current=[];topicsUsedRef.current=[];saidFactsRef.current=[];bufferRef.current=[];recentStoriesRef.current=[];
+    runRef.current=true;histRef.current=[];nextRef.current=null;batchQRef.current=[];batchLoadingRef.current=false;topicQueueRef.current=[];reservedTopicsRef.current=[];lastBatchPlanRef.current=[];usedOpenersRef.current=[];topicFailRef.current={};topicPauseRef.current={};topicsUsedRef.current=[];saidFactsRef.current=[];bufferRef.current=[];recentStoriesRef.current=[];
     dirTopicRef.current=null;dirCountRef.current=0;dirTargetRef.current=2;dirRecentTopicsRef.current=[];dirSummariesRef.current=[];coveredEntitiesRef.current=[];dirTopicStartRef.current=0;dirForceSwitchRef.current=false;lastIntroBcastRef.current=bcastRef.current;qaHistRef.current=[];
     spokenLedgerRef.current=[];semanticStopRef.current=new Set();entityStopRef.current=new Set();topicFailRef.current={};topicCooldownRef.current={};lexCooldownRef.current=[];
     spokenHashRef.current=new Set();motifCooldownRef.current={};
