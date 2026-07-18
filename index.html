@@ -289,7 +289,7 @@ body{font-family:'Inter',sans-serif;color:#fff;}
 const {useState,useRef,useEffect}=React;
 const PROXY="https://corsproxy.io/?https://api.anthropic.com/v1/messages";
 const KEY_STORE="rr_key_v3";
-const VER="v115";
+const VER="v116";
 // v76 MEMORY DIAGNOSTIC: prefetch & buffer OFF so every spoken segment goes through one gate.
 const PREFETCH_ENABLED=false;
 const BUFFER_ENABLED=false;
@@ -1069,6 +1069,7 @@ function App(){
   const topicQueueRef=useRef([]);  // v112: карусель тем — перемешанная очередь, тема не вернётся, пока не пройдут все
   const reservedTopicsRef=useRef([]); // v114: темы, отданные в генерацию, но ещё НЕ прозвучавшие
   const topicPauseRef=useRef({});     // v115: тема на паузе до этого времени
+  const nowPhaseRef=useRef("");       // v116: НОЧЬ/ЗАКАТ/РАССВЕТ/ДЕНЬ — для приоритетной вставки в запрос
 
   // v114 SLOT DIRECTOR. Ключевой принцип (GPT прав): тема считается ОТРАБОТАННОЙ только после AIRED.
   // Раньше: план резервировал 4 темы → ворота выбрасывали 2-3 → но все 4 считались использованными.
@@ -1184,8 +1185,8 @@ function App(){
     // v114: блок не может начинаться с местоимения без антецедента — слушатель не поймёт, о ком речь.
     if(/^(они|их|им|ими|он|она|оно|эти|эта|этот|такие|такой|такая)\b/i.test(res.story.trim()))return{ok:false,reason:"headless_pronoun"};
     // v114: ведущий — попутчик, а НЕ местный житель. «У нас здесь» после сотни миль звучит фальшью.
-    if(/\b(у нас здесь|у нас тут|в наших краях|наш город|наш штат|наш округ|наши места|наш день|наши местные|мы здесь живём|мы здесь живем)\b/i.test(res.story)
-       &&!/\b(наш маршрут|наша дорога|мы с вами|мы едем)\b/i.test(res.story))return{ok:false,reason:"local_voice"};
+    if(/\b(у нас здесь|у нас тут|в наших краях|наш город|наш штат|наш округ|наши места|наш день|наши местные|мы здесь живём|мы здесь живем|наш регион|нашего округа|нашего региона|нашего штата|наших краях|наши края|нашей округи)\b/i.test(res.story)
+       &&!/\b(наш маршрут|наша дорога|мы с вами|мы едем|наш путь)\b/i.test(res.story))return{ok:false,reason:"local_voice"};
     const rep=detectRepeat(res);
     if(rep&&rep.isRepeat===true)return{ok:false,reason:"repeat:"+(rep.why||"")};
     const topic=meta.topic||res._dirTopic||res.topic_key||"";
@@ -1568,6 +1569,7 @@ ${mustClose?`Заверши тему красиво, законченной мы
       isNight=hr>=21||hr<5;isDusk=hr>=19&&hr<21;isDawn=hr>=5&&hr<7;
       phase=isNight?"NIGHT":isDawn?"SUNRISE":isDusk?"SUNSET":"DAYTIME";
     }
+    try{nowPhaseRef.current=(phase==="NIGHT"?"НОЧЬ, ТЕМНО":phase==="SUNSET"?"ЗАКАТ, свет уходит":phase==="SUNRISE"?"РАССВЕТ, светает":"ДЕНЬ, полный свет")+` (местное время ${hr}:${mn.toString().padStart(2,"0")})`;}catch{}
     const tStr=`${hr}:${mn.toString().padStart(2,'0')}`;
     const fullDate=now0.toLocaleDateString('en',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
     const timeCtx=`${phase}, local time ${tStr}, today is ${fullDate}, ${mo}${sun?` (sunrise ${(sun.rise.split('T')[1]||'').slice(0,5)}, sunset ${(sun.set.split('T')[1]||'').slice(0,5)})`:''}. Use THIS date/season for any talk of seasons or whether days are getting longer or shorter — never contradict it.`;
@@ -1702,7 +1704,7 @@ ${forbiddenStr?`FORBIDDEN topics — you are BANNED from mentioning these at all
 Pick something from the ALLOWED list that you have NOT covered yet. Rotate — do not stay glued to one subject (especially not landscape/farming).
 
 CORE RULES:
-1. ${lastSaid?`Continue the show as ONE flowing conversation. Before diving into the new subject, give a SHORT natural bridge from what you just talked about ("${lastSaid}") — a half-sentence transition like "а вот что ещё любопытно тут...", "раз уж речь зашла об этих местах...", "и знаете, совсем рядом другая история...". Don't start cold or abruptly. Ease in, then tell the new thing. End the segment on a rounded thought, not mid-air.`:`THIS IS YOUR VERY FIRST LINE ON AIR. Open SHORT and warm (one sentence), and in it make clear where the listener is: ${isStopped?`settled in at ${ld.city||"this spot"}${ld.state?`, ${ld.state}`:""} — greet them warmly as someone here to enjoy this place ("Ну что ж, раз вы здесь, в ${ld.city||"этих краях"}, расскажу вам кое-что об этом месте...").`:`travelling${ld.highway?` on ${ld.highway}`:""} heading ${toDirWord(hdg,langRef.current)} through ${ld.city||"this area"}${ld.state?`, ${ld.state}`:""} — greet them as a travelling companion and name the road and direction naturally ("Едем с вами${ld.highway?` по трассе ${ld.highway}`:""} на ${toDirWord(hdg,langRef.current)}, и вот что за места вокруг...."). Say the direction as a full word, never a compass letter.`} Do NOT say "С вами радио" or announce a station name — just warmly begin. Then flow straight into the topic.`}
+1. ${lastSaid?`Continue the show as ONE flowing conversation. Before diving into the new subject, give a SHORT natural bridge from what you just talked about (см. «ПРЕДЫДУЩИЙ БЛОК» в конце запроса) — a half-sentence transition like "а вот что ещё любопытно тут...", "раз уж речь зашла об этих местах...", "и знаете, совсем рядом другая история...". Don't start cold or abruptly. Ease in, then tell the new thing. End the segment on a rounded thought, not mid-air.`:`THIS IS YOUR VERY FIRST LINE ON AIR. Open SHORT and warm (one sentence), and in it make clear where the listener is: ${isStopped?`settled in at ${ld.city||"this spot"}${ld.state?`, ${ld.state}`:""} — greet them warmly as someone here to enjoy this place ("Ну что ж, раз вы здесь, в ${ld.city||"этих краях"}, расскажу вам кое-что об этом месте...").`:`travelling${ld.highway?` on ${ld.highway}`:""} heading ${toDirWord(hdg,langRef.current)} through ${ld.city||"this area"}${ld.state?`, ${ld.state}`:""} — greet them as a travelling companion and name the road and direction naturally ("Едем с вами${ld.highway?` по трассе ${ld.highway}`:""} на ${toDirWord(hdg,langRef.current)}, и вот что за места вокруг...."). Say the direction as a full word, never a compass letter.`} Do NOT say "С вами радио" or announce a station name — just warmly begin. Then flow straight into the topic.`}
 2. FINISH A TOPIC, THEN MOVE ON. (The director below tells you which.) Within the segment, use a tiny arc: a HOOK → a real FACT → a small TURN/insight → a CLEAN close. Not a flat list of facts.
 3. Each segment is SHORT — 3 to 5 sentences. Radio, not a lecture.
 4. ${samePlace?`You ALREADY named "${ld.city}". Say "здесь", "в этом месте" — do not re-introduce it.`:`New area — you may set the scene briefly.`}
@@ -1776,13 +1778,14 @@ ${planStr}
         };
         let r;
 
-        // v106: gemini-3.1-flash-lite ($0.25 вход / $1.50 выход) — ВДВОЕ дешевле 3-flash.
-        // Для пересказа готовых фактов из Википедии её хватает; 3-flash остаётся запасной.
-        const FALLBACK_MODELS=["gemini-3.1-flash-lite","gemini-3.5-flash","gemini-flash-latest"]; // v109: gemini-3-flash убрана — давала 404 и засоряла цикл
+        // v116 ЭКСПЕРИМЕНТ: поднимаем модель. flash-lite сваливалась в одну жижу («вода питает землю,
+        // земля мягкая от влаги, ритм медленный») независимо от заданных тем — не тянет 17 тем + память + живость.
+        // gemini-3-flash ($0.50/$3.00 против $0.25/$1.50) — вдвое дороже, ~$0.10/час. Проверяем, есть ли разница.
+        const FALLBACK_MODELS=["gemini-3-flash","gemini-3.5-flash","gemini-3.1-flash-lite","gemini-flash-latest"];
         try{
-          if(localStorage.getItem("rr_model_reset")!=="v109"){
+          if(localStorage.getItem("rr_model_reset")!=="v116"){
             localStorage.removeItem("rr_gemini_model");
-            localStorage.setItem("rr_model_reset","v109");
+            localStorage.setItem("rr_model_reset","v116");
           }
         }catch{}
         const savedModel=localStorage.getItem("rr_gemini_model")||"";
@@ -2074,7 +2077,13 @@ ${planStr}
           const sys=buildSys(false,null,tourist||false);
           // v105 CACHE: ядро (персона+правила, ~стабильно) идёт в system_instruction и кэшируется Google.
           // Меняющееся (директор, POI, вики, память) — в конец запроса, в contents. Так кэш реально срабатывает.
-          const varPart=director.text+poiLine+wikiBlock+memoryBlockForPrompt()+styleReminder;
+          // v116 КЭШ: «предыдущий блок» переехал СЮДА, в меняющуюся часть. В ядре промпта он рвал кэш
+          // (префикс менялся каждый раз → скидка 90% не работала → КЭШ:0 во всех логах).
+          const prevBlock=(saidFactsRef.current.slice(-1)[0]||"");
+          // v116: время суток — ПЕРВЫМ в меняющейся части, с приоритетом. В логе модель игнорировала его
+          // («сумерки подчёркивают линии холмов» — ночью; «будь сейчас день, вы бы разглядели рощи»).
+          const varPart=`‼‼ СЕЙЧАС ${nowPhaseRef.current||""}. Это ФАКТ, а не предположение. Никогда не пиши «будь сейчас день/ночь» — ты ЗНАЕШЬ, что сейчас. Не описывай свет, которого нет.\n\n`
+            +(prevBlock?`ПРЕДЫДУЩИЙ БЛОК (сделай от него короткий мостик): "${prevBlock}"\n\n`:"")+director.text+poiLine+wikiBlock+memoryBlockForPrompt()+styleReminder;
           lastPromptRef.current=sys;         // ядро для фоновой догрузки
           lastVarRef.current=varPart;        // меняющаяся часть для фоновой догрузки
           let cand=await callClaude(sys,"Produce a connected 4-segment mini-arc, IN PERSONA.",false,varPart);
