@@ -289,7 +289,7 @@ body{font-family:'Inter',sans-serif;color:#fff;}
 const {useState,useRef,useEffect}=React;
 const PROXY="https://corsproxy.io/?https://api.anthropic.com/v1/messages";
 const KEY_STORE="rr_key_v3";
-const VER="v123";
+const VER="v124";
 // v76 MEMORY DIAGNOSTIC: prefetch & buffer OFF so every spoken segment goes through one gate.
 const PREFETCH_ENABLED=false;
 const BUFFER_ENABLED=false;
@@ -1078,6 +1078,22 @@ function App(){
   const cleanRussianStory=s=>{
     if(!s)return s;
     let t=s;
+    // v124: hard cleanup of director/service phrases before any validation or speech.
+    // These are internal production labels, not human radio. If they appear at the start, remove the whole label sentence.
+    const stripLead=()=>{
+      let before;
+      do{
+        before=t;
+        t=t.replace(/^\s*(?:смена\s+частоты\s*[:—-]?\s*(?:к|ко)?\s*[^.!?…]*[.!?…]?\s*)/i,"");
+        t=t.replace(/^\s*(?:следующая\s+метка|ставим\s+новую\s+метку|поехали\s+к\s+следующей\s+метке)\s*[.!?…]?\s*/i,"");
+        t=t.replace(/^\s*(?:бер[её]м\s+слой\s+[^.!?…]*[.!?…]?\s*)/i,"");
+        t=t.replace(/^\s*(?:ещ[её]\s+один\s+слой\s+[^.!?…]*[.!?…]?\s*)/i,"");
+        t=t.replace(/^\s*(?:теперь\s+тихо\s+к\s+[^.!?…]*[.!?…]?\s*)/i,"");
+        t=t.replace(/^\s*(?:ещ[её]\s+немного\s+про\s+[^.!?…]*[.!?…]?\s*)/i,"");
+        t=t.replace(/^\s*(?:одна\s+волна\s+на\s+все\s+штаты\.\s*(?:следующая\s+метка\.\s*)?)/i,"");
+      }while(t!==before);
+    };
+    stripLead();
     // v123: remove internal/mechanical bridge phrases that should never leak into the listener's ear.
     t=t.replace(/Смена\s+частоты\s*[:—-]?\s*/gi,"");
     t=t.replace(/Следующая\s+метка\s*[:—-]?\s*/gi,"");
@@ -1256,7 +1272,7 @@ Return exactly one JSON array with ${plan.length||4} items in this order. Every 
 
   // v112: «Если прислушаться», «Если отвлечься», «Если говорить» — это ОДИН приём, а не три разных.
   // Ловим по первому слову: если оно уже открывало блок недавно — зачин считается заезженным.
-  const BANNED_OPENERS=/^(смена частоты|следующая метка|контраст|казалось бы|ну что ж|а если|раз уж|напоследок|завершая|стоит упомянуть|нельзя не|интересно, что|кстати говоря|если|едем|посмотрите|вдоль)/i;
+  const BANNED_OPENERS=/^(смена частоты|следующая метка|бер[её]м слой|слой|контраст|казалось бы|ну что ж|а если|раз уж|напоследок|завершая|стоит упомянуть|нельзя не|интересно, что|кстати говоря|если|едем|посмотрите|вдоль)/i;
   const openerOf=s=>(s||"").trim().toLowerCase().replace(/[^а-яёa-z ]/gi,"").split(/\s+/).slice(0,3).join(" ");
   // Первое слово — «отпечаток» конструкции. Служебные предлоги не считаем (они безобидны).
   const SKIP_FIRST=/^(в|на|у|с|за|под|над|от|до|из|по|о|об|и|а|но)$/i;
@@ -1275,6 +1291,9 @@ Return exactly one JSON array with ${plan.length||4} items in this order. Every 
     if(!res.story||res.story.length<80)return{ok:false,reason:"too_short"};
     if(hasHallucination(res.story))return{ok:false,reason:"fiction"};
     if(hasGeoError(res.story))return{ok:false,reason:"geo_error"};
+    // v124: if a director/service phrase survived cleanup, reject it before speech.
+    const serviceLeak=/\b(смена\s+частоты|следующая\s+метка|ставим\s+новую\s+метку|бер[её]м\s+слой|слой\s+(истории|земли|жизни|странност|первым|музыки|загад)|слот|директор|карточка|рубрика|как\s+ии|алгоритм)\b/i;
+    if(serviceLeak.test(res.story))return{ok:false,reason:"service_phrase"};
     // v121: two hosts. Default host must NOT pretend to be local. Local Expert mode may speak as a local voice.
     const isLocalExpert=bcastRef.current==="local";
     const localBad=/\b(наша земля|нашей земли|на этой земле,? на которой мы стоим|мы стоим|в нашем районе|в каждом из нас|для всех нас|наши края|наших мест|наши дороги|наших дорог|у нас|у нас тут|у нас здесь|наш округ|наш штат|наш город|наш район|наш регион|нашего округа|нашего региона|нашего штата|нашего общества|наша флорида|наша луизиана|наша миссисипи|весь наш штат)\b/i;
@@ -1396,7 +1415,7 @@ Return exactly one JSON array with ${plan.length||4} items in this order. Every 
     persistMemory();
   };
 
-  // v123 ROAD/PARK CONTINUITY LAYER.
+  // v124 ROAD/PARK CONTINUITY LAYER.
   // Gemini writes independent facts; code adds human radio glue. Never add facts here.
   const topicTo={people:"людям",films:"кино",land:"земле",economy:"экономике",sports:"спорту",native:"первым народам",road:"дороге",sky:"небу",oddity:"странностям",wildlife:"живой природе",mystery:"загадкам",crafts:"ремёслам",food:"еде",water:"воде",music:"музыке",history:"истории",life:"жизни"};
   const topicFrom={people:"людей",films:"кино",land:"земли",economy:"экономики",sports:"спорта",native:"первых народов",road:"дороги",sky:"неба",oddity:"странностей",wildlife:"живой природы",mystery:"загадок",crafts:"ремёсел",food:"еды",water:"воды",music:"музыки",history:"истории",life:"жизни"};
@@ -1428,28 +1447,27 @@ Return exactly one JSON array with ${plan.length||4} items in this order. Every 
     };
     const pickHeadline=()=>pickRadio(headline[cur]||["Следующая тема."]);
 
-    // Rest/overnight mode: softer, less “news wheel”, more background radio.
+    // Rest/overnight mode: do NOT sound like a category wheel. No labels, no “layers”, no commands.
+    // Most parked blocks need no intro at all; the story itself should breathe.
     if(stopped||resting){
       const quietBumpers=resting
-        ?["Ночная волна Road Radio.","Пока колёса отдыхают, карта всё ещё говорит.","Остаёмся на месте и берём историю тише."]
-        :["Пока стоим, берём круг чуть шире.","Остаёмся на этой точке, но смотрим вокруг.","Колёса отдыхают — эфир продолжается."];
+        ?["Тихий ночной эфир продолжается.","Пока вы отдыхаете, останемся рядом с этой местностью.","Не торопимся. Просто ещё одна история отсюда."]
+        :["Пока стоим, можно смотреть на это место внимательнее.","Останемся ещё немного в этой местности.","Колёса отдыхают, эфир продолжается спокойно."];
       const quietNeutral=[
-        "Ещё один слой вокруг этой точки.",
-        "Мягко меняем угол.",
-        "Посмотрим чуть дальше от этой стоянки.",
-        "Теперь спокойнее — ещё одна история рядом.",
-        "Карта здесь не заканчивается."
+        "Не торопимся.",
+        "Останемся здесь ещё немного.",
+        "Продолжим спокойно.",
+        "Есть ещё одна история рядом.",
+        "Пока стоим, можно взять круг чуть шире."
       ];
-      const quietTo=[`Теперь тихо к ${topicTo[cur]||"следующей истории"}.`,`Ещё немного про ${topicTo[cur]||"это место"}.`,`Берём слой ${topicTo[cur]||"места"}.`];
-      if(count>0&&count%10===0)return pickRadio(quietBumpers);
-      if(count%5===1)return pickRadio(quietNeutral);
-      if(prev&&cur&&prev!==cur)return pickRadio(quietTo);
-      return count%4===0?pickRadio(quietNeutral):"";
+      if(count>0&&count%12===0)return pickRadio(quietBumpers);
+      if(count%6===1)return pickRadio(quietNeutral);
+      return "";
     }
 
     if(isLocalExpert){
       const localBumpers=["Местная волна на связи.","Голос этой территории продолжает эфир.","Местный эксперт — коротко и по делу."];
-      const localNeutral=["У этого места есть ещё один слой.","Если смотреть по-местному, всплывает другая деталь.","А теперь — то, что здесь хорошо знают.","Не всё видно с трассы, но кое-что стоит знать.","Переключаемся на местный угол."];
+      const localNeutral=["У этого места есть ещё одна деталь.","Если смотреть по-местному, всплывает другая история.","А теперь — то, что здесь хорошо знают.","Не всё видно с трассы, но кое-что стоит знать.","Посмотрим на местный угол."];
       if(count>0&&count%8===0)return pickRadio(localBumpers);
       if(count%3===1)return pickHeadline();
       if(prev&&cur&&prev!==cur)return pickRadio(localNeutral);
@@ -1459,19 +1477,19 @@ Return exactly one JSON array with ${plan.length||4} items in this order. Every 
       "people:films":["От биографии — к экрану.","Теперь переведём взгляд с людей на камеры."],
       "films:land":["С экрана возвращаемся на карту.","Убираем киношный свет и смотрим на землю."],
       "land:economy":["А теперь — что эта земля даёт людям сегодня.","С почвы и воды переходим к работе и деньгам."],
-      "economy:history":["За сегодняшними делами всегда торчит старый слой.","Теперь чуть назад во времени."],
+      "economy:history":["За сегодняшними делами всегда есть старая причина.","Теперь чуть назад во времени."],
       "history:people":["История без людей — просто даты. Берём человека.","А теперь — лицо этой истории."],
       "water:road":["Вода рядом, но руль держит дорога.","От воды — обратно к асфальту."],
       "road:sky":["Дорога под колёсами, небо над головой.","Теперь поднимем взгляд выше карты."],
       "wildlife:food":["От живой природы — к тому, что попадает на стол.","Природа здесь быстро выходит и на кухню."],
       "music:sports":["Музыку приглушаем — добавим скорости.","От ритма — к соревнованию."],
-      "native:history":["Эта тема глубже любого шоссе. Ещё один исторический слой.","Остаёмся в прошлом, но меняем угол."],
+      "native:history":["Эта тема глубже любого шоссе.","Остаёмся в прошлом, но меняем угол."],
       "mystery:oddity":["Раз карта подмигнула — держите ещё одну странность.","От загадки — к придорожному чудачеству."],
       "crafts:food":["Руки сделали своё — теперь очередь вкуса.","От мастерской — к столу."],
       "life:economy":["Быт всегда упирается в работу. Проверим, чем место живёт.","Теперь без романтики: чем здесь зарабатывают."],
       "sports:water":["После скорости — к воде.","Соревнования в сторону, слушаем реку."]
     };
-    const neutral=["Крутим ручку дальше.","Меняем угол.","Ещё одна короткая отметка на карте.","Ставим новую метку.","Теперь другой слой этого места.","Дальше — короткий поворот темы."];
+    const neutral=["Крутим ручку дальше.","Меняем угол.","Ещё одна короткая история.","Продолжим эфир.","Теперь другая сторона этого места.","Дальше — короткий поворот темы."];
     const bumpers=["Это Road Radio. Одна волна на все штаты.","Road Radio на связи.","Одна волна на все штаты."];
     if(count>0&&count%8===0)return pickRadio(bumpers);
     if(count%3===1)return pickHeadline();
@@ -1487,7 +1505,7 @@ Return exactly one JSON array with ${plan.length||4} items in this order. Every 
   const applyRadioContinuity=(res)=>{
     if(!res||!res.story||res._src==="pause")return res;
     if(!["ru","uk"].includes(langRef.current))return res;
-    const raw=cleanRussianStory(res.story||"").replace(/^\s*(Смена\s+частоты\s*[:—-]?\s*)/i,"");
+    const raw=cleanRussianStory(res.story||"");
     const count=(spokenLedgerRef.current||[]).length;
     const prev=(spokenLedgerRef.current||[]).slice(-1)[0]||{};
     const cur=res._dirTopic||res.topic_key||"";
@@ -1923,21 +1941,21 @@ Reply ONLY valid JSON: {"story":"your spoken answer in ${al}","location":"curren
 
 ${personaRule}
 
-‼‼ ДВА РАЗНЫХ СЛОЯ — НЕ ПУТАЙ ИХ ‼‼
+‼‼ ДВА РАЗНЫХ ПРАВИЛА — НЕ ПУТАЙ ИХ ‼‼
 
-СЛОЙ 1 — ФАКТЫ (ЧТО говоришь). СВЯТО. Только правда.
+ПРАВИЛО 1 — ФАКТЫ (ЧТО говоришь). СВЯТО. Только правда.
 — Бери факты ТОЛЬКО из блоков «ВИКИПЕДИЯ», «POI», «ВРЕМЯ/ПОГОДА/МЕСТО» этого запроса.
 — НЕТ факта в источнике — НЕ говори его. Лучше короче и честнее, чем красивая выдумка.
 — ЗАПРЕЩЕНО выдумывать: придорожные кафе «с домашней кухней», «местные рассказывают», несуществующие фестивали, придуманные имена/годы/заводы, закусочные, которых нет в данных.
 — Реальность важнее красоты: НОЧЬ — не описывай видимое только днём; светло — не говори «сумерки», «туман тает».
 
-СЛОЙ 2 — ПОДАЧА (КАК говоришь). ЖИВАЯ, СОВРЕМЕННАЯ.
+ПРАВИЛО 2 — ПОДАЧА (КАК говоришь). ЖИВАЯ, СОВРЕМЕННАЯ.
 — Ты НЕ Тургенев и НЕ Пришвин. НИКАКОЙ художественной прозы о красотах природы: без «драматической игры теней», «пологих холмов, обретающих глубину», «скрытой от глаз суеты».
 — Говори как современный человек в 2026-м: коротко, по делу, с искрой — будто рассказываешь другу за рулём что-то реально любопытное.
 — Один блок — ${segmentLen}. ${isRestMode?"Спокойно, мягко, без рубрик-автомата; можно чуть длиннее, чтобы под это отдыхать.":"КОРОТКО. Дал факт — оживил одной фразой — передал дальше."}
 — Живость: сухой юмор и короткая человеческая интонация, но не в каждом блоке. БЕЗ обязательной личной реакции, без приторности и пейзажных поэм.
 
-СЛОЙ 3 — ЧЕЛОВЕЧНОСТЬ v122 (девиз: радио, которое НЕ хочется переключать).
+ПРАВИЛО 3 — ЧЕЛОВЕЧНОСТЬ v124 (девиз: радио, которое НЕ хочется переключать).
 Приложение само добавит короткие эфирные переходы и паузы между блоками. Твоя задача — НЕ писать служебные мостики и НЕ лепить мораль в конце.
 — Начни блок сразу с живого предмета: имя, дата, число, объект, странная деталь.
 — Не заканчивай каждый блок философским выводом. Настоящий ведущий часто просто ставит точку, задаёт короткий вопрос или оставляет факт висеть в воздухе.
@@ -1950,7 +1968,7 @@ ${personaRule}
 — каждое предложение несёт факт или мысль, а не украшение;
 — режим голоса важен: если выбран «Радиоведущий», НЕ выдавай себя за местного; если выбран «Местный эксперт», можно говорить как местный, но без фальшивых личных воспоминаний.
 
-НАЧАЛО БЛОКА — по-разному каждый раз, с сути: с имени, даты, числа, детали, вопроса. НЕ начинай со слов: «Смена частоты», «Следующая метка», «Контраст», «Казалось бы», «Ну что ж», «Если...», «Едем», «Посмотрите», «Вдоль», «Раз уж», «Напоследок», «Завершая». Два блока подряд не начинаются с одного слова. КАЖДЫЙ блок — с понятного подлежащего (не «Они...», не «Эти места...»): слушатель включился только что.
+НАЧАЛО БЛОКА — по-разному каждый раз, с сути: с имени, даты, числа, детали, вопроса. НЕ начинай со слов: «Смена частоты», «Следующая метка», «Берём слой», «Контраст», «Казалось бы», «Ну что ж», «Если...», «Едем», «Посмотрите», «Вдоль», «Раз уж», «Напоследок», «Завершая». Два блока подряд не начинаются с одного слова. КАЖДЫЙ блок — с понятного подлежащего (не «Они...», не «Эти места...»): слушатель включился только что.
 
 YOUR DISCIPLINE: не повторяй сказанное этой сессией — ни факт, ни образ, ни формулировку. Каждый блок — что-то реально новое.`
     const styleBlock=`========================\n‼ WHO YOU ARE — THIS DEFINES YOUR ENTIRE VOICE (non-negotiable) ‼\n${voiceHeader}\n========================`;
@@ -1994,7 +2012,7 @@ PARK / OVERNIGHT BROADCAST PROTOCOL — IMPORTANT:
 - Current scale hint: ${stopMin<10?"exact point and immediate surroundings":stopMin<30?"nearby area and county":stopMin<60?"county and 50-mile circle":"wider circle and likely route ahead"}.
 - ${routeAhead}
 - Use quiet phrases: "пока стоим", "вокруг этой точки", "если продолжим этим курсом".
-- NEVER say internal/service phrases such as "смена частоты", "директор", "слот", "следующая метка", "карточка".
+- NEVER say internal/service phrases such as "смена частоты", "берём слой", "директор", "слот", "следующая метка", "карточка".
 `:""}
 
 CURRENT POSITION (ground truth):
@@ -2016,7 +2034,7 @@ ALREADY SAID THIS DRIVE (never repeat): ${recentFacts||"nothing yet — first se
 - Keep time-of-day consistent with "${phase}". The exact local time is ${tStr} — if you mention the time at all, state it correctly; do NOT approximate it to a different hour.
 - ‼ LANGUAGE LOCK ‼: write EVERY single word in ${al}. Never switch to English or any other language mid-segment. If you catch yourself starting an English word, stop and use ${al}.
 
-ABSOLUTE BAN ON AUDIBLE SERVICE PHRASES: never write "смена частоты", "следующая метка", "слот", "директор", "карточка", "рубрика", "как ИИ", "алгоритм". These are internal mechanics, not radio.
+ABSOLUTE BAN ON AUDIBLE SERVICE PHRASES: never write "смена частоты", "берём слой", "слой истории", "слой земли", "слой жизни", "следующая метка", "слот", "директор", "карточка", "рубрика", "как ИИ", "алгоритм". These are internal mechanics, not radio.
 
 Reply ONLY valid JSON — an ARRAY of exactly 4 segments.
 
@@ -2035,12 +2053,26 @@ ${planStr}
   // sysCore — постоянная часть, varPart — меняющаяся.
   const callClaude=async(sys,msg,forNext,varPart)=>{
     const key=localStorage.getItem(KEY_STORE);
-    const userMsg=varPart?varPart+"\n\n"+msg:msg;
-    const msgs=forNext?[{role:"user",content:userMsg}]:[...histRef.current.slice(-4),{role:"user",content:userMsg}];
     const provider=localStorage.getItem("rr_provider")||"haiku";
     const gemKey=localStorage.getItem("rr_gemini_key")||"";
+    // v124 CACHE: keep the beginning/system_instruction as stable as possible for Gemini implicit caching.
+    // Everything that changes every request (position, weather, memory, slot plan) is moved into the user message.
+    const splitForGeminiCache=(sysTxt,varTxt)=>{
+      let core=sysTxt||"", dyn="";
+      const markers=["CURRENT POSITION (ground truth):","ALREADY SAID THIS DRIVE (never repeat):","Reply ONLY valid JSON"];
+      let cut=-1;
+      for(const m of markers){const i=core.indexOf(m);if(i>0&&(cut<0||i<cut))cut=i;}
+      if(cut>0){
+        dyn=core.slice(cut);
+        core=core.slice(0,cut).trim()+"\n\nVARIABLE TRIP CONTEXT, memory, slot plan and JSON format are provided in the user message. Treat them as ground truth for this request.";
+      }
+      return{core,dynVar:[dyn,varTxt||""].filter(Boolean).join("\n\n")};
+    };
+    const packed=(provider==="gemini")?splitForGeminiCache(sys,varPart):{core:sys,dynVar:varPart||""};
+    const userMsg=packed.dynVar?packed.dynVar+"\n\n"+msg:msg;
+    const msgs=forNext?[{role:"user",content:userMsg}]:[...histRef.current.slice(-4),{role:"user",content:userMsg}];
     const doCall=async(extra)=>{
-      const sysFull=extra?sys+extra:sys;
+      const sysFull=extra?packed.core+extra:packed.core;
       if(provider==="gemini"&&gemKey){
         // Google Gemini API (v1beta generateContent). Key goes in the x-goog-api-key header (2026 auth keys).
         const gm={
@@ -2050,17 +2082,16 @@ ${planStr}
           // v101: возвращаю thinkingBudget:0 — ровно как в РАБОЧЕЙ v98 (она выдавала блок).
           // thinkingLevel из v100 мог давать 400 → тишина. Меняем по одной переменной за раз.
           // v111: 5000 — под 4 блока. Меньше объём → flash-lite успевает ответить, меньше таймаутов, дешевле выход.
-          generationConfig:{maxOutputTokens:5000,temperature:0.9,thinkingConfig:{thinkingBudget:0}},
+          generationConfig:{maxOutputTokens:4200,temperature:0.82,thinkingConfig:{thinkingBudget:0}},
         };
         let r;
 
-        // v117: назад на дешёвую flash-lite. Эксперимент v116 доказал: 3-flash вдвое дороже ($0.21 vs $0.09/час),
-        // а водянистость/выдумки те же. Дело не в мощности модели, а в задании (см. FACTS/TONE ниже).
-        const FALLBACK_MODELS=["gemini-3.1-flash-lite","gemini-3.5-flash","gemini-flash-latest"];
+        // v124: только дешёвая flash-lite. Если она недоступна — лучше честная пауза/ошибка, чем внезапный переход на дорогую модель.
+        const FALLBACK_MODELS=["gemini-3.1-flash-lite"];
         try{
-          if(localStorage.getItem("rr_model_reset")!=="v118"){
+          if(localStorage.getItem("rr_model_reset")!=="v124"){
             localStorage.removeItem("rr_gemini_model");
-            localStorage.setItem("rr_model_reset","v118");
+            localStorage.setItem("rr_model_reset","v124");
           }
         }catch{}
         const savedModel=localStorage.getItem("rr_gemini_model")||"";
