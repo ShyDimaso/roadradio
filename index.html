@@ -289,7 +289,7 @@ body{font-family:'Inter',sans-serif;color:#fff;}
 const {useState,useRef,useEffect}=React;
 const PROXY="https://corsproxy.io/?https://api.anthropic.com/v1/messages";
 const KEY_STORE="rr_key_v3";
-const VER="v126";
+const VER="v127";
 // v76 MEMORY DIAGNOSTIC: prefetch & buffer OFF so every spoken segment goes through one gate.
 const PREFETCH_ENABLED=false;
 const BUFFER_ENABLED=false;
@@ -565,10 +565,14 @@ function App(){
     }catch(e){}
   };
   const [debugOn,setDebugOn]=useState(false);
-  const [wikiMode,setWikiMode]=useState(false);   // v81: WikiRadio — zero-token mode, telephone assembles from Wikipedia
+  const [wikiMode,setWikiMode]=useState(()=>localStorage.getItem("rr_wiki_mode_v1")==="1");   // v127: WikiRadio remembers mode and bypasses paid Gemini path
   const [provider,setProvider]=useState(localStorage.getItem("rr_provider")||"haiku"); // v86: model switch haiku/gemini
   const wikiModeRef=useRef(false);
-  useEffect(()=>{wikiModeRef.current=wikiMode;},[wikiMode]);
+  useEffect(()=>{
+    wikiModeRef.current=wikiMode;
+    try{localStorage.setItem("rr_wiki_mode_v1",wikiMode?"1":"0");}catch{}
+    if(wikiMode){try{batchQRef.current=[];nextRef.current=null;bufferRef.current=[];}catch{}}
+  },[wikiMode]);
   const [debugLine,setDebugLine]=useState("");
   const dirMoodRef=useRef("normal");   // mood of the next block
   const callPhaseRef=useRef("idle");
@@ -1601,7 +1605,7 @@ Return exactly one JSON array with ${plan.length||4} items in this order. Every 
       const cost=(tin-tcache)/1e6*0.25+tcache/1e6*0.025+tout/1e6*1.50;
       const perHour=durMin>0?cost/durMin*60:0;
       lines.push("");lines.push("=".repeat(60));
-      lines.push("SUMMARY (v126 cost-trim)");
+      lines.push("SUMMARY (v127 wiki-director)");
       lines.push(`  duration: ${durMin.toFixed(1)} min`);
       lines.push(`  Gemini requests: ${gm.length}   aired: ${aired}   rejected: ${rej}`);
       lines.push(`  input tokens: ${tin.toLocaleString()}   output: ${tout.toLocaleString()}   cached: ${tcache.toLocaleString()} (${tin?Math.round(tcache/tin*100):0}%)`);
@@ -1618,55 +1622,116 @@ Return exactly one JSON array with ${plan.length||4} items in this order. Every 
     setTimeout(()=>{document.body.removeChild(a);URL.revokeObjectURL(url);},1000);
   };
 
-  // v81 WikiRadio: assemble a segment ON THE PHONE from a real Wikipedia article + template intros.
-  // NO model call → zero server tokens. Honest "reading you Wikipedia" radio.
-  const WIKI_INTROS_RU=[
-    "Вот что рассказывает энциклопедия об этих местах.",
-    "А знаете, что тут интересного? Судите сами.",
-    "Немного фактов об этом месте — как есть, без прикрас.",
-    "Раз уж мы здесь, вот что известно об этих краях.",
-    "Держите справку об этом месте.",
-    "Что говорят про это место — вот, послушайте.",
-  ];
-  const WIKI_INTROS_EN=[
-    "Here's what the encyclopedia says about these parts.",
-    "A few plain facts about this place.",
-    "Since we're here, here's what's known about this area.",
-    "Let me read you a bit about this spot.",
-  ];
-  const WIKI_OUTROS_RU=["Вот такие дела в этих краях.","Такое вот место.","Едем дальше.",""];
-  const WIKI_OUTROS_EN=["That's this place for you.","And on we go.",""];
+  // v127 WikiRadio: assemble a human, zero-token segment ON THE PHONE from Wikipedia + map/weather context.
+  // No Gemini call. This is the free narrator path: templates + facts, not LLM prose.
   const wikiRadioIdxRef=useRef(0);
-  const buildWikiSegment=async(lat,lng,geo)=>{
-    const w=await Promise.race([fetchWiki(lat,lng,langRef.current),new Promise(r=>setTimeout(()=>r(null),6000))]);
-    const isRu=["ru","uk"].includes(langRef.current);
-    const g=geo||locDataRef.current||{};
-    if(!w||!w.extract){
-      // Honest graceful step-up instead of "nothing to say": talk about the wider territory by name.
-      const wl=(["ru","uk","es","de","fr","pt"].includes(langRef.current))?langRef.current:"en";
-      const base=`https://${wl}.wikipedia.org/w/api.php`;
-      for(const nm of [g.county,g.state].filter(Boolean)){
-        const got=await fetchWikiExtractByTitle(base,nm);
-        if(got&&got.extract){
-          const sents=got.extract.replace(/\s+/g," ").match(/[^.!?]+[.!?]+/g)||[got.extract];
-          const take=sents.slice(0,Math.min(4,Math.max(2,sents.length))).join(" ").trim();
-          const lead=isRu?`О конкретно этом месте отдельной статьи нет, так что поднимусь повыше и расскажу про ${nm}. `:`No article for this exact spot, so let me zoom out to ${nm}. `;
-          return {story:lead+take,location:got.title,topics:"wikipedia:"+got.title,entity:got.title,_src:"wikiradio",_wiki:true};
-        }
-      }
-      const where=g.state||g.county||(isRu?"эти края":"this area");
-      return {story:isRu?`О конкретно этом месте статьи под рукой нет, но мы едем по территории ${where} — места вокруг живописные, и скоро впереди будет о чём рассказать. Едем дальше.`:`No article for this exact spot, but we're rolling through ${where} — scenic country, and there'll be more to tell soon. On we go.`,location:where,topics:"wiki-region",_src:"wikiradio",_wiki:true};
+  const wikiNoDataIdxRef=useRef(0);
+  const wikiRejectedRetryRef=useRef(0);
+
+  const WIKI_RUBRICS_RU=[
+    "О месте.","О соседях на карте.","Из справочника.","О воде рядом.","Немного истории.","О здешней земле.",
+    "О людях вокруг.","О природе.","По карте рядом.","Ещё одна тихая деталь.","Округ чуть шире.","Без спешки."
+  ];
+  const WIKI_RUBRICS_EN=[
+    "About this place.","From the map nearby.","A quiet note.","A bit of local history.","About the land here.","One nearby detail."
+  ];
+  const WIKI_NO_DATA_RU=[
+    "Пока стоим, можно просто собрать картинку из того, что уже известно. Рядом — эта точка, округ и погода вокруг неё. Даже без отдельной статьи место не пустое: у каждой остановки есть дорога, вода, земля и люди, которые сделали эту карту такой, какая она есть.",
+    "Останемся в спокойном эфире. Если точная статья не находится, берём круг шире: сначала ближайший город, потом округ, потом штат. Так радио не выдумывает факты, а честно расширяет карту вокруг вашей стоянки.",
+    "Здесь можно дать месту немного воздуха. Не каждый поворот отмечен в энциклопедии, но сама пауза тоже часть дороги: координаты, погода, ближайшие названия на карте и направление, с которого вы приехали, уже дают нам основу для следующей истории."
+  ];
+  const WIKI_NO_DATA_EN=[
+    "We'll stay with the quiet mode. If there is no article for this exact spot, we zoom out honestly: nearby place, county, then state.",
+    "Not every stop has its own article, but it still has a road, weather, nearby names on the map, and a wider region around it."
+  ];
+
+  const cleanWikiTitle=(t)=>String(t||"").replace(/\s*\([^)]*\)\s*/g," ").replace(/\s+/g," ").trim();
+  const cleanWikiText=(txt)=>{
+    let t=String(txt||"").replace(/\s+/g," ").trim();
+    // Strip pronunciation/translation noise that sounds awful in TTS.
+    t=t.replace(/\([^)]*(?:англ\.|английск|произн|IPA|ˈ|ˌ|\[|\]|исп\.|фр\.|нем\.)[^)]*\)/gi," ");
+    t=t.replace(/\[[^\]]{1,80}\]/g," ");
+    t=t.replace(/\s+/g," ").trim();
+    return t;
+  };
+  const splitSents=(txt)=>{
+    const arr=cleanWikiText(txt).match(/[^.!?]+[.!?]+/g)||[];
+    return arr.map(x=>x.trim()).filter(x=>x.length>30).slice(0,8);
+  };
+  const pickWikiRubric=(isRu)=>{
+    const arr=isRu?WIKI_RUBRICS_RU:WIKI_RUBRICS_EN;
+    const r=arr[wikiRadioIdxRef.current%arr.length];
+    wikiRadioIdxRef.current++;
+    return r;
+  };
+  const smartWikiRenderRu=(w,geo)=>{
+    const rawTitle=w?.title||"это место";
+    const title=cleanWikiTitle(rawTitle);
+    const ex=cleanWikiText(w?.extract||"");
+    const sents=splitSents(ex);
+    const lower=(rawTitle+" "+ex).toLowerCase();
+    const rubric=pickWikiRubric(true);
+    const county=(geo?.county||locDataRef.current?.county||"").replace(/ county$/i," County");
+    const state=geo?.state||locDataRef.current?.state||"";
+    const place=geo?.city||locDataRef.current?.city||locDataRef.current?.name||"эта точка";
+    const weather=weatherRef.current;
+    const wx=weather?` Сейчас около ${Math.round(weather.temp)} градусов по Фаренгейту, ветер примерно ${Math.round(weather.wind||0)} миль в час.`:"";
+
+    // Census-designated places are usually dry. Turn them into a small map note, not a raw encyclopedia reading.
+    if(/статистически обособлен|census-designated|перепис[ьи]|населени[ея]/i.test(ex)&&/местность|place|cdp|округ|county/i.test(ex)){
+      const pop=(ex.match(/населени[ея][^\d]{0,50}([\d\s]{3,12})/i)||ex.match(/population[^\d]{0,50}([\d,\s]{3,12})/i)||[])[1];
+      const popText=pop?` В справочных данных встречается население около ${pop.replace(/\s+/g," ").trim()} человек.`:"";
+      return `${rubric} Рядом на карте есть ${title} — не громкая достопримечательность, а маленькая административная точка в ${county||state||"этом регионе"}.${popText} Такие названия полезны в дороге: они показывают, из каких небольших мест складывается настоящая география вокруг стоянки.${wx}`.trim();
     }
-    let body=w.extract.replace(/\s+/g," ").trim();
-    const sents=body.match(/[^.!?]+[.!?]+/g)||[body];
-    const take=sents.slice(0,Math.min(4,Math.max(2,sents.length))).join(" ").trim();
-    const intros=isRu?WIKI_INTROS_RU:WIKI_INTROS_EN;
-    const outros=isRu?WIKI_OUTROS_RU:WIKI_OUTROS_EN;
-    const intro=intros[wikiRadioIdxRef.current%intros.length];wikiRadioIdxRef.current++;
-    const outro=outros[Math.floor(Math.random()*outros.length)];
-    const namePart=isRu?`«${w.title}». `:`"${w.title}". `;
-    const story=`${intro} ${namePart}${take}${outro?" "+outro:""}`.trim();
-    return {story,location:w.title,topics:"wikipedia:"+w.title,entity:w.title,_src:"wikiradio",_wiki:true};
+
+    // County/state pages: don't read the infobox; explain why this wider level matters.
+    if(/округ|county/i.test(rawTitle)||/округ штата/i.test(ex)){
+      const fact=sents.find(x=>!/произн|англ\.|перепис/i.test(x))||sents[0]||"Это административная территория, вокруг которой собираются дороги, города и повседневная жизнь.";
+      return `${rubric} Мы уже смотрим не только на точку, а на ${title}. ${fact} Для стоянки это нормальный масштаб: когда рядом мало отдельных объектов, округ помогает понять, почему дороги, вода и города здесь устроены именно так.`.trim();
+    }
+
+    // State pages are too huge; use only a gentle zoom-out.
+    if(/флорида|florida/i.test(rawTitle)&&!/(санфорд|seminole|семинол|heathrow|midway|lake|river|озеро|река)/i.test(rawTitle)){
+      const fact=sents.find(x=>!/произн|испанск|также/i.test(x))||"Флорида — большой и очень разный штат, где рядом живут побережья, болота, города и старые дороги.";
+      return `${rubric} Поднимемся до уровня штата, но аккуратно. ${fact} Это уже не рассказ “прямо здесь”, а широкий фон вокруг места, где вы стоите.`.trim();
+    }
+
+    // Normal article: retell 2-3 usable sentences, with a soft radio ending.
+    const take=sents.filter(x=>!/\b(англ\.|произн|статистически обособлен)/i.test(x)).slice(0,3).join(" ");
+    if(take){
+      return `${rubric} ${title} — одна из подсказок рядом с этой точкой. ${take} Пока машина стоит, такие короткие справки работают лучше всего: без спешки, просто ещё один штрих к месту.`.trim();
+    }
+    return `${rubric} ${title} отмечен рядом с этой точкой, но статья слишком сухая для эфира. Оставим её как ориентир на карте и возьмём следующую историю вокруг.`;
+  };
+  const smartWikiRenderEn=(w,geo)=>{
+    const title=cleanWikiTitle(w?.title||"this place");
+    const sents=splitSents(w?.extract||"").filter(x=>!/pronunciation|census-designated/i.test(x));
+    const rubric=pickWikiRubric(false);
+    const take=sents.slice(0,3).join(" ");
+    return take?`${rubric} ${title} is one nearby clue on the map. ${take} Since we're stopped, we'll keep it calm and use it as one quiet layer around this spot.`:`${rubric} ${title} shows up nearby, but the article is too dry for radio. We'll keep it as a map clue and move to the next nearby story.`;
+  };
+
+  const buildWikiFallbackSegment=(geo)=>{
+    const isRu=["ru","uk"].includes(langRef.current);
+    const arr=isRu?WIKI_NO_DATA_RU:WIKI_NO_DATA_EN;
+    const story=arr[wikiNoDataIdxRef.current%arr.length];wikiNoDataIdxRef.current++;
+    const g=geo||locDataRef.current||{};
+    return {story,location:g.city||g.county||g.state||"",topics:"wiki-fallback",entity:"wiki-fallback-"+wikiNoDataIdxRef.current,_src:"wikiradio",_wiki:true,_dirTopic:"wiki"};
+  };
+
+  const buildWikiSegment=async(lat,lng,geo)=>{
+    const isRu=["ru","uk"].includes(langRef.current);
+    // Try several nearby articles; the fetchWiki cache marks used pages, so repeated calls walk outward.
+    for(let attempt=0;attempt<4;attempt++){
+      const w=await Promise.race([fetchWiki(lat,lng,langRef.current),new Promise(r=>setTimeout(()=>r(null),5500))]);
+      if(w&&w.extract){
+        const story=isRu?smartWikiRenderRu(w,geo):smartWikiRenderEn(w,geo);
+        const h=normHash(story);
+        if(h&&rejectedHashRef.current.has(h))continue;
+        return {story,location:w.title,topics:"wikipedia:"+w.title,entity:w.title,_src:"wikiradio",_wiki:true,_dirTopic:"wiki"};
+      }
+    }
+    return buildWikiFallbackSegment(geo);
   };
 
   const memoryBlockForPrompt=()=>{
@@ -2119,9 +2184,9 @@ ${planStr}
         // v124: только дешёвая flash-lite. Если она недоступна — лучше честная пауза/ошибка, чем внезапный переход на дорогую модель.
         const FALLBACK_MODELS=["gemini-2.5-flash-lite","gemini-3.1-flash-lite"]; // v126: 2.5-lite эконом-режим (совет GPT)
         try{
-          if(localStorage.getItem("rr_model_reset")!=="v126"){
+          if(localStorage.getItem("rr_model_reset")!=="v127"){
             localStorage.removeItem("rr_gemini_model");
-            localStorage.setItem("rr_model_reset","v126");
+            localStorage.setItem("rr_model_reset","v127");
           }
         }catch{}
         const savedModel=localStorage.getItem("rr_gemini_model")||"";
@@ -2512,7 +2577,7 @@ ${planStr}
         // NEVER air a rejected candidate. If all attempts failed, air a short honest neutral bridge instead.
         if(!accepted){
           const isRu=["ru","uk"].includes(langRef.current);
-          accepted={story:isRu?(isStationaryActive()?"Пусть это место немного помолчит. Сейчас найдём другую нить вокруг этой точки.":"Пусть эта дорога пока помолчит секунду — впереди наверняка найдётся, о чём рассказать. Держим курс."):(isStationaryActive()?"Let this place breathe for a moment. We'll find another thread around this spot.":"Let the road breathe for a second — there'll be a good story just ahead. Keep rolling."),location:"",topics:"road-pause",entity:"",_src:"pause",_dirTopic:"road"};
+          accepted={story:isRu?(isStationaryActive()?"Пусть место немного подышит. Останемся в тишине на несколько секунд, а потом возьмём другую историю рядом.":"Пусть эта дорога пока помолчит секунду — впереди наверняка найдётся, о чём рассказать. Держим курс."):(isStationaryActive()?"Let this place breathe for a moment. We'll find another thread around this spot.":"Let the road breathe for a second — there'll be a good story just ahead. Keep rolling."),location:"",topics:"road-pause",entity:"",_src:"pause",_dirTopic:"road"};
         }
         res=accepted;
       }
@@ -2533,7 +2598,10 @@ ${planStr}
           // Пробуем взять замену из очереди; если пусто — короткая пауза, НЕ платный запрос.
           const alt=takeNextUsableFromQueue(c);
           if(alt){res=alt;}
-          else{const ruNow=["ru","uk"].includes(langRef.current);res={story:ruNow?(isStationaryActive()?"Секундная пауза. Остаёмся на месте и берём другую историю вокруг этой точки.":"Секундная пауза на этой дороге — впереди найдётся, о чём рассказать."):(isStationaryActive()?"A brief pause. We'll stay with this spot and take another nearby story.":"A brief pause — a good story is just ahead."),location:"",topics:"road-pause",entity:"",_src:"pause",_dirTopic:"road"};}
+          else if(wikiModeRef.current){
+            res=buildWikiFallbackSegment(locDataRef.current||{});
+          }
+          else{const ruNow=["ru","uk"].includes(langRef.current);res={story:ruNow?(isStationaryActive()?"Пусть место немного подышит. Останемся в тишине на несколько секунд, а потом возьмём другую историю рядом.":"Короткая пауза на дороге. Впереди ещё найдётся хорошая история."):(isStationaryActive()?"Let this place breathe for a moment. We'll take another nearby story next.":"A short road pause. Another good story will come up ahead."),location:"",topics:"road-pause",entity:"",_src:"pause",_dirTopic:"road"};}
         }else{res=gate.res;}
       }
       res=applyRadioContinuity(res);
@@ -3421,7 +3489,7 @@ ${planStr}
             <div className="sec-btns">
               <button className={`sbtn big${showTxt?" act":""}`} onClick={()=>{setShowTxt(t=>{const n=!t;if(n)setRadioFocus(false);return n;});}}>{showTxt?(isRu?"📄 Текст ✓":"📄 Text ✓"):(isRu?"📄 Текст":"📄 Text")}</button>
               <button className={`sbtn big${debugOn?" act":""}`} onClick={()=>setDebugOn(d=>!d)}>{debugOn?"🐞 Debug ✓":"🐞 Debug"}</button>
-              <button className={`sbtn big${wikiMode?" act":""}`} onClick={()=>setWikiMode(w=>!w)}>{wikiMode?"📚 WikiRadio ✓":"📚 WikiRadio"}</button>
+              <button className={`sbtn big${wikiMode?" act":""}`} onClick={()=>{setWikiMode(w=>!w);batchQRef.current=[];nextRef.current=null;bufferRef.current=[];}}>{wikiMode?"📚 WikiRadio ✓":"📚 WikiRadio"}</button>
               <button className={`sbtn big${provider==="gemini"?" act":""}`} onClick={()=>{
                 if(provider==="haiku"){
                   let gk=localStorage.getItem("rr_gemini_key")||"";
