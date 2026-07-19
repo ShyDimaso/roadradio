@@ -289,7 +289,7 @@ body{font-family:'Inter',sans-serif;color:#fff;}
 const {useState,useRef,useEffect}=React;
 const PROXY="https://corsproxy.io/?https://api.anthropic.com/v1/messages";
 const KEY_STORE="rr_key_v3";
-const VER="v124";
+const VER="v125";
 // v76 MEMORY DIAGNOSTIC: prefetch & buffer OFF so every spoken segment goes through one gate.
 const PREFETCH_ENABLED=false;
 const BUFFER_ENABLED=false;
@@ -2055,17 +2055,26 @@ ${planStr}
     const key=localStorage.getItem(KEY_STORE);
     const provider=localStorage.getItem("rr_provider")||"haiku";
     const gemKey=localStorage.getItem("rr_gemini_key")||"";
-    // v124 CACHE: keep the beginning/system_instruction as stable as possible for Gemini implicit caching.
-    // Everything that changes every request (position, weather, memory, slot plan) is moved into the user message.
+    // v125 CACHE FIX: GPT резал промпт по маркеру, но в ЯДРЕ оставались меняющиеся значения
+    // (${spd} скорость, ${phase} время, ${weather} погода, ${ld.city} город, ${routeAhead}) — каждое
+    // меняется на ходу → префикс запроса каждый раз новый → кэш срабатывал на 1% вместо 90%.
+    // Теперь: из ядра вырезаем ВСЁ динамическое (по маркеру + чистка остатков), ядро становится
+    // дословно одинаковым между запросами, и Google даёт скидку 90% на вход.
     const splitForGeminiCache=(sysTxt,varTxt)=>{
       let core=sysTxt||"", dyn="";
-      const markers=["CURRENT POSITION (ground truth):","ALREADY SAID THIS DRIVE (never repeat):","Reply ONLY valid JSON"];
+      const markers=["CURRENT POSITION (ground truth):","ALREADY SAID THIS DRIVE (never repeat):","Reply ONLY valid JSON","=== SLOT DIRECTOR","PARK / OVERNIGHT BROADCAST PROTOCOL"];
       let cut=-1;
       for(const m of markers){const i=core.indexOf(m);if(i>0&&(cut<0||i<cut))cut=i;}
       if(cut>0){
         dyn=core.slice(cut);
-        core=core.slice(0,cut).trim()+"\n\nVARIABLE TRIP CONTEXT, memory, slot plan and JSON format are provided in the user message. Treat them as ground truth for this request.";
+        core=core.slice(0,cut).trim();
       }
+      // v125: страховка — если в оставшемся ядре всё же есть меняющиеся значения (город/скорость/погода/
+      // фаза дня/направление), выносим весь «живой» хвост ядра вниз. Ищем первую строку с такими маркерами.
+      const dynLineRe=/^.*(СЕЙЧАС |PARKED MODE|PARK \/|current listener|listener is (settled|parked)|on (I-|US-|US |Highway)|heading |mph|°F|weather|погод).*/im;
+      const mm=core.match(dynLineRe);
+      if(mm){const p=core.indexOf(mm[0]);if(p>200){dyn=core.slice(p)+"\n\n"+dyn;core=core.slice(0,p).trim();}}
+      core=core+"\n\nVARIABLE TRIP CONTEXT (position, time, weather, memory, slot plan, JSON format) is in the user message below. Treat it as ground truth for THIS request.";
       return{core,dynVar:[dyn,varTxt||""].filter(Boolean).join("\n\n")};
     };
     const packed=(provider==="gemini")?splitForGeminiCache(sys,varPart):{core:sys,dynVar:varPart||""};
