@@ -289,7 +289,7 @@ body{font-family:'Inter',sans-serif;color:#fff;}
 const {useState,useRef,useEffect}=React;
 const PROXY="https://corsproxy.io/?https://api.anthropic.com/v1/messages";
 const KEY_STORE="rr_key_v3";
-const VER="v129";
+const VER="v130";
 // v76 MEMORY DIAGNOSTIC: prefetch & buffer OFF so every spoken segment goes through one gate.
 const PREFETCH_ENABLED=false;
 const BUFFER_ENABLED=false;
@@ -770,9 +770,12 @@ function App(){
   };
 
   // Wikipedia: find real articles near the coords and fetch a short extract to retell. Cached per session.
+  // v130: score pages before airing them, skip weak CDP/census stubs, and use English Wikipedia as a fallback
+  // because U.S. local pages are often much richer in English than in Russian.
   const wikiCacheRef=useRef({});
   const wikiRecentTitlesRef=useRef([]);
-  const fetchWikiExtractByTitle=async(base,title)=>{
+  const wikiNewsCacheRef=useRef({});
+  const fetchWikiExtractByTitle=async(base,title,langTag="")=>{
     try{
       const u=`${base}?action=query&prop=extracts&exintro=1&explaintext=1&redirects=1&titles=${encodeURIComponent(title)}&format=json&origin=*`;
       const r=await fetch(u);const d=await r.json();
@@ -781,26 +784,40 @@ function App(){
       if(!pid||pid==="-1")return null;
       let extract=(pages[pid].extract||"").trim();
       if(!extract)return null;
-      if(extract.length>1800)extract=extract.slice(0,1800);
-      return{title:pages[pid].title||title,extract,pageid:pages[pid].pageid,sourceTitle:title};
+      if(extract.length>2600)extract=extract.slice(0,2600);
+      return{title:pages[pid].title||title,extract,pageid:pages[pid].pageid,sourceTitle:title,_lang:langTag||base.match(/https:\/\/([^.]*)\./)?.[1]||""};
     }catch{return null;}
   };
-  const wikiSearchByQuery=async(base,query,used)=>{
+  const wikiArticleScore=(w)=>{
+    const txt=((w?.title||"")+" "+(w?.extract||"")+" "+(w?._query||"")).toLowerCase();
+    let score=0;
+    if((w?.extract||"").length>450)score+=2;
+    if(/river|lake|spring|airport|railroad|museum|park|historic|national register|zoo|university|writer|novel|film|music|record|first|largest|oldest|founder|inventor|река|озеро|аэропорт|железн|музей|парк|истор|реестр|писател|роман|фильм|музык|рекорд|перв|сам/.test(txt))score+=8;
+    if(/county seat|founded|incorporated|established|named after|основан|получил.*название|назван/.test(txt))score+=5;
+    if(/census-designated|statistical area|unincorporated community|статистически|перепис|population was|населени/i.test(txt))score-=5;
+    if(/coordinates|координаты|площадь|density|км²|square miles/i.test(txt))score-=3;
+    if((w?.dist||0)>60000)score-=1;
+    if(w?._thematic)score+=2;
+    return score;
+  };
+  const wikiIsWeakStub=(w)=>wikiArticleScore(w)<3;
+  const wikiSearchByQuery=async(base,query,used,langTag="")=>{
     try{
       if(!query||query.length<3)return null;
-      const u=`${base}?action=query&list=search&srsearch=${encodeURIComponent(query)}&srlimit=8&format=json&origin=*`;
+      const u=`${base}?action=query&list=search&srsearch=${encodeURIComponent(query)}&srlimit=10&format=json&origin=*`;
       const r=await fetch(u);const d=await r.json();
       const hits=(d.query&&d.query.search)||[];
+      let best=null,bestScore=-999;
       for(const h of hits){
-        const title=h.title||""; if(!title)return null;
-        const key="search:"+title.toLowerCase();
+        const title=h.title||""; if(!title)continue;
+        const key=`search:${langTag}:${title.toLowerCase()}`;
         if(used[key])continue;
-        if(/список|list of|категория|category|шаблон|template|значения|disambiguation|неоднознач/i.test(title))continue;
+        if(/список|list of|категория|category|шаблон|template|значения|disambiguation|неоднознач|index of/i.test(title))continue;
         used[key]=true;
-        const got=await fetchWikiExtractByTitle(base,title);
-        if(got&&got.extract){got._query=query;return got;}
+        const got=await fetchWikiExtractByTitle(base,title,langTag);
+        if(got&&got.extract){got._query=query;got._thematic=true;const sc=wikiArticleScore(got);if(sc>bestScore){best=got;bestScore=sc;}}
       }
-      return null;
+      return best;
     }catch{return null;}
   };
   const wikiBuildSearchQueries=(geo={})=>{
@@ -814,59 +831,60 @@ function App(){
     if(county)places.push(`${county} ${state}`.trim(),county);
     if(state)places.push(state);
     if(road&&city)places.push(`${road} ${city}`);
-    const ru=["история","река","озеро","аэропорт","железная дорога","кино","фильм","литература","писатель","музыка","спорт","рекорд","музей","парк","заповедник","природа","индейцы","газета","университет","изобретатель","архитектура","национальный реестр исторических мест"];
-    const en=["history","river","lake","airport","railroad","film","cinema","literature","writer","music","sports","record","museum","park","wildlife","Native American","newspaper","university","inventor","architecture","National Register of Historic Places"];
+    const ru=["история","река","озеро","аэропорт","железная дорога","кино","фильм","литература","писатель","музыка","спорт","рекорд","музей","парк","заповедник","природа","индейцы","газета","университет","изобретатель","архитектура","национальный реестр исторических мест","зоопарк","порт","мост"];
+    const en=["history","river","lake","airport","railroad","film","cinema","literature","writer","music","sports","record","museum","park","wildlife","Native American","newspaper","university","inventor","architecture","National Register of Historic Places","zoo","port","bridge","county seat","historic district"];
     const isRu=["ru","uk"].includes(langRef.current);const themes=isRu?ru:en;
     const out=[];
     for(const pl of places){for(const th of themes){out.push(`${pl} ${th}`.trim());}}
-    return out.filter((x,i,a)=>x&&a.indexOf(x)===i).slice(0,90);
+    return out.filter((x,i,a)=>x&&a.indexOf(x)===i).slice(0,120);
+  };
+  const wikiNearbyBest=async(base,lat,lng,used,langTag="")=>{
+    let pages=[];
+    for(const radius of [8000,16000,35000,70000,120000]){
+      const u=`${base}?action=query&list=geosearch&gscoord=${lat}%7C${lng}&gsradius=${radius}&gslimit=25&format=json&origin=*`;
+      try{const r=await fetch(u);const d=await r.json();const got=(d.query&&d.query.geosearch)||[];
+        for(const p of got){if(!pages.find(x=>x.pageid===p.pageid))pages.push(p);}
+      }catch{}
+      if(pages.length>=18)break;
+    }
+    let best=null,bestScore=-999,backup=null;
+    for(const p of pages.slice(0,18)){
+      if(!p||used[`geo:${langTag}:${p.pageid}`])continue;
+      used[`geo:${langTag}:${p.pageid}`]=true;
+      const got=await fetchWikiExtractByTitle(base,p.title,langTag);
+      if(got&&got.extract){got.dist=p.dist;got._geo=true;const sc=wikiArticleScore(got);if(!backup)backup=got;if(sc>bestScore){best=got;bestScore=sc;}}
+    }
+    if(best&&bestScore>=3)return best;
+    return backup&&wikiTurnRef.current>8?backup:null;
   };
   const fetchWiki=async(lat,lng,langCode)=>{
     try{
       const wl=(["ru","uk","es","de","fr","pt"].includes(langCode))?langCode:"en";
-      const base=`https://${wl}.wikipedia.org/w/api.php`;
+      const langs=wl==="en"?["en"]:[wl,"en"];
       const used=wikiCacheRef.current;
-      // v129: every few turns, go thematic BEFORE nearby CDP stubs: film, literature, records, people, water, transport.
-      const themeFirst=(wikiTurnRef.current>3&&wikiTurnRef.current%2===0);
+      const themeFirst=(wikiTurnRef.current>2&&wikiTurnRef.current%2===0);
+      const tryThematic=async(lang)=>{
+        const base=`https://${lang}.wikipedia.org/w/api.php`;
+        const queries=wikiBuildSearchQueries(locDataRef.current||{});
+        const start=(wikiTurnRef.current*7)%Math.max(1,queries.length);
+        let best=null,bestScore=-999;
+        for(let i=0;i<18&&i<queries.length;i++){
+          const q=queries[(start+i)%queries.length];
+          const got=await wikiSearchByQuery(base,q,used,lang);
+          if(got&&got.extract){const sc=wikiArticleScore(got);if(sc>bestScore){best=got;bestScore=sc;}}
+        }
+        return best;
+      };
       if(themeFirst){
-        const queries0=wikiBuildSearchQueries(locDataRef.current||{});
-        const start0=(wikiTurnRef.current||0)%Math.max(1,queries0.length);
-        for(let i=0;i<12&&i<queries0.length;i++){
-          const q=queries0[(start0+i)%queries0.length];
-          const got=await wikiSearchByQuery(base,q,used);
-          if(got&&got.extract){wikiRecentTitlesRef.current=[...wikiRecentTitlesRef.current,got.title].slice(-20);return{title:got.title,dist:null,extract:got.extract,_query:q,_thematic:true};}
-        }
+        for(const lang of langs){const got=await tryThematic(lang);if(got&&!wikiIsWeakStub(got)){wikiRecentTitlesRef.current=[...wikiRecentTitlesRef.current,got.title].slice(-30);return got;}}
       }
-      // 1) Geosearch by rings (nearby real articles). It is useful, but do not let CDP stubs dominate forever.
-      let pages=[];
-      for(const radius of [10000,25000,50000,90000]){
-        const u=`${base}?action=query&list=geosearch&gscoord=${lat}%7C${lng}&gsradius=${radius}&gslimit=30&format=json&origin=*`;
-        try{const r=await fetch(u);const d=await r.json();const got=(d.query&&d.query.geosearch)||[];
-          for(const p of got){if(!pages.find(x=>x.pageid===p.pageid))pages.push(p);}
-        }catch{}
-        if(pages.length>=12)break;
+      for(const lang of langs){
+        const base=`https://${lang}.wikipedia.org/w/api.php`;
+        const got=await wikiNearbyBest(base,lat,lng,used,lang);
+        if(got&&!wikiIsWeakStub(got)){wikiRecentTitlesRef.current=[...wikiRecentTitlesRef.current,got.title].slice(-30);return got;}
       }
-      // Try two nearby pages, but skip obvious repeated tiny settlement stubs after the first few turns.
-      for(const p of pages){
-        if(!p||used[p.pageid])continue;
-        used[p.pageid]=true;
-        const got=await fetchWikiExtractByTitle(base,p.title);
-        if(got&&got.extract){
-          got.dist=p.dist;
-          got._geo=true;
-          wikiRecentTitlesRef.current=[...wikiRecentTitlesRef.current,got.title].slice(-20);
-          return{title:got.title,dist:p.dist,extract:got.extract,_geo:true,_query:"geosearch"};
-        }
-      }
-      // 2) Thematic search: if the immediate map is thin, go to literature, film, records, people, water, transport, parks, newspapers.
-      const queries=wikiBuildSearchQueries(locDataRef.current||{});
-      const start=(wikiTurnRef.current||0)%Math.max(1,queries.length);
-      for(let i=0;i<10&&i<queries.length;i++){
-        const q=queries[(start+i)%queries.length];
-        const got=await wikiSearchByQuery(base,q,used);
-        if(got&&got.extract){wikiRecentTitlesRef.current=[...wikiRecentTitlesRef.current,got.title].slice(-20);return{title:got.title,dist:null,extract:got.extract,_query:q,_thematic:true};}
-      }
-      // 3) Fallback by name so we NEVER come up empty: nearest town → county → state.
+      for(const lang of langs){const got=await tryThematic(lang);if(got){wikiRecentTitlesRef.current=[...wikiRecentTitlesRef.current,got.title].slice(-30);return got;}}
+      // Name fallback: city -> upcoming city -> county -> state. English is allowed as fallback; renderer will summarize safely.
       const ld=locDataRef.current||{};
       const cands=[];
       if(ld.city)cands.push(`${ld.city}, ${ld.state||""}`.replace(/, $/,""),ld.city);
@@ -874,15 +892,35 @@ function App(){
       if(ca&&ca.name)cands.push(`${ca.name}, ${ld.state||""}`.replace(/, $/,""),ca.name);
       if(ld.county)cands.push(`${ld.county}, ${ld.state||""}`.replace(/, $/,""),ld.county);
       if(ld.state)cands.push(ld.state);
-      for(const name of cands){
-        if(!name||name.length<2)continue;
-        const key="title:"+name.toLowerCase();
-        if(used[key])continue;
-        const got=await fetchWikiExtractByTitle(base,name);
-        used[key]=true;
-        if(got&&got.extract){wikiRecentTitlesRef.current=[...wikiRecentTitlesRef.current,got.title].slice(-20);return{title:got.title,dist:null,extract:got.extract,_query:"title"};}
+      let best=null,bestScore=-999;
+      for(const lang of langs){
+        const base=`https://${lang}.wikipedia.org/w/api.php`;
+        for(const name of cands){
+          if(!name||name.length<2)continue;
+          const key=`title:${lang}:${name.toLowerCase()}`;
+          if(used[key])continue;
+          used[key]=true;
+          const got=await fetchWikiExtractByTitle(base,name,lang);
+          if(got&&got.extract){got._query="title";const sc=wikiArticleScore(got);if(sc>bestScore){best=got;bestScore=sc;}}
+        }
       }
-      return null;
+      return best;
+    }catch{return null;}
+  };
+
+  const fetchGdeltLocalNews=async(geo={})=>{
+    try{
+      const g=geo||locDataRef.current||{};
+      const city=(g.city||g.name||"").trim();const county=(g.county||"").trim();const state=(g.state||"").trim();
+      const q=[city,county,state].filter(Boolean).join(" ");
+      if(q.length<4)return null;
+      const key=q.toLowerCase();const cached=wikiNewsCacheRef.current[key];
+      if(cached&&Date.now()-cached.t<20*60*1000)return cached.items;
+      const url=`https://api.gdeltproject.org/api/v2/doc/doc?query=${encodeURIComponent(q)}&mode=ArtList&format=json&maxrecords=8&sort=HybridRel&timespan=7d`;
+      const r=await fetch(url);const d=await r.json();
+      const arts=(d.articles||[]).map(a=>({title:String(a.title||"").replace(/\s+/g," ").trim(),domain:a.domain||"",date:a.seendate||""})).filter(a=>a.title.length>25&&!/obituary|funeral|mugshot|arrest/i.test(a.title)).slice(0,5);
+      wikiNewsCacheRef.current[key]={t:Date.now(),items:arts};
+      return arts;
     }catch{return null;}
   };
 
@@ -1675,7 +1713,7 @@ Return exactly one JSON array with ${plan.length||4} items in this order. Every 
       const cost=(tin-tcache)/1e6*0.25+tcache/1e6*0.025+tout/1e6*1.50;
       const perHour=durMin>0?cost/durMin*60:0;
       lines.push("");lines.push("=".repeat(60));
-      lines.push("SUMMARY (v129 wiki-atlas-buffer)");
+      lines.push("SUMMARY (v130 wiki-atlas-buffer+)");
       lines.push(`  duration: ${durMin.toFixed(1)} min`);
       lines.push(`  Gemini requests: ${gm.length}   aired: ${aired}   rejected: ${rej}`);
       lines.push(`  input tokens: ${tin.toLocaleString()}   output: ${tout.toLocaleString()}   cached: ${tcache.toLocaleString()} (${tin?Math.round(tcache/tin*100):0}%)`);
@@ -1692,9 +1730,8 @@ Return exactly one JSON array with ${plan.length||4} items in this order. Every 
     setTimeout(()=>{document.body.removeChild(a);URL.revokeObjectURL(url);},1000);
   };
 
-  // v129 WikiRadio: FREE atlas-style narrator with its own buffer and its own rules.
-  // Goal: no paid API, no self-commentary, no long gaps. If the exact point is thin, expand to county/state themes:
-  // literature, film, local records, achievements, transport, water, parks, people, weather, and OSM landmarks.
+  // v130 WikiRadio: free atlas host with a real pre-buffer and a stronger source ladder.
+  // It never uses Gemini. It should not explain its own algorithm; it should turn free facts into a useful quiet broadcast.
   const wikiRadioIdxRef=useRef(0);
   const wikiNoDataIdxRef=useRef(0);
   const wikiRejectedRetryRef=useRef(0);
@@ -1704,36 +1741,60 @@ Return exactly one JSON array with ${plan.length||4} items in this order. Every 
   const wikiMemoryRef=useRef({hashes:[],titles:[],entities:[],openers:[],poi:[],fallback:0,lastKind:"",kindCounts:{}});
 
   const WIKI_RUBRICS_RU={
-    place:["О месте.","По карте рядом.","Точка на карте.","География стоянки.","Округ ближе.","Местность вокруг.","Рядом на карте."],
+    place:["О месте.","По карте рядом.","География стоянки.","Местность вокруг.","Рядом на карте.","Точка и округ."],
     water:["О воде.","Вода рядом.","Река и берега.","Озеро рядом.","Водная сторона места.","Береговая деталь."],
     history:["Из старой истории.","Немного прошлого.","Старая глава.","Историческая нить.","Прошлое рядом.","О времени до нас."],
     wildlife:["Живая природа.","О птицах и зверях.","Природа рядом.","Живой мир вокруг.","Кто тут живёт."],
     land:["О земле.","Рельеф и почва.","Здешний ландшафт.","Как устроена земля.","Под ногами."],
     people:["О людях.","Человеческая нить.","Имена на карте.","Кто оставил след.","О местной памяти."],
-    road:["О дороге.","Дорожная нить.","Трасса и карта.","Куда ведёт дорога.","О линии на карте."],
+    road:["О дороге.","Дорожная нить.","Трасса и карта.","Линия маршрута.","О движении вокруг."],
     weather:["Погода у точки.","Небо сейчас.","Воздух вокруг стоянки.","По погоде.","Ветер и свет."],
     state:["Шире по штату.","Круг шире.","Большая карта.","Штат как рамка.","От точки — к штату."],
-    poi:["Ориентир рядом.","Метка на карте.","Ещё одна точка рядом.","По открытой карте.","Маленький ориентир."],
-    films:["Кино и экран.","Экранная нитка.","О фильмах рядом.","Камера любит такие места.","Немного кино."],
+    poi:["Ориентир рядом.","Ещё одна точка рядом.","По открытой карте.","Маленький ориентир.","Метка поблизости."],
+    films:["Кино и экран.","Экранная нитка.","О фильмах рядом.","Немного кино.","Место в кадре."],
     literature:["Литературная нить.","О книгах и местах.","Место в тексте.","Писатели и эта земля.","Страница рядом."],
     music:["Музыкальная нить.","О местном звуке.","Музыка вокруг карты.","Сцена и дорога.","Звучание штата."],
     records:["Рекорды и странности.","Чем место отметилось.","Достижения рядом.","Необычная отметка.","Факт с краю карты."],
-    news:["Из газетной памяти.","Местная хроника.","Городская заметка.","О том, что попадало в новости.","Хроника округа."],
+    news:["Из свежей хроники.","Местная новостная лента.","Городская заметка.","Что попало в новости.","Хроника округа."],
     quiet:["Не торопимся.","Спокойный эфир продолжается.","Без спешки.","Пока стоим — слушаем место.","Мягко продолжаем."]
   };
-  const WIKI_RUBRICS_EN={place:["About this place.","Nearby on the map."],water:["Water nearby."],history:["A bit of older history."],wildlife:["Wildlife nearby."],land:["About the land."],people:["People on the map."],road:["About the road."],weather:["Weather at this spot."],state:["Zooming out."],poi:["One nearby marker."],films:["On screen."],literature:["In writing."],music:["Local sound."],records:["Records and oddities."],news:["From local chronicles."],quiet:["No rush."]};
+  const WIKI_RUBRICS_EN={place:["About this place.","Nearby on the map."],water:["Water nearby."],history:["A bit of older history."],wildlife:["Wildlife nearby."],land:["About the land."],people:["People on the map."],road:["About the road."],weather:["Weather at this spot."],state:["Zooming out."],poi:["One nearby marker."],films:["On screen."],literature:["In writing."],music:["Local sound."],records:["Records and oddities."],news:["Local headlines."],quiet:["No rush."]};
 
+  const wikiRegionFlavor=(g={})=>{
+    const st=String(g.state||locDataRef.current?.state||"").toLowerCase();
+    if(/florida|флорида/.test(st))return{region:"центральной Флориде",water:"озёра, источники, каналы, река Сент-Джонс и влажные низины",land:"плоская земля, песчаные почвы, сосновые участки и пальметто",road:"пригородные шоссе, аэропорты, склады и развязки",nature:"аллигаторы, водные птицы, черепахи, рысь и зелёные коридоры у воды"};
+    return{region:"этом регионе",water:"ручьи, озёра, водоёмы, низины и дренажные линии",land:"почва, рельеф, лесные пятна и открытые участки",road:"дороги, съезды, склады, заправки и жилые районы",nature:"птицы, мелкие животные, деревья, вода и сезонная погода"};
+  };
+  const nearbyPoiLine=()=>{try{const arr=(nearbyPOI||[]).filter(Boolean).slice(0,4);return arr.length?`На карте рядом уже есть ориентиры: ${arr.join(", ")}.`:"";}catch{return"";}};
   const WIKI_ATLAS_RU=[
-    g=>`Округ как каркас. ${wikiCountyLine(g)} В такой точке интерес часто держится не на одной достопримечательности, а на связке: где проходит дорога, где лежит вода, где выросли жилые районы и куда тянется ближайший большой город.`,
-    g=>`О воде рядом. ${wikiPlaceLine(g)} В центральной Флориде вода редко бывает просто фоном: озёра, каналы, низины и заболоченные участки объясняют, почему дороги и кварталы здесь идут именно так.`,
-    g=>`О дороге. ${wikiRoadLine()} На стоянке дорога не исчезает из эфира: она показывает, почему рядом появляются склады, заправки, мотели, развязки и маленькие названия на карте.`,
-    g=>`О погоде как о факте. ${wikiWeatherLine()} Для водителя это не открытка, а практичная часть места: ветер, гроза, жара или влажность меняют то, как слышится даже обычная пауза.`,
-    g=>`О людях вокруг карты. ${wikiCountyLine(g)} В каждом округе есть обычная, но важная география: школы, суды, маленькие центры, старые улицы, новые районы и дороги, которые каждый день собирают людей в один поток.`,
-    g=>`О старой карте. ${wikiPlaceLine(g)} Если рядом нет громкого музея, можно смотреть иначе: что здесь было сначала — вода, дорога, железная дорога, фермы, аэропорт или пригородный рост.`,
-    g=>`О природе. ${wikiWeatherLine()} В таком климате природа слышна даже без большого рассказа: влажный воздух, птицы у воды, низкая земля и зелёные коридоры вокруг жилых районов делают место узнаваемым.`,
-    g=>`О большом масштабе. ${wikiCountyLine(g)} Если точка молчит, округ говорит шире: транспорт, вода, жильё, старые поселения и соседство с большим городом дают материал для спокойного эфира.`,
-    g=>`О кино и карте. ${wikiPlaceLine(g)} Даже когда конкретная съёмочная история не найдена, такие места часто работают как готовая декорация: дороги, пригороды, аэропорты, старые улицы и влажный южный свет.`,
-    g=>`О достижениях без фанфар. ${wikiCountyLine(g)} Рекорды не всегда выглядят как табличка у дороги: иногда это быстрый рост района, необычная природная зона, старая транспортная роль или местный человек, чья работа вышла за пределы округа.`
+    g=>{const f=wikiRegionFlavor(g);return `Округ как каркас. ${wikiCountyLine(g)} Вокруг такой стоянки главное — связка: дорога, вода, жильё, работа и ближайший большой город. По этим линиям обычно и читается настоящий характер округа.`},
+    g=>{const f=wikiRegionFlavor(g);return `О воде. В ${f.region} вода редко бывает фоном. ${f.water} объясняют, где идут дороги, почему одни места быстро застраиваются, а другие остаются зелёными и низкими.`},
+    g=>`О дороге. ${wikiRoadLine()} Дороги здесь не только ведут машину: вокруг них собираются склады, заправки, мотели, аэропорты, сервисы и маленькие районы, которые водитель видит раньше туриста.`,
+    g=>`По погоде. ${wikiWeatherLine()} Для стоянки это практический слой эфира: ветер, жара, гроза или влажность сразу меняют ощущение места, даже если машина не движется.`,
+    g=>{const f=wikiRegionFlavor(g);return `О земле. В ${f.region} местность часто читается через ${f.land}. Рельеф кажется тихим, но именно он решает, где держится вода, где кладут дорогу и где появляются кварталы.`},
+    g=>`О людях. ${wikiCountyLine(g)} Округ держится на обычной инфраструктуре: школы, суды, больницы, склады, малый бизнес и дороги каждый день собирают людей в один понятный ритм.`,
+    g=>{const f=wikiRegionFlavor(g);return `Живая природа. Для ${f.region} характерны ${f.nature}. Даже короткая остановка рядом с дорогой стоит внутри этой экосистемы, а не отдельно от неё.`},
+    g=>`О старой карте. ${wikiPlaceLine(g)} У большинства американских городков сначала были вода, земля, дорога или железная дорога — и только потом привычные жилые кварталы и торговые зоны.`,
+    g=>`О пригородах. ${wikiCountyLine(g)} Быстрый рост таких мест обычно виден не в одном центре, а в цепочке жилых районов, парковок, школ, съездов и распределительных площадок.`,
+    g=>`О большой карте. ${wikiPlaceLine(g)} Если смотреть шире, стоянка превращается в узел: рядом округ, соседние населённые пункты, вода, погода и направление, откуда пришла дорога.`,
+    g=>`Кино и экран. Такие места часто попадают в кадр не как открытка, а как реальная Америка: пригороды, парковки, аэропорты, старые улицы, мокрый асфальт и обычные дороги между городами.`,
+    g=>`Литературная нить. У дороги тоже есть своя литература: маленькие города, влажный воздух, ночные стоянки, старые реки и люди, которые живут между большим городом и тишиной окраины.`,
+    g=>`Музыкальная нить. В таких округах музыка обычно держится не только на больших сценах: церковные залы, школьные площадки, бары, парки и фестивали часто важнее громкой афиши.`,
+    g=>`О достижениях. ${wikiCountyLine(g)} Иногда достижение округа — не рекорд на табличке, а то, как он связал жильё, аэропорт, дороги, воду и работу в одну живую систему.`,
+    g=>`Из местной хроники. Для таких мест новости чаще всего рождаются из простых вещей: погода, трафик, школы, строительство, аэропорт, спорт, вода и решения местных властей.`,
+    g=>`О соседях на карте. ${nearbyPoiLine()||wikiPlaceLine(g)} Соседние названия помогают не списком, а рисунком: где кончается один район, начинается другой и как всё это связано дорогой.`,
+    g=>`О вечерней стоянке. ${wikiWeatherLine()} Когда машина стоит, место раскрывается медленнее: сначала погода, потом ближайшие названия, потом округ, а уже потом старые истории и большие связи.`,
+    g=>`О транспорте. ${wikiCountyLine(g)} У транспортных мест всегда есть скрытая логика: аэропорт, железная дорога, шоссе или речной путь часто объясняют рост лучше, чем вывески у дороги.`,
+    g=>`О воде и работе. Вода рядом влияет не только на природу: она меняет землю, строительство, страхование, отдых, рыбалку, дренаж и то, как город держится после сильного дождя.`,
+    g=>`О дороге и памяти. Старые маршруты редко исчезают полностью: они остаются в названиях улиц, в форме кварталов, в мостах, насыпях, складах и привычных направлениях местных поездок.`,
+    g=>`О малых местах. Не каждое название рядом станет достопримечательностью, но каждое помогает собрать карту: тут люди живут, возят детей в школу, работают, покупают еду и возвращаются домой.`,
+    g=>`О городе рядом. ${wikiPlaceLine(g)} Вокруг таких городов часто видно сразу две Америки: старая центральная часть и новые жилые кольца, которые растут ближе к трассам.`,
+    g=>`О природе у дороги. Дорога кажется отдельной от природы, но рядом с ней всегда идут кюветы, водоотводы, деревья, птицы и маленькие животные, которые пользуются теми же коридорами земли.`,
+    g=>`О рабочем округе. ${wikiCountyLine(g)} За тихой стоянкой обычно стоит большая бытовая машина: доставка, склады, сервисы, ремонты, еда, медицина и всё, что держит округ каждый день.`,
+    g=>`О старых именах. Названия городов, рек и районов часто переживают людей, которые их придумали. Именно поэтому карта звучит как архив: каждое имя где-то начиналось с человека, племени, семьи или дороги.`,
+    g=>`О климате. ${wikiWeatherLine()} Климат — не только цифра на экране: он объясняет зелень, крыши, тень, парковки, привычки людей и даже то, почему местные дороги так быстро меняют настроение после дождя.`,
+    g=>`О рекордах без витрины. Рекордом может быть не только “самый большой”. Для дороги интересны и другие отметки: первый мост, старый вокзал, необычная коллекция, редкая птица или район, выросший быстрее соседей.`,
+    g=>`О карте как о живом месте. ${nearbyPoiLine()||wikiCountyLine(g)} В эфире важны не только знаменитости. Иногда достаточно увидеть связь между дорогой, водой, погодой и ближайшим названием.`
   ];
   const WIKI_ATLAS_EN=[
     g=>`County as a frame. ${wikiPlaceLine(g)} The story is often the mix: road, water, neighborhoods, weather, and the nearest larger city.`,
@@ -1755,12 +1816,12 @@ Return exactly one JSON array with ${plan.length||4} items in this order. Every 
   };
   const splitSents=(txt)=>{
     const arr=cleanWikiText(txt).match(/[^.!?]+[.!?]+/g)||[];
-    return arr.map(x=>x.trim()).filter(x=>x.length>35&&!/англ\.|произн|координат|населени[ея][^.!?]*(2000|2008|2010)|перепис[ьи][^.!?]*(2000|2008|2010)|статистически|плотность населения|км²|человек на км/i.test(x)).slice(0,12);
+    return arr.map(x=>x.trim()).filter(x=>x.length>35&&!/англ\.|произн|координат|населени[ея][^.!?]*(2000|2008|2010)|перепис[ьи][^.!?]*(2000|2008|2010)|статистически|плотность населения|км²|человек на км|census-designated|population was|square miles|coordinates/i.test(x)).slice(0,12);
   };
   const wikiKind=(w)=>{
     const raw=((w?.title||"")+" "+(w?.extract||"")+" "+(w?._query||"")).toLowerCase();
     if(/film|cinema|movie|television|screen|снимал|съ[её]м|фильм|кино|телевиз|экран/.test(raw))return"films";
-    if(/literature|novel|book|writer|author|поэт|писател|роман|книга|литератур/.test(raw))return"literature";
+    if(/literature|novel|book|writer|author|poet|поэт|писател|роман|книга|литератур/.test(raw))return"literature";
     if(/record|largest|oldest|first|unique|unusual|рекорд|самый|первы[йм]|уникаль|необыч|достижен/.test(raw))return"records";
     if(/newspaper|news|chronicle|газет|новост|хроник|журнал/.test(raw))return"news";
     if(/music|song|band|singer|музык|песн|группа|исполнител|оркестр/.test(raw))return"music";
@@ -1780,9 +1841,9 @@ Return exactly one JSON array with ${plan.length||4} items in this order. Every 
     const mem=wikiMemoryRef.current;
     for(let i=0;i<arr.length;i++){
       const r=arr[(wikiRadioIdxRef.current+i)%arr.length];
-      if(!mem.openers.includes(r)){wikiRadioIdxRef.current+=i+1;mem.openers=[...mem.openers,r].slice(-8);return r;}
+      if(!mem.openers.includes(r)){wikiRadioIdxRef.current+=i+1;mem.openers=[...mem.openers,r].slice(-14);return r;}
     }
-    const r=arr[wikiRadioIdxRef.current++%arr.length];mem.openers=[...mem.openers,r].slice(-8);return r;
+    const r=arr[wikiRadioIdxRef.current++%arr.length];mem.openers=[...mem.openers,r].slice(-14);return r;
   };
   const wikiPlaceLine=(g={})=>{
     const ld=locDataRef.current||{};g=g||{};
@@ -1802,29 +1863,30 @@ Return exactly one JSON array with ${plan.length||4} items in this order. Every 
     const road=ld.highway||lm.road||"";
     const hdg=lm.heading||coordsRef.current?.heading||90;
     const dir=toDirWord?toDirWord(hdg,"ru"):"дальше";
-    if(!road)return isStationaryActive()?`Мы стоим на дорожной паузе. Если позже маршрут продолжится тем же курсом — на ${dir}, это будет уже следующая глава дороги.`:`Мы держим курс примерно на ${dir}.`;
-    return isStationaryActive()?`Мы стоим рядом с ${road}. Если позже маршрут продолжится тем же курсом — на ${dir}, это будет уже следующая глава дороги.`:`Мы держимся рядом с ${road}, курс примерно на ${dir}.`;
+    if(!road)return isStationaryActive()?`Мы стоим на дорожной паузе; если позже маршрут продолжится тем же курсом — на ${dir}, окружение начнёт меняться постепенно.`:`Мы держим курс примерно на ${dir}.`;
+    return isStationaryActive()?`Мы стоим рядом с ${road}; если позже маршрут продолжится тем же курсом — на ${dir}, это будет уже следующий участок карты.`:`Мы держимся рядом с ${road}, курс примерно на ${dir}.`;
   };
   const wikiWeatherLine=()=>{
     const w=weatherRef.current;
-    if(!w)return"Погода сейчас не успела обновиться, так что оставим её за кадром.";
+    if(!w)return"Погода сейчас не успела обновиться.";
     const day=w.is_day===0?"темно":"светло";
     return`Сейчас примерно ${Math.round(w.temp)}°F, ${w.desc||"погода спокойная"}, ветер около ${Math.round(w.wind||0)} миль в час, вокруг ${day}.`;
   };
   const wikiHash=(s)=>normHash(String(s||"").toLowerCase().replace(/\d+/g,"#").slice(0,650));
   const rememberWikiOutput=(res)=>{
     const mem=wikiMemoryRef.current;
-    const h=wikiHash(res.story||"");if(h)mem.hashes=[...mem.hashes,h].slice(-120);
-    const ent=String(res.entity||res.location||"").toLowerCase().slice(0,80);if(ent)mem.entities=[...mem.entities,ent].slice(-60);
-    if(res.location)mem.titles=[...mem.titles,String(res.location).toLowerCase()].slice(-60);
+    const h=wikiHash(res.story||"");if(h)mem.hashes=[...mem.hashes,h].slice(-180);
+    const ent=String(res.entity||res.location||"").toLowerCase().slice(0,100);if(ent)mem.entities=[...mem.entities,ent].slice(-100);
+    if(res.location)mem.titles=[...mem.titles,String(res.location).toLowerCase()].slice(-100);
+    const first=(String(res.story||"").match(/^[^.!?]+[.!?]/)||[""])[0].trim();if(first)mem.openers=[...mem.openers,first].slice(-22);
     const k=res._wikiKind||String(res.topics||"").replace(/^wiki:/,"")||"wiki";
     mem.kindCounts=mem.kindCounts||{};mem.kindCounts[k]=(mem.kindCounts[k]||0)+1;
   };
   const validateWikiBeforeAir=(res)=>{
     if(!res||!res.story)return{ok:false,reason:"wiki_empty"};
     try{res.story=cleanRussianStory(cleanWikiText(res.story));}catch{res.story=cleanWikiText(res.story);}
-    if(!res.story||res.story.length<90)return{ok:false,reason:"wiki_too_short"};
-    const bad=/\b(смена\s+частоты|бер[её]м\s+слой|следующая\s+метка|слот|директор|карточка|gemini|api|языковая\s+модель|искусственный\s+интеллект|статистически\s+обособленная|вот\s+такие\s+дела|секундная\s+пауза|точная\s+статья\s+не\s+находится|если\s+карта\s+говорит|ведущий\s+не\s+должен|радио\s+не\s+выдумывает|алгоритм|по\s+данным\s+переписи\s+2000|англ\.|произн)\b/i;
+    if(!res.story||res.story.length<110)return{ok:false,reason:"wiki_too_short"};
+    const bad=/\b(смена\s+частоты|бер[её]м\s+слой|следующая\s+метка|слот|директор|карточка|gemini|api|языковая\s+модель|искусственный\s+интеллект|статистически\s+обособленная|вот\s+такие\s+дела|секундная\s+пауза|точная\s+статья\s+не\s+находится|если\s+карта\s+говорит|ведущий\s+не\s+должен|радио\s+не\s+выдумывает|алгоритм|по\s+данным\s+переписи\s+2000|англ\.|произн|не\s+для\s+красоты|не\s+сами\s+по\s+себе|такая\s+справка\s+нужна|маленькие\s+названия\s+полезны|просто\s+держим|оставим\s+за\s+кадром)\b/i;
     if(bad.test(res.story))return{ok:false,reason:"wiki_junk_or_service"};
     if(isStationaryActive()&&/\b(мы\s+едем|двигаемся|скоро\s+поедем|продолжим\s+путь|набер[её]м\s+скорость|под\s+кол[её]сами)\b/i.test(res.story))return{ok:false,reason:"wiki_moving_while_stopped"};
     const h=wikiHash(res.story);
@@ -1833,7 +1895,24 @@ Return exactly one JSON array with ${plan.length||4} items in this order. Every 
     if(wikiMemoryRef.current.openers.includes(first))return{ok:false,reason:"wiki_stale_opener"};
     return{ok:true,res};
   };
-  const wikiSentenceTake=(w,kind)=>{
+  const wikiRoughEnTake=(w,kind,geo)=>{
+    let s=(String(w?.extract||"").match(/[^.!?]+[.!?]+/g)||[]).map(x=>x.trim()).filter(x=>x.length>40&&!/coordinates|square miles|population was|census|density/i.test(x)).slice(0,2).join(" ");
+    const title=cleanWikiTitle(w?.title||"");const county=geo?.county||locDataRef.current?.county||"этого округа";const state=geo?.state||locDataRef.current?.state||"штата";
+    if(!s)return"";
+    const low=s.toLowerCase();
+    if(/ is a city in /.test(low))return `${title} — город в ${county}, ${state}. В англоязычной энциклопедии эта точка описана как часть местной городской сети, а значит её стоит слушать вместе с дорогами, водой и соседними районами.`;
+    if(/ is a census-designated place|unincorporated community/.test(low))return `${title} — небольшая местность внутри ${county}, ${state}. Такие места редко звучат как достопримечательность, но именно из них складывается повседневная карта округа: жильё, съезды, школы, магазины и короткие местные поездки.`;
+    if(/ is an? .*airport|airport/.test(low))return `${title} связан с авиационной стороной этой территории. Для округа аэропорт — это не только пассажиры, но и рабочие места, логистика, гостиницы, аренда машин и постоянное движение вокруг подъездных дорог.`;
+    if(/ is an? .*river| river /.test(low))return `${title} — водная линия этой местности. Реки в таких местах объясняют старые маршруты, переправы, рыбалку, низины и то, почему дороги часто идут не прямо, а обходят воду.`;
+    if(/ is an? .*lake| lake /.test(low))return `${title} — озёрная часть карты. Озёра здесь работают как ориентир, место отдыха и причина, по которой рядом появляются парки, пристани, жилые кварталы и старые дороги.`;
+    if(/zoo|botanical/.test(low))return `${title} добавляет к округу природную и семейную сторону. Такие места важны не только туристам: они становятся местной привычкой, школьной экскурсией и заметной зелёной точкой на карте.`;
+    if(/historic|national register|district/.test(low))return `${title} — историческая зацепка рядом с этой точкой. Старая застройка и охраняемые места помогают понять, где у города была первая опора: дорога, вода, вокзал, площадь или деловой квартал.`;
+    if(/film|movie|television/.test(low))return `${title} связывает местность с экраном. Кино любит такие территории за узнаваемые дороги, старые фасады, аэропорты, пригороды и свет, который сразу даёт кадру ощущение настоящего места.`;
+    if(/writer|novel|author|poet/.test(low))return `${title} даёт этому району литературную нитку. Писатели часто замечают то, что водитель тоже слышит на паузе: воздух, воду, маленькие города и медленный ритм окраин.`;
+    return `${title} — заметная статья рядом с этой точкой. ${cleanWikiText(s).replace(/\b(is|was|are|were)\b/gi,"—").slice(0,220)}. Для стоянки это один спокойный факт, который расширяет карту вокруг ${county}.`;
+  };
+  const wikiSentenceTake=(w,kind,geo={})=>{
+    if((w?._lang||"")==="en"&&["ru","uk"].includes(langRef.current))return wikiRoughEnTake(w,kind,geo);
     const sents=splitSents(w?.extract||"");
     let use=sents;
     if(kind==="place")use=sents.filter(x=>!/населени|перепис|статистически|км²|density/i.test(x));
@@ -1850,26 +1929,26 @@ Return exactly one JSON array with ${plan.length||4} items in this order. Every 
     const place=geo?.city||locDataRef.current?.city||locDataRef.current?.name||"эта точка";
     const county=geo?.county||locDataRef.current?.county||"этот округ";
     const state=geo?.state||locDataRef.current?.state||"";
-    const take=wikiSentenceTake(w,kind);
-
+    const take=wikiSentenceTake(w,kind,geo);
+    if(kind==="place"&&/небольшая местность|census-designated|перепис|населени/i.test(ex)&&!take){return buildWikiAtlasSegment(geo,"place").story;}
     if(kind==="place"&&/небольшая местность|census-designated|перепис|населени/i.test(ex)){
-      return `${rubric} ${title} — небольшое название рядом с ${place}, внутри ${county}${state?`, ${state}`:""}. Такие точки не обязаны быть достопримечательностями: они показывают, где вокруг стоянки тянутся жилые кварталы, съезды, школы, магазины и обычные маршруты местных жителей. ${wikiWeatherLine()}`.trim();
+      return `${rubric} ${title} — одно из соседних названий рядом с ${place}, внутри ${county}${state?`, ${state}`:""}. ${take||"Такие места показывают повседневную географию округа: жилые кварталы, съезды, школы, магазины и короткие маршруты местных жителей."}`.trim();
     }
     if(kind==="state"&&/флорида|florida/i.test(rawTitle+" "+ex)){
       const fact=take||"Флорида — юго-восточный штат США с сильной ролью воды, туризма, сельского хозяйства и быстрорастущих городов.";
-      return `${rubric} От этой точки можно подняться до масштаба штата. ${fact} Для дороги это полезная рамка: климат, вода и расстояния здесь часто объясняют больше, чем одно название на карте.`.trim();
+      return `${rubric} От этой точки можно подняться до масштаба штата. ${fact} Для дороги это рамка: климат, вода и расстояния здесь часто объясняют больше, чем одно название на карте.`.trim();
     }
-    if(kind==="films")return `${rubric} ${title} связывает эту территорию с экраном. ${take||"Даже без громкой кинолокации регион даёт типичный материал для съёмок: дороги, пригороды, старые улицы, аэропорты и влажный южный свет."} Для стоянки это хороший ракурс: место становится не только точкой GPS, но и возможной декорацией.`.trim();
-    if(kind==="literature")return `${rubric} ${title} даёт этой земле книжный оттенок. ${take||"Литература часто запоминает не крупные трассы, а воздух, воду, людей и маленькие детали места."} Такие связи хорошо слушать на паузе: они расширяют карту без спешки.`.trim();
-    if(kind==="music")return `${rubric} ${title} добавляет к карте звуковую сторону. ${take||"Музыка вокруг таких мест обычно держится на пересечении дорог, местных площадок, церковных залов, баров и городских праздников."} Это не справка ради справки, а ещё один способ услышать территорию.`.trim();
-    if(kind==="records")return `${rubric} ${title} — не просто сухой факт, а отметка о том, чем территория выделялась. ${take||"У каждого района есть свои рекорды: самый старый объект, необычная природная зона, быстрый рост, редкий музей или первое для штата достижение."} Такие вещи и делают бесплатный эфир живым.`.trim();
-    if(kind==="news")return `${rubric} ${title} показывает, как место попадало в городскую хронику. ${take||"Местные новости обычно цепляются за дороги, погоду, школы, воду, аэропорты, спорт и людей, которые что-то изменили вокруг себя."} Это помогает слышать округ как живую территорию, а не как строку в справочнике.`.trim();
+    if(kind==="films")return `${rubric} ${title} связывает территорию с экраном. ${take||"Кино часто выбирает такие места за дороги, пригороды, аэропорты, старые улицы и влажный южный свет."} Для стоянки это хороший ракурс: место становится не только точкой GPS, но и возможной декорацией.`.trim();
+    if(kind==="literature")return `${rubric} ${title} даёт этой земле книжный оттенок. ${take||"Литература часто запоминает не крупные трассы, а воздух, воду, людей и маленькие детали места."} Такие связи расширяют карту без спешки.`.trim();
+    if(kind==="music")return `${rubric} ${title} добавляет к карте звуковую сторону. ${take||"Музыка вокруг таких мест держится на пересечении дорог, местных площадок, церковных залов, баров и городских праздников."} Это ещё один способ услышать территорию.`.trim();
+    if(kind==="records")return `${rubric} ${title} — отметка о том, чем территория выделялась. ${take||"У каждого района есть свои рекорды: старый объект, необычная природная зона, быстрый рост, редкий музей или первое для штата достижение."}`.trim();
+    if(kind==="news")return `${rubric} ${title} показывает, как место попадало в городскую хронику. ${take||"Местные новости чаще цепляются за дороги, погоду, школы, воду, аэропорты, спорт и людей, которые что-то изменили вокруг себя."}`.trim();
     if(kind==="place"&&/округ|county/i.test(rawTitle+" "+ex)){
       const fact=take||`${county} — административная рамка вокруг этой точки.`;
       return `${rubric} Мы смотрим чуть шире самой стоянки — на ${title}. ${fact} Через округ понятнее, почему здесь так идут дороги, где держится вода и почему городки растут именно вокруг этих узлов.`.trim();
     }
     if(take){
-      const tails={water:"Пока стоим, вода рядом помогает понять местность лучше любого сухого указателя.",history:"Такие старые детали хороши именно на стоянке: их можно слушать без спешки.",wildlife:"Живая природа здесь не требует громкой подачи — достаточно знать, кто делит с дорогой этот климат.",land:"Рельеф не говорит громко, но он решает, где будут дороги, дома, вода и тень.",people:"Иногда одно имя объясняет место лучше длинной справки.",road:"Дорога рядом отдыхает вместе с нами, но её история никуда не исчезает.",place:"Так маленькая точка на карте становится не пустым названием, а частью местной географии."};
+      const tails={water:"Вода рядом помогает понять местность лучше любого сухого указателя.",history:"Такие старые детали хорошо слушать на стоянке: без спешки и без лишнего шума.",wildlife:"Живая природа здесь не требует громкой подачи — достаточно знать, кто делит с дорогой этот климат.",land:"Рельеф не говорит громко, но решает, где будут дороги, дома, вода и тень.",people:"Иногда одно имя объясняет место лучше длинной справки.",road:"Дорога рядом отдыхает вместе с нами, но её история никуда не исчезает.",place:"Так маленькая точка на карте становится частью местной географии."};
       return `${rubric} ${title} — хороший ориентир для этой точки. ${take} ${tails[kind]||"Это спокойный, но полезный штрих к территории."}`.trim();
     }
     return buildWikiAtlasSegment(geo,kind).story;
@@ -1877,17 +1956,17 @@ Return exactly one JSON array with ${plan.length||4} items in this order. Every 
   const smartWikiRenderEn=(w,geo)=>{
     const title=cleanWikiTitle(w?.title||"this place");
     const kind=wikiKind(w);const rubric=pickWikiRubric(kind,false);
-    const take=wikiSentenceTake(w,kind);
+    const take=wikiSentenceTake(w,kind,geo);
     return take?`${rubric} ${title} is one nearby clue on the map. ${take} Since we're stopped, we'll keep it calm and use it as one useful layer around this spot.`:`${rubric} ${title} is nearby. The wider county map gives us the next useful thread.`;
   };
   const buildWikiWeatherSegment=(geo)=>{
     const isRu=["ru","uk"].includes(langRef.current);const g=geo||locDataRef.current||{};
     if(!isRu)return{story:`Weather at this spot. ${wikiWeatherLine()} The broadcast stays around the real conditions here.`,location:g.city||g.county||g.state||"",topics:"wiki-weather",entity:"wiki-weather-"+(wikiTurnRef.current++),_src:"wikiradio",_wiki:true,_dirTopic:"wiki",_wikiKind:"weather"};
     const variants=[
-      `Погода у точки. ${wikiWeatherLine()} Для стоянки это не украшение, а настоящая часть места: воздух, ветер и свет задают темп всему, что слышится вокруг.`,
-      `Небо сейчас. ${wikiWeatherLine()} Когда машина стоит, погода становится ближе: уже важны не мили, а воздух вокруг кабины.`,
-      `Воздух вокруг стоянки. ${wikiWeatherLine()} Это короткая, но полезная заставка: по ней понятнее, почему место звучит именно так.`,
-      `Ветер и свет. ${wikiWeatherLine()} Такая справка нужна не для красоты, а для ощущения реальной точки на карте.`
+      `Погода у точки. ${wikiWeatherLine()} На стоянке такая погода сразу меняет звук места: как дует ветер, насколько тяжёлый воздух и как быстро может измениться небо.`,
+      `Небо сейчас. ${wikiWeatherLine()} Когда машина стоит, вместо миль важнее воздух вокруг кабины: жара, влажность, свет и ветер.`,
+      `Воздух вокруг стоянки. ${wikiWeatherLine()} Это короткая погодная заставка перед следующей историей о месте.`,
+      `Ветер и свет. ${wikiWeatherLine()} Для водителя это часть территории так же, как дорога, заправка, вода и ближайший район.`
     ];
     const story=variants[wikiNoDataIdxRef.current++%variants.length];
     return{story,location:g.city||g.county||g.state||"",topics:"wiki-weather",entity:"wiki-weather-"+wikiNoDataIdxRef.current,_src:"wikiradio",_wiki:true,_dirTopic:"wiki",_wikiKind:"weather"};
@@ -1899,18 +1978,28 @@ Return exactly one JSON array with ${plan.length||4} items in this order. Every 
       const mem=wikiMemoryRef.current;
       const p=(pois||[]).find(x=>x&&x.name&&!mem.poi.includes(String(x.name).toLowerCase()));
       if(!p)return null;
-      mem.poi=[...mem.poi,String(p.name).toLowerCase()].slice(-60);
+      mem.poi=[...mem.poi,String(p.name).toLowerCase()].slice(-80);
       const name=String(p.name).replace(/\s+/g," ").trim();
-      const type=p.type||"poi";
+      const type=p.type||"poi";const dist=p.miles?` примерно в ${p.miles.toFixed(1)} мили`:(p.side?` ${p.side}`:"");
       let story="";
-      if(type==="water")story=`Вода рядом. На открытой карте рядом отмечен ${name}. Для стоянки это не просто синее пятно: водоёмы часто объясняют, где появились дороги, поселения, рыбалка и места отдыха.`;
-      else if(type==="park")story=`Зелёное пятно на карте. Рядом отмечен ${name}. Парки показывают бытовую сторону округа: где люди гуляют, ищут тень, выводят детей и делают короткую паузу от дороги.`;
-      else if(type==="historic")story=`Старая отметка рядом. На карте есть ${name}. Даже без длинной лекции это знак, что в этой точке кто-то сохранил кусочек прошлого, а значит территория помнит больше, чем видно с парковки.`;
-      else if(type==="place")story=`Соседнее название. Рядом на карте есть ${name}. Такие точки полезны не сами по себе, а как часть окружения: они показывают, из каких маленьких поселений, дорог и кварталов складывается округ.`;
-      else if(type==="bridge")story=`Дорожная деталь. Рядом отмечен ${name}. Мосты и переходы почти всегда рассказывают простую вещь: здесь дорога встретилась с водой, низиной или старым маршрутом.`;
-      else story=`Ориентир рядом. На карте есть ${name}. Для бесплатного эфира это честная зацепка: не легенда из воздуха, а реальная метка в окружении этой точки.`;
+      if(type==="water")story=`Вода рядом. На открытой карте отмечен ${name}${dist}. Водоёмы здесь важны как ориентиры: они тянут к себе парки, рыбалку, мосты, дренажные каналы и старые дороги.`;
+      else if(type==="park")story=`Зелёное пятно на карте. Рядом отмечен ${name}${dist}. Парки показывают бытовую сторону округа: где люди гуляют, ищут тень, выводят детей и делают короткую паузу от дороги.`;
+      else if(type==="historic")story=`Старая отметка рядом. На карте есть ${name}${dist}. Это знак, что в этой точке кто-то сохранил кусочек прошлого: здание, памятник, кладбище, старую дорогу или место местной памяти.`;
+      else if(type==="place")story=`Соседний район. Рядом на карте есть ${name}${dist}. Такие места помогают понять округ через жизнь людей: где стоят дома, где идут съезды, где появляются школы, магазины и рабочие маршруты.`;
+      else if(type==="bridge")story=`Дорожная деталь. Рядом отмечен ${name}${dist}. Мосты и переходы почти всегда рассказывают простую вещь: здесь дорога встретилась с водой, низиной или старым маршрутом.`;
+      else story=`Ориентир рядом. На карте есть ${name}${dist}. Это честная зацепка бесплатного эфира: реальная метка возле стоянки, вокруг которой уже можно читать место.`;
       return{story,location:name,topics:"wiki-poi",entity:name,_src:"wikiradio",_wiki:true,_dirTopic:"wiki",_wikiKind:"poi"};
     }catch{return null;}
+  };
+  const buildWikiNewsSegment=async(geo)=>{
+    const isRu=["ru","uk"].includes(langRef.current);if(!isRu)return null;
+    const arts=await Promise.race([fetchGdeltLocalNews(geo),new Promise(r=>setTimeout(()=>r(null),5500))]);
+    if(!arts||!arts.length)return null;
+    const a=arts.find(x=>x.title&&!wikiMemoryRef.current.entities.includes("news:"+x.title.toLowerCase().slice(0,80)))||arts[0];
+    const ent="news:"+a.title.toLowerCase().slice(0,80);
+    const where=(geo?.city||locDataRef.current?.city||geo?.county||locDataRef.current?.county||"этой территории");
+    const story=`Из свежей хроники. По новостной ленте вокруг ${where} сейчас всплывает заголовок: «${a.title}». Без пересказа лишнего: сам факт появления такой темы уже показывает, чем живёт местная повестка рядом с дорогой.`;
+    return{story,location:where,topics:"wiki-news",entity:ent,_src:"wikiradio",_wiki:true,_dirTopic:"wiki",_wikiKind:"news"};
   };
   const buildWikiAtlasSegment=(geo,forceKind="")=>{
     const isRu=["ru","uk"].includes(langRef.current);
@@ -1922,23 +2011,24 @@ Return exactly one JSON array with ${plan.length||4} items in this order. Every 
       const h=wikiHash(story);
       if(!wikiMemoryRef.current.hashes.includes(h)&&!spokenHashRef.current.has(h)){wikiNoDataIdxRef.current=idx+1;return {story,location:g.city||g.county||g.state||"",topics:"wiki-atlas",entity:"wiki-atlas-"+wikiNoDataIdxRef.current,_src:"wikiradio",_wiki:true,_dirTopic:"wiki",_wikiKind:forceKind||"atlas"};}
     }
-    const story=isRu?`Округ держит эфир. ${wikiCountyLine(g)} Дальше можно идти по реальным слоям: вода, дороги, люди, природа, экранные упоминания и старые заметки этой территории.`:`The county keeps the broadcast going. ${wikiPlaceLine(g)}`;
+    const story=isRu?`Круг держится. ${wikiCountyLine(g)} Вода, дороги, люди, природа и погода дают достаточно материала, чтобы продолжать спокойный бесплатный эфир вокруг этой стоянки.`:`The county keeps the broadcast going. ${wikiPlaceLine(g)}`;
     return{story,location:g.city||g.county||g.state||"",topics:"wiki-atlas",entity:"wiki-atlas-last-"+(Date.now()%100000),_src:"wikiradio",_wiki:true,_dirTopic:"wiki",_wikiKind:forceKind||"atlas"};
   };
   const buildWikiSingleSegment=async(lat,lng,geo)=>{
     const isRu=["ru","uk"].includes(langRef.current);
     const turn=wikiTurnRef.current++;
-    // Rotate sources. The point is not to be a Wikipedia reader, but a free atlas host.
-    if(turn>0&&turn%4===1){const poi=await buildWikiPoiSegment(lat,lng,geo);if(poi){const g=validateWikiBeforeAir(poi);if(g.ok)return g.res;}}
-    if(turn>0&&turn%6===2){const wx=buildWikiWeatherSegment(geo);const g=validateWikiBeforeAir(wx);if(g.ok)return g.res;}
+    // Rotate sources: POI → weather → news → Wikipedia → atlas. The listener hears content, not mechanics.
+    if(turn>0&&turn%3===1){const poi=await buildWikiPoiSegment(lat,lng,geo);if(poi){const g=validateWikiBeforeAir(poi);if(g.ok)return g.res;}}
+    if(turn>0&&turn%5===2){const wx=buildWikiWeatherSegment(geo);const g=validateWikiBeforeAir(wx);if(g.ok)return g.res;}
+    if(turn>5&&turn%9===4){const ns=await buildWikiNewsSegment(geo);if(ns){const g=validateWikiBeforeAir(ns);if(g.ok)return g.res;}}
     for(let attempt=0;attempt<8;attempt++){
-      const w=await Promise.race([fetchWiki(lat,lng,langRef.current),new Promise(r=>setTimeout(()=>r(null),6000))]);
+      const w=await Promise.race([fetchWiki(lat,lng,langRef.current),new Promise(r=>setTimeout(()=>r(null),6500))]);
       if(w&&w.extract){
-        const ent=String(w.title||"").toLowerCase();
+        const ent=String((w._lang||"")+":"+(w.title||"")).toLowerCase();
         if(wikiMemoryRef.current.entities.includes(ent))continue;
         const story=isRu?smartWikiRenderRu(w,geo):smartWikiRenderEn(w,geo);
         const kind=wikiKind(w);
-        const res={story,location:w.title,topics:"wiki:"+kind,entity:w.title,_src:"wikiradio",_wiki:true,_dirTopic:"wiki",_wikiKind:kind};
+        const res={story,location:w.title,topics:"wiki:"+kind,entity:ent,_src:"wikiradio",_wiki:true,_dirTopic:"wiki",_wikiKind:kind};
         const gate=validateWikiBeforeAir(res);
         if(gate.ok)return gate.res;
         const h=wikiHash(res.story);if(h)rejectedHashRef.current.add(h);
@@ -1946,20 +2036,21 @@ Return exactly one JSON array with ${plan.length||4} items in this order. Every 
       }
     }
     const poi=await buildWikiPoiSegment(lat,lng,geo);if(poi){const g=validateWikiBeforeAir(poi);if(g.ok)return g.res;}
+    const ns=await buildWikiNewsSegment(geo);if(ns){const gn=validateWikiBeforeAir(ns);if(gn.ok)return gn.res;}
     const wx=buildWikiWeatherSegment(geo);const gw=validateWikiBeforeAir(wx);if(gw.ok&&turn%2===0)return gw.res;
     return buildWikiAtlasSegment(geo);
   };
-  const fillWikiQueue=async(lat,lng,geo,target=5)=>{
+  const fillWikiQueue=async(lat,lng,geo,target=8)=>{
     if(wikiFillingRef.current)return;
     wikiFillingRef.current=true;
     try{
       const g=geo||locDataRef.current||{};
       const started=Date.now();let guard=0;
-      while(wikiQueueRef.current.length<target&&guard++<target+5){
+      while(wikiQueueRef.current.length<target&&guard++<target+8){
         const seg=await buildWikiSingleSegment(lat,lng,g);
         const gate=validateWikiBeforeAir(seg);
         if(gate.ok){wikiQueueRef.current.push(gate.res);}
-        if(Date.now()-started>14000)break;
+        if(Date.now()-started>20000)break;
       }
       airLogRef.current.push({t:new Date().toISOString(),_ms:Date.now(),status:"WIKI_BUFFER",note:`queue:${wikiQueueRef.current.length}`});
     }catch(e){airLogRef.current.push({t:new Date().toISOString(),_ms:Date.now(),status:"WIKI_BUFFER_ERR",note:String(e&&e.message||e).slice(0,160)});}
@@ -1969,12 +2060,12 @@ Return exactly one JSON array with ${plan.length||4} items in this order. Every 
     const g=geo||locDataRef.current||{};
     if(wikiQueueRef.current.length){
       const seg=wikiQueueRef.current.shift();
-      setTimeout(()=>fillWikiQueue(lat,lng,g,5),60);
+      setTimeout(()=>fillWikiQueue(lat,lng,g,8),20);
       return seg;
     }
-    // No silence: return one real atlas/weather/map block if network is slow, and start filling the queue behind it.
+    // No silence: immediately speak a real atlas block, while the fuller source queue is prepared in the background.
     const quick=buildWikiAtlasSegment(g);
-    setTimeout(()=>fillWikiQueue(lat,lng,g,5),60);
+    setTimeout(()=>fillWikiQueue(lat,lng,g,8),20);
     return quick;
   };
 
@@ -2862,9 +2953,9 @@ ${planStr}
       prevPlaceRef.current=locDataRef.current.city||"";
       setStatus("ready");startCd(3);
       prefetch();                       // no-op in v76 (flag off), kept for later
-      // v129 WikiRadio buffer: while this free block is being spoken, prepare 5 more blocks ahead.
+      // v130 WikiRadio buffer: while this free block is being spoken, prepare 5 more blocks ahead.
       if(runRef.current&&wikiModeRef.current){
-        try{const cc=coordsRef.current||c;fillWikiQueue(cc.lat,cc.lng,locDataRef.current||{},5);}catch{}
+        try{const cc=coordsRef.current||c;fillWikiQueue(cc.lat,cc.lng,locDataRef.current||{},8);}catch{}
       }
       // v104 ГЛАВНОЕ ПРОТИВ ПАУЗ: пока диктор ГОВОРИТ этот блок (~40-60 сек), в фоне уже готовим
       // следующую тройку. Раньше запрос уходил только после того, как очередь опустеет → тишина 40-60 сек.
