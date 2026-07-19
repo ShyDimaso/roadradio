@@ -289,7 +289,7 @@ body{font-family:'Inter',sans-serif;color:#fff;}
 const {useState,useRef,useEffect}=React;
 const PROXY="https://corsproxy.io/?https://api.anthropic.com/v1/messages";
 const KEY_STORE="rr_key_v3";
-const VER="v121";
+const VER="v122";
 // v76 MEMORY DIAGNOSTIC: prefetch & buffer OFF so every spoken segment goes through one gate.
 const PREFETCH_ENABLED=false;
 const BUFFER_ENABLED=false;
@@ -299,7 +299,7 @@ const OPENERS_EN=["On this land...","Here's something few know...","Just to your
 
 const TRAVEL=[{id:"car",icon:"🚗",en:"Car",ru:"Машина"},{id:"bus",icon:"🚌",en:"Bus/Train",ru:"Автобус"},{id:"bike",icon:"🚲",en:"Bike",ru:"Велосипед"},{id:"walk",icon:"🚶",en:"Walk",ru:"Пешком"}];
 const BCASTS=[
-  {id:"modern",icon:"🎙️",en:"Road Radio Host",ru:"Радиоведущий",desc:"Companion, not local",descRu:"Попутчик без местного образа",prompt:"ROAD RADIO HOST — the same travelling host accompanying the driver. Never pretend to be a resident of every place; use 'здесь/в этом районе/для региона', not 'у нас/наш округ'."},
+  {id:"modern",icon:"🎙️",en:"Road Radio Host",ru:"Радиоведущий",desc:"One Road Radio voice",descRu:"Один голос эфира, не местный",prompt:"ROAD RADIO HOST — the same travelling host accompanying the driver. Never pretend to be a resident of every place; use 'здесь/в этом районе/для региона', not 'у нас/наш округ'."},
   {id:"local",icon:"📍",en:"Local Expert",ru:"Местный эксперт",desc:"Local voice for this area",descRu:"Голос этой территории",prompt:"LOCAL EXPERT — a local field voice for the current area only. You may care about this place and use local phrasing sparingly, but stay factual and never invent memories or fake personal experiences."},
 ];
 const TOPICS=[{id:"geology",en:"Geology",ru:"Геология"},{id:"weather",en:"Weather",ru:"Погода"},{id:"wildlife",en:"Wildlife",ru:"Животные"},{id:"plants",en:"Plants",ru:"Растения"},{id:"history",en:"History",ru:"История"},{id:"towns",en:"Towns",ru:"Города"},{id:"road",en:"Roads",ru:"Дороги"},{id:"humor",en:"Humor",ru:"Юмор"}];
@@ -475,6 +475,7 @@ function App(){
   const tourAckRef=useRef(false);   // user chose to keep listening while stationary
   const neverParkRef=useRef(localStorage.getItem("rr_neverpark")==="1");  // never ask at stops
   const lastSpeedReport=useRef(0);
+  const lastMotionRef=useRef(null);    // v122: estimate movement when browser GPS speed is null
   const lastHighwayReport=useRef(0);
   const lastNativeReport=useRef(0);
   const openerIdx=useRef(0);
@@ -732,9 +733,13 @@ function App(){
       if(cw){
         const wc=cw.weathercode;
         const wdesc=wc===0?"ясно":wc<=3?"переменная облачность":wc<=48?"туман":wc<=67?"дождь":wc<=77?"снег":wc<=82?"ливень":wc<=86?"снегопад":wc<=99?"гроза":"облачно";
-        setWeather({temp:Math.round(cw.temperature),wind:Math.round(cw.windspeed),code:wc,desc:wdesc,is_day:cw.is_day??1,sun});
+        const wobj={temp:Math.round(cw.temperature),wind:Math.round(cw.windspeed),code:wc,desc:wdesc,is_day:cw.is_day??1,sun};
+        weatherRef.current=wobj; // v122: available immediately for greeting/prompt
+        setWeather(wobj);
+        return wobj;
       }
     }catch{}
+    return null;
   };
 
   const reverseGeocode=async(lat,lng)=>{
@@ -888,6 +893,16 @@ function App(){
     setSpeaking(false);speakingRef.current=false;
   };
 
+  // v122: radio pacing. Web Speech has no reliable SSML pauses on Android,
+  // so we add small delays after short headline chunks like “Теперь — к спорту.”
+  const pauseAfterChunk=piece=>{
+    const t=String(piece||"").trim();
+    if(!t)return 90;
+    if(/^(история|спорт|кино|музыка|погода|небо|дорога|вода|еда|люди|загадки|странности|рем[её]сла|животные|коренные народы|местная волна|road radio|дорожное радио|теперь|смена частоты|одна волна|проверим|переключаемся)\b/i.test(t)&&t.length<=70)return 520;
+    if(t.length<=55)return 260;
+    return 120;
+  };
+
   // Speak one short chunk. Resolves on end/error or a safety timeout.
   const speakChunk=(s,chunk,myToken)=>new Promise(r=>{
     let settled=false,guard=null;
@@ -922,6 +937,8 @@ function App(){
         const piece=ch.trim();if(!piece)continue;
         lastSpokeRef.current=Date.now();
         await speakChunk(s,piece,myToken);
+        const pz=pauseAfterChunk(piece);
+        if(pz>0&&speakTokenRef.current===myToken)await new Promise(r=>setTimeout(r,pz));
       }
       if(speakTokenRef.current===myToken){setSpeaking(false);speakingRef.current=false;}
       res();
@@ -1378,38 +1395,46 @@ Return exactly one JSON array with ${plan.length||4} items in this order. Every 
   const radioBridgeFor=(prev,cur,count)=>{
     const pair=`${prev||""}:${cur||""}`;
     const isLocalExpert=bcastRef.current==="local";
+    const headline={
+      people:["Люди.","Коротко о человеке."],films:["Кино.","Теперь — к экрану."],land:["Земля под колёсами.","География."],economy:["Экономика.","Теперь — чем место живёт."],
+      sports:["Спорт.","Теперь — к спорту."],native:["Коренные народы.","История до шоссе."],road:["Дорога.","Теперь — про сам маршрут."],sky:["Погода и небо.","Смотрим выше карты."],
+      oddity:["Странности.","А теперь — дорожная диковинка."],wildlife:["Животные.","Теперь — живая природа."],mystery:["Загадки.","Теперь — к загадкам."],crafts:["Ремёсла.","Теперь — ручная работа."],
+      food:["Еда.","Теперь — к вкусу."],water:["Вода.","Смена частоты: к воде."],music:["Музыка.","Смена частоты: к музыке."],history:["История.","Теперь — немного прошлого."],life:["Жизнь вокруг.","Теперь — как здесь живут."]
+    };
+    const pickHeadline=()=>pickRadio(headline[cur]||["Следующая тема."]);
     if(isLocalExpert){
       const localBumpers=[
-        "Местная волна на связи — посмотрим на это место изнутри.",
+        "Местная волна на связи.",
         "Голос этой территории продолжает эфир.",
-        "Это местная полоса Road Radio — едем дальше."
+        "Местный эксперт — коротко и по делу."
       ];
       const localNeutral=[
         "У этого места есть ещё один слой.",
-        "Если смотреть по-местному, тут всплывает другая деталь.",
+        "Если смотреть по-местному, всплывает другая деталь.",
         "А теперь — то, что здесь хорошо знают.",
         "Не всё видно с трассы, но кое-что стоит знать.",
         "Переключаемся на местный угол."
       ];
       if(count>0&&count%8===0)return pickRadio(localBumpers);
+      if(count%3===1)return pickHeadline();
       if(prev&&cur&&prev!==cur)return pickRadio(localNeutral);
       return count%3===0?pickRadio(localNeutral):"";
     }
     const pairs={
       "people:films":["От биографии — к экрану.","Теперь переведём взгляд с людей на камеры."],
-      "films:land":["Убираем киношный свет и смотрим на саму землю.","С экрана возвращаемся на карту."],
+      "films:land":["С экрана возвращаемся на карту.","Убираем киношный свет и смотрим на землю."],
       "land:economy":["А теперь — что эта земля даёт людям сегодня.","С почвы и воды переходим к работе и деньгам."],
       "economy:history":["За сегодняшними делами всегда торчит старый слой.","Теперь чуть назад во времени."],
       "history:people":["История без людей — просто даты. Берём человека.","А теперь — лицо этой истории."],
       "water:road":["Вода рядом, но руль держит дорога.","От воды — обратно к асфальту."],
       "road:sky":["Дорога под колёсами, небо над головой.","Теперь поднимем взгляд выше карты."],
-      "wildlife:food":["От тех, кто живёт рядом, — к тому, что попадает на стол.","Природа здесь быстро выходит и на кухню."],
+      "wildlife:food":["От живой природы — к тому, что попадает на стол.","Природа здесь быстро выходит и на кухню."],
       "music:sports":["Музыку приглушаем — добавим скорости.","От ритма — к соревнованию."],
       "native:history":["Эта тема глубже любого шоссе. Ещё один исторический слой.","Остаёмся в прошлом, но меняем угол."],
-      "mystery:oddity":["Раз уж карта подмигнула — держите ещё одну странность.","От загадки — к придорожному чудачеству."],
+      "mystery:oddity":["Раз карта подмигнула — держите ещё одну странность.","От загадки — к придорожному чудачеству."],
       "crafts:food":["Руки сделали своё — теперь очередь вкуса.","От мастерской — к столу."],
       "life:economy":["Быт всегда упирается в работу. Проверим, чем место живёт.","Теперь без романтики: чем здесь зарабатывают."],
-      "sports:water":["После скорости — к воде.","Соревнования в сторону, слушаем реку."],
+      "sports:water":["После скорости — к воде.","Соревнования в сторону, слушаем реку."]
     };
     const neutral=[
       "Крутим ручку дальше.",
@@ -1417,18 +1442,19 @@ Return exactly one JSON array with ${plan.length||4} items in this order. Every 
       "Ещё одна короткая отметка на карте.",
       "Ставим новую метку.",
       "Теперь другой слой этого места.",
-      "Дальше — короткий поворот темы.",
-      "Не зависаем на одном — берём следующий слой.",
-      "Вот за это люблю дорогу: тема меняется за минуту."
+      "Дальше — короткий поворот темы."
     ];
     const bumpers=[
-      "Это Road Radio. Едем дальше — у дороги ещё есть что рассказать.",
+      "Это Road Radio. Одна волна на все штаты.",
       "Road Radio на связи. Коротко, по делу, без пыли в глаза.",
-      "Одна волна на все штаты. Поехали к следующей метке."
+      "Одна волна на все штаты. Следующая метка."
     ];
     if(count>0&&count%8===0)return pickRadio(bumpers);
+    // v122: imitate an old car-radio news wheel: History. Sports. Weather. Short pause. Then the card.
+    if(count%3===1)return pickHeadline();
     if(pairs[pair])return pickRadio(pairs[pair]);
     if(prev&&cur&&prev!==cur){
+      if(count%3===0)return pickHeadline();
       const to=topicRu[cur]||"следующей теме";
       const variants=[`От ${topicRu[prev]||"прошлой темы"} — к ${to}.`,`Теперь — к ${to}.`,`Смена частоты: к ${to}.`];
       return pickRadio(variants);
@@ -1872,8 +1898,8 @@ ${personaRule}
 — Один блок — 2-4 предложения. КОРОТКО. Дал факт — оживил одной фразой — передал дальше.
 — Живость: сухой юмор и короткая человеческая интонация, но не в каждом блоке. БЕЗ обязательной личной реакции, без приторности и пейзажных поэм.
 
-СЛОЙ 3 — ЧЕЛОВЕЧНОСТЬ v120 (девиз: радио, которое НЕ хочется переключать).
-Приложение само добавит короткие эфирные переходы между блоками. Твоя задача — НЕ писать мостики и НЕ лепить мораль в конце.
+СЛОЙ 3 — ЧЕЛОВЕЧНОСТЬ v122 (девиз: радио, которое НЕ хочется переключать).
+Приложение само добавит короткие эфирные переходы и паузы между блоками. Твоя задача — НЕ писать мостики и НЕ лепить мораль в конце.
 — Начни блок сразу с живого предмета: имя, дата, число, объект, странная деталь.
 — Не заканчивай каждый блок философским выводом. Настоящий ведущий часто просто ставит точку, задаёт короткий вопрос или оставляет факт висеть в воздухе.
 — Личная реакция — редкая специя, максимум в 1 блоке из 4. Не ставь её постоянно в финальное предложение.
@@ -1926,7 +1952,7 @@ ${isStopped?`- Place: ${ld.city||"open country"}${ld.county?`, ${ld.county}`:""}
 - Coordinates: ${c.lat.toFixed(5)}, ${Math.abs(c.lng).toFixed(5)}W
 - Travelling ${toDirWord(hdg,"en")} (${toDir(hdg)}). Left window faces ${toLeft(hdg)}, right faces ${toRight(hdg)}.`}
 - ${timeCtx}
-- Temperature now: ${weatherRef.current?weatherRef.current.temp+"°F":"unknown"}${destCtx}${exCtx}${terrainCtx}
+- Weather now: ${weatherRef.current?(weatherRef.current.desc+", "+weatherRef.current.temp+"°F, wind "+(weatherRef.current.wind??"unknown")+" mph"):"unknown"}. Sunrise/sunset data: ${sunRef.current?("sunrise "+sunRef.current.rise+", sunset "+sunRef.current.set):"unknown"}${destCtx}${exCtx}${terrainCtx}
 - ${isStopped?`Focus on real facts about the PLACE — history, people, nature of the region.`:`DO NOT describe what is visible out the window. You CANNOT see the road, terrain, forks, turns, fields, forests or scenery — never say "видите развилку", "дорога в полях", "впереди поворот", "вокруг леса". Talk only about facts of the PLACE (history, people, nature of the region, etc.), never about the live view.`}
 
 ${nightCtx}${roadReminder}${cityApproach}${favsRef.current.length?`\n\n=== ЛИЧНЫЕ ПОЖЕЛАНИЯ СЛУШАТЕЛЯ (учитывай ОБЯЗАТЕЛЬНО, это его правила для эфира) ===\n${favsRef.current.map((f,i)=>`${i+1}. ${f}`).join("\n")}\n========================`:""}
@@ -2496,8 +2522,9 @@ ${planStr}
   // Speed/parked detection
   useEffect(()=>{
     if(!coords||!runRef.current)return;
-    const spd=toMph(coords.speed)||0;
-    if(spd<4){
+    const gpsHasSpeed=coords.speed!=null&&!isNaN(coords.speed);
+    const spd=gpsHasSpeed?toMph(coords.speed):(parseInt(speedVal)||null);
+    if(spd!=null&&spd<4){
       if(!stoppedSince.current)stoppedSince.current=Date.now();
       // Only ask if the user hasn't already chosen to keep listening while stopped.
       if(Date.now()-stoppedSince.current>20000&&!parkedRef.current&&!tourAckRef.current&&!neverParkRef.current){
@@ -2505,7 +2532,7 @@ ${planStr}
         loopGenRef.current++;          // kill the live loop generation
         hardStop();
         const isRu=langRef.current==="ru";
-        const q=isRu?"Вы остановились. Продолжать рассказывать об этом месте... или подождать пока поедете?":"You've stopped. Continue listening about this place... or wait until you're back on the road?";
+        const q=isRu?"Похоже, вы остановились. Продолжать местный эфир об этой точке... или подождать, пока поедете?":"Looks like you've stopped. Continue local broadcast about this spot... or wait until you're rolling again?";
         speak(q);
       }
     }else{
@@ -2522,7 +2549,7 @@ ${planStr}
     if(!navigator.geolocation){setErr("Geolocation not supported");return;}
     setErr("");
     navigator.geolocation.getCurrentPosition(pos=>{
-      const c={lat:pos.coords.latitude,lng:pos.coords.longitude,speed:pos.coords.speed||0,heading:pos.coords.heading};
+      const c={lat:pos.coords.latitude,lng:pos.coords.longitude,speed:pos.coords.speed,heading:pos.coords.heading};
       setCoordInput(`${c.lat.toFixed(6)}, ${c.lng.toFixed(6)}`);
       if(c.speed)setSpeedVal(String(toMph(c.speed)));
       if(c.heading)setHeadVal(String(Math.round(c.heading)));
@@ -2539,8 +2566,23 @@ ${planStr}
   const startGeoWatch=()=>{
     if(!navigator.geolocation)return;
     let wt=0;
+    const R=3958.8,rad=x=>x*Math.PI/180;
+    const milesBetween=(a,b)=>{const dLa=rad(b.lat-a.lat),dLo=rad(b.lng-a.lng);const h=Math.sin(dLa/2)**2+Math.cos(rad(a.lat))*Math.cos(rad(b.lat))*Math.sin(dLo/2)**2;return 2*R*Math.asin(Math.sqrt(h));};
     navigator.geolocation.watchPosition(pos=>{
-      const c={lat:pos.coords.latitude,lng:pos.coords.longitude,speed:pos.coords.speed||0,heading:pos.coords.heading};
+      let sp=pos.coords.speed;
+      const now=Date.now();
+      const pt={lat:pos.coords.latitude,lng:pos.coords.longitude,t:now};
+      // Some Android/Chrome sessions return speed=null. Estimate from GPS movement, but clamp tiny jitter to 0.
+      if((sp==null||isNaN(sp))&&lastMotionRef.current){
+        const dt=(now-lastMotionRef.current.t)/1000;
+        if(dt>=4){
+          const mi=milesBetween(lastMotionRef.current,pt);
+          const mph=mi/(dt/3600);
+          sp=(mph<2?0:mph/2.237);
+        }
+      }
+      lastMotionRef.current=pt;
+      const c={lat:pt.lat,lng:pt.lng,speed:sp,heading:pos.coords.heading};
       coordsRef.current=c;setCoords(c);
       if(++wt%60===0)fetchWeather(c.lat,c.lng);
       // Keep the on-screen place label tracking your real position (every ~12 ticks).
@@ -2562,15 +2604,25 @@ ${planStr}
     parkedRef.current=false;pausedRef.current=false;setPaused(false);
     setErr("");setStory("");setParked(false);
     setScreen("main");startGeoWatch();
-    await requestWake();fetchWeather(c.lat,c.lng);
-    // Greeting: first ever launch vs. returning driver
+    await requestWake();
+    try{if(!(locDataRef.current&& (locDataRef.current.city||locDataRef.current.state)))await Promise.race([reverseGeocode(c.lat,c.lng),new Promise(r=>setTimeout(()=>r(null),1200))]);}catch{}
+    try{await Promise.race([fetchWeather(c.lat,c.lng),new Promise(r=>setTimeout(()=>r(null),1200))]);}catch{}
+    // v122: on-air greeting knows whether the listener is moving or parked.
     const isRu=langRef.current==="ru";
     const everStarted=localStorage.getItem("rr_started");
-    const hw=locDataRef.current.highway;const dir=toDirWord(coordsRef.current?.heading||90,langRef.current);
-    const roadPart=hw?(isRu?` Едем по трассе ${hw} на ${dir}.`:` We're on ${hw} heading ${dir}.`):(isRu?` Едем на ${dir}.`:` Heading ${dir}.`);
-    // v106: короткий джингл. Убрано длинное вступление про «выбор стиля ведущего и тем» —
-    // такого меню нет, и слушать это перед каждым эфиром незачем.
-    const greet=isRu?`Дорожное радио.${roadPart} Поехали!`:`Road Radio.${roadPart} Let's go!`;
+    const ld0=locDataRef.current||{};
+    const hw=ld0.highway;const dir=toDirWord(coordsRef.current?.heading||90,langRef.current);
+    const gpsHasSpeed=c.speed!=null&&!isNaN(c.speed);
+    const mphNow=gpsHasSpeed?toMph(c.speed):(parseInt(speedVal)||null);
+    const startStopped=(mphNow!=null&&mphNow<3);
+    const placeName=[ld0.city,ld0.state].filter(Boolean).join(", ")||(ld0.county?`${ld0.county}${ld0.state?", "+ld0.state:""}`:"");
+    const w0=weatherRef.current;
+    const weatherPart=w0?(isRu?` Сейчас ${w0.desc}, ${w0.temp}°F, ветер ${w0.wind??"?"} миль в час.`:` Right now: ${w0.desc}, ${w0.temp}°F, wind ${w0.wind??"?"} mph.`):"";
+    const movePart=startStopped
+      ?(isRu?` Вы сейчас на месте${placeName?` — ${placeName}`:""}. Остаёмся на этой точке и слушаем, что вокруг.`:` You're stopped${placeName?` in ${placeName}`:""}. We'll stay with this place and listen around it.`)
+      :(hw?(isRu?` Вы едете по трассе ${hw} на ${dir}${placeName?`, район ${placeName}`:""}.`:` You're on ${hw} heading ${dir}${placeName?`, near ${placeName}`:""}.`):(isRu?` Вы движетесь на ${dir}${placeName?`, район ${placeName}`:""}.`:` You're heading ${dir}${placeName?`, near ${placeName}`:""}.`));
+    // v106/v122: короткий джингл с контекстом движения/стоянки.
+    const greet=isRu?`Дорожное радио. ${movePart}${weatherPart} Поехали.`:`Road Radio. ${movePart}${weatherPart} Let's go.`;
     roadReminderRef.current=Date.now();
     localStorage.setItem("rr_started","1");localStorage.setItem("rr_review",String(Date.now()));setNeedsReview(false);
     const g=loopGenRef.current;
