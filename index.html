@@ -289,7 +289,7 @@ body{font-family:'Inter',sans-serif;color:#fff;}
 const {useState,useRef,useEffect}=React;
 const PROXY="https://corsproxy.io/?https://api.anthropic.com/v1/messages";
 const KEY_STORE="rr_key_v3";
-const VER="v125";
+const VER="v126";
 // v76 MEMORY DIAGNOSTIC: prefetch & buffer OFF so every spoken segment goes through one gate.
 const PREFETCH_ENABLED=false;
 const BUFFER_ENABLED=false;
@@ -1584,6 +1584,30 @@ Return exactly one JSON array with ${plan.length||4} items in this order. Every 
         lines.push(`  firstChunk: ${r.firstChunk||""}`);
       }
     }
+    // v126 SUMMARY (по запросу GPT): сводка для быстрой проверки экономии.
+    try{
+      const gm=rows.filter(r=>r.status==="GEMINI_RAW");
+      const aired=rows.filter(r=>r.status==="AIRED").length;
+      const rej=rows.filter(r=>r.status&&r.status.indexOf("REJECTED")>=0).length;
+      const tin=gm.reduce((s,r)=>s+(r.promptTokens||0),0);
+      const tout=gm.reduce((s,r)=>s+(r.outputTokens||0),0);
+      const tcache=gm.reduce((s,r)=>s+(r.cachedTokens||0),0);
+      const prompts=gm.map(r=>r.promptTokens||0);
+      const avgP=prompts.length?Math.round(prompts.reduce((a,b)=>a+b,0)/prompts.length):0;
+      const maxP=prompts.length?Math.max(...prompts):0;
+      const t0=rows[0]?._ms||0,t1=rows[rows.length-1]?._ms||0;
+      const durMin=t0&&t1?((t1-t0)/60000):0;
+      // 2.5/3.1-flash-lite: вход $0.25/M, кэш $0.025/M, выход $1.50/M
+      const cost=(tin-tcache)/1e6*0.25+tcache/1e6*0.025+tout/1e6*1.50;
+      const perHour=durMin>0?cost/durMin*60:0;
+      lines.push("");lines.push("=".repeat(60));
+      lines.push("SUMMARY (v126 cost-trim)");
+      lines.push(`  duration: ${durMin.toFixed(1)} min`);
+      lines.push(`  Gemini requests: ${gm.length}   aired: ${aired}   rejected: ${rej}`);
+      lines.push(`  input tokens: ${tin.toLocaleString()}   output: ${tout.toLocaleString()}   cached: ${tcache.toLocaleString()} (${tin?Math.round(tcache/tin*100):0}%)`);
+      lines.push(`  avg promptTok: ${avgP}   max promptTok: ${maxP}  ${maxP>9000?"⚠ Wikipedia-раздув есть":"✓ раздува нет"}`);
+      lines.push(`  estimated cost: $${cost.toFixed(3)}   →  ~$${perHour.toFixed(3)}/hour`);
+    }catch(e){lines.push("SUMMARY error: "+e.message);}
     lines.push("");lines.push("=".repeat(60));lines.push("END OF LOG");
     const blob=new Blob([lines.join("\n")],{type:"text/plain;charset=utf-8"});
     const url=URL.createObjectURL(blob);
@@ -1983,13 +2007,10 @@ ${forbiddenStr?`FORBIDDEN topics — you are BANNED from mentioning these at all
 Pick something from the ALLOWED list that you have NOT covered yet. Rotate — do not stay glued to one subject (especially not landscape/farming).
 
 CORE RULES:
-1. ${lastSaid?`Do NOT make a continuous chain. Each segment must stand alone. Segment 1 may contain a tiny bridge from the last AIRED block only if it helps, but never start with “Раз уж”, “От этого”, “После трагедии”, or any hidden continuation. Start with a clear subject and a fresh hook. End the segment on a rounded thought, not mid-air.`:`THIS IS YOUR VERY FIRST LINE ON AIR. Open SHORT and warm (one sentence), and in it make clear where the listener is: ${isStopped?`settled in at ${ld.city||"this spot"}${ld.state?`, ${ld.state}`:""} — begin with a concrete subject, NOT a greeting and NOT "Ну что ж".`:`travelling${ld.highway?` on ${ld.highway}`:""} heading ${toDirWord(hdg,langRef.current)} through ${ld.city||"this area"}${ld.state?`, ${ld.state}`:""} — start from a real subject/fact, not from “Едем” and not from “Ну что ж”. You may mention the road/direction briefly later, but the first words should be a hook like a date, place name, river, person, animal or number. Say the direction as a full word, never a compass letter.`} Do NOT say "С вами радио" or announce a station name — just warmly begin. Then flow straight into the topic.`}
-2. FINISH A TOPIC, THEN MOVE ON. (The director below tells you which.) Use a tiny shape: HOOK → one real FACT → optional small TURN. Do NOT force a moral/insight/beautiful closing every time.
-3. Each segment length: ${isRestMode?"4 to 7 sentences, calm and smooth — night radio, not a lecture":"3 to 5 sentences — radio, not a lecture"}.
-4. ${samePlace?`You ALREADY named "${ld.city}". Say "здесь", "в этом месте" — do not re-introduce it.`:`New area — you may set the scene briefly.`}
-5. DON'T INVENT. If the ALLOWED topic genuinely has nothing real for this exact spot (e.g. no real films were shot here, no famous actor is from here), DON'T fabricate a vague "a few actors were born around here" — instead honestly pivot: say you don't have a confirmed film tie to this exact spot and give a real, concrete fact from the same topic about the broader region, or note it and move to the next allowed topic. Never make up names, titles, or specifics.
-6. ${isStopped?`PARKED MODE: do NOT say the listener is driving, approaching, passing, looking left/right, or moving. Tell warm, interesting things about this point and its region. If the exact point runs thin, widen honestly: nearby area → county → wider region → possible forward corridor. Say "while we are stopped" or "if we continue this way" when needed.`:`DISTANCES: The only distance you may state is a code-confirmed major landmark far along the highway (a big city or famous river/bridge tens of miles away) given to you explicitly below — then you may warn about it once. Otherwise state NO distance, NO minutes, NO side for anything nearby — speak generally ("в этих краях", "в этом месте"). ‼ NEVER voice limitations out loud: never explain that you lack a map, don't measure distance, or can't tell what lies along the route. If you don't know where something is, simply don't mention its location — just tell about it warmly.`}
-7. STAY FRESH — ABSOLUTE. Every segment must bring genuinely NEW information. NEVER repeat a fact, image or idea already said this session, even reworded, even from a new angle. If you have nothing new on the current subject, switch to a completely different subject. Never loop the same 2-3 facts about a place.${overused?` You OVERUSED these words — BANNED this segment: ${overused}.`:``}
+1. ${lastSaid?`Each segment stands ALONE. A tiny bridge from the last block is OK, but never a hidden continuation. Start with a clear subject and fresh hook. End on a rounded thought.`:`FIRST LINE ON AIR. Open short (one sentence) making clear where the listener is: ${isStopped?`at ${ld.city||"this spot"}${ld.state?`, ${ld.state}`:""}`:`travelling${ld.highway?` on ${ld.highway}`:""} heading ${toDirWord(hdg,langRef.current)} through ${ld.city||"this area"}${ld.state?`, ${ld.state}`:""}`}. Begin with a real subject (date, name, river, number), not a greeting or station name. Direction as a full word.`}
+2. FINISH A TOPIC, THEN MOVE ON (director picks which). Shape: HOOK -> one real FACT -> optional small TURN. Do NOT force a moral or beautiful closing every time.
+3. Length: ${isRestMode?"4-7 sentences, calm night radio":"3-5 sentences, radio not a lecture"}.
+4. ${samePlace?`You ALREADY named "${ld.city}". Say "здесь", "в этом месте", do not re-introduce it.`:``}
 FACT DISCIPLINE: speak only real, documented things. NEVER say "все местные", "все дети", "все ловят рыбу", "каждая семья", "здесь нет McDonald's", "никаких сетевых кафе", or any idyllic small-town cliché. No sweeping claims about what all people eat, do, believe or avoid. Prefer modest wording: "в этих местах встречается", "часть местных", "для региона характерно". If you lack a concrete verified fact, stay general and modest rather than inventing. A U.S. state is a STATE, never a "республика".
 8. ${ isStopped ? `The listener is settled in ${ld.city||"this area"}. If they have been stopped for a while, assume they may be resting; slow down, soften the tone, and avoid the news-wheel feeling. No forced sports/business/weather bumpers.` : tm==="bike"?`On a bicycle — slower pace, closer to nature, mention things a cyclist would notice.`:tm==="walk"?`On foot — intimate pace, immediate surroundings.`:`Moving at about ${spd} mph — you may speak of the drive naturally.` }
 9. SEGMENT SHAPE (anti-ИИ rhythm):
@@ -2096,11 +2117,11 @@ ${planStr}
         let r;
 
         // v124: только дешёвая flash-lite. Если она недоступна — лучше честная пауза/ошибка, чем внезапный переход на дорогую модель.
-        const FALLBACK_MODELS=["gemini-3.1-flash-lite"];
+        const FALLBACK_MODELS=["gemini-2.5-flash-lite","gemini-3.1-flash-lite"]; // v126: 2.5-lite эконом-режим (совет GPT)
         try{
-          if(localStorage.getItem("rr_model_reset")!=="v124"){
+          if(localStorage.getItem("rr_model_reset")!=="v126"){
             localStorage.removeItem("rr_gemini_model");
-            localStorage.setItem("rr_model_reset","v124");
+            localStorage.setItem("rr_model_reset","v126");
           }
         }catch{}
         const savedModel=localStorage.getItem("rr_gemini_model")||"";
@@ -2375,11 +2396,16 @@ ${planStr}
           if(gen!==loopGenRef.current||!runRef.current)return;
           if(w&&w.extract){
             sourceLevel="wikipedia";
-            wikiBlock=`\n\n=== РЕАЛЬНЫЕ ФАКТЫ ИЗ ВИКИПЕДИИ (об этом месте) ===\nСтатья: "${w.title}".\n${w.extract}\n‼ ВАЖНО: эта статья — материал ТОЛЬКО ДЛЯ ОДНОГО из шести блоков (того, чьей теме она подходит). Возьми из неё 2-3 конкретных факта и перескажи СВОИМИ словами, тепло и живо, БЕЗ выдуманных имён и годов.\n‼ ОСТАЛЬНЫЕ ТРИ БЛОКА НЕ ДОЛЖНЫ КАСАТЬСЯ ЭТОЙ СТАТЬИ ВООБЩЕ. Не тяни её тему в каждый блок — это главная ошибка. У них свои темы из списка.\n========================`;
+            // v126: обрезаем extract до 3 ключевых предложений (~600 токенов). Раньше слали ЦЕЛИКОМ —
+            // вход раздувался с 4700 до 16800 токенов, это был главный пожиратель денег (не кэш).
+            const flat=w.extract.replace(/\s+/g," ").trim();
+            const ws=flat.match(/[^.!?]+[.!?]+/g)||[flat];
+            const wikiShort=ws.slice(0,3).join(" ").trim().slice(0,700);
+            wikiBlock=`\n\n=== ФАКТЫ ВИКИПЕДИИ («${w.title}») ===\n${wikiShort}\n‼ Это материал ТОЛЬКО для ОДНОГО блока (по теме). Возьми 2-3 факта, перескажи своими словами, без выдуманных имён/годов. Остальные блоки эту статью НЕ трогают.\n===`;
           }
         }catch{}
         if(sourceLevel==="model_general"){
-          wikiBlock=`\n\n‼ РЕЖИМ НИЗКОЙ УВЕРЕННОСТИ: у тебя НЕТ проверенного источника об этом конкретном месте. Поэтому НЕ называй конкретных имён людей, точных годов, названий учреждений и событий — ты можешь их выдумать. Говори осторожно и общо о регионе (природа, ландшафт, чем известен штат в целом), честно и без выдуманной конкретики. Лучше меньше деталей, но правда.`;
+          wikiBlock=`\n\n‼ НЕТ проверенного источника об этом месте: НЕ называй конкретных имён/годов/учреждений (можешь выдумать). Говори осторожно и общо о регионе и штате, честно, без выдуманной конкретики.`;
         }
         let attempt=0,accepted=null;
         while(attempt<4){
