@@ -289,7 +289,7 @@ body{font-family:'Inter',sans-serif;color:#fff;}
 const {useState,useRef,useEffect}=React;
 const PROXY="https://corsproxy.io/?https://api.anthropic.com/v1/messages";
 const KEY_STORE="rr_key_v3";
-const VER="v119";
+const VER="v121";
 // v76 MEMORY DIAGNOSTIC: prefetch & buffer OFF so every spoken segment goes through one gate.
 const PREFETCH_ENABLED=false;
 const BUFFER_ENABLED=false;
@@ -299,9 +299,8 @@ const OPENERS_EN=["On this land...","Here's something few know...","Just to your
 
 const TRAVEL=[{id:"car",icon:"🚗",en:"Car",ru:"Машина"},{id:"bus",icon:"🚌",en:"Bus/Train",ru:"Автобус"},{id:"bike",icon:"🚲",en:"Bike",ru:"Велосипед"},{id:"walk",icon:"🚶",en:"Walk",ru:"Пешком"}];
 const BCASTS=[
-  {id:"modern",icon:"🎙️",en:"Road DJ",ru:"Живой эфир",desc:"Fast, smart, modern",descRu:"Коротко, бодро, современно",prompt:"MODERN ROAD DJ — a quick, intelligent road companion. Short hook, one concrete fact, why it matters, clean exit. No poetic fog, no pretending to be local, no invented cafés or scenery."},
-  {id:"normal",icon:"📻",en:"Local lore",ru:"Краевед",desc:"Warmer lore guide",descRu:"Теплее и спокойнее",prompt:"WARM LOCAL-LORE HOST — warm but disciplined. Human, relaxed, never syrupy. Facts stay true; color is only in the delivery, not in invented details."},
-  {id:"facts",icon:"🧭",en:"Facts",ru:"Факты",desc:"Short verified facts",descRu:"Коротко и проверенно",prompt:"FACT-DRIVEN ROAD BRIEF — brief, verified, practical. No atmosphere unless supported by weather/place data."},
+  {id:"modern",icon:"🎙️",en:"Road Radio Host",ru:"Радиоведущий",desc:"Companion, not local",descRu:"Попутчик без местного образа",prompt:"ROAD RADIO HOST — the same travelling host accompanying the driver. Never pretend to be a resident of every place; use 'здесь/в этом районе/для региона', not 'у нас/наш округ'."},
+  {id:"local",icon:"📍",en:"Local Expert",ru:"Местный эксперт",desc:"Local voice for this area",descRu:"Голос этой территории",prompt:"LOCAL EXPERT — a local field voice for the current area only. You may care about this place and use local phrasing sparingly, but stay factual and never invent memories or fake personal experiences."},
 ];
 const TOPICS=[{id:"geology",en:"Geology",ru:"Геология"},{id:"weather",en:"Weather",ru:"Погода"},{id:"wildlife",en:"Wildlife",ru:"Животные"},{id:"plants",en:"Plants",ru:"Растения"},{id:"history",en:"History",ru:"История"},{id:"towns",en:"Towns",ru:"Города"},{id:"road",en:"Roads",ru:"Дороги"},{id:"humor",en:"Humor",ru:"Юмор"}];
 const L={en:{lb:"EN",tts:"en-US",ai:"English"},ru:{lb:"RU",tts:"ru-RU",ai:"Russian"},uk:{lb:"UA",tts:"uk-UA",ai:"Ukrainian"},es:{lb:"ES",tts:"es-ES",ai:"Spanish"},pt:{lb:"PT",tts:"pt-BR",ai:"Portuguese"},de:{lb:"DE",tts:"de-DE",ai:"German"},fr:{lb:"FR",tts:"fr-FR",ai:"French"},ja:{lb:"JA",tts:"ja-JP",ai:"Japanese"},zh:{lb:"ZH",tts:"zh-CN",ai:"Chinese"},ko:{lb:"KO",tts:"ko-KR",ai:"Korean"},ar:{lb:"AR",tts:"ar-SA",ai:"Arabic"},hi:{lb:"HI",tts:"hi-IN",ai:"Hindi"},it:{lb:"IT",tts:"it-IT",ai:"Italian"},tr:{lb:"TR",tts:"tr-TR",ai:"Turkish"}};
@@ -434,7 +433,12 @@ function App(){
   const [settingsOpen,setSettingsOpen]=useState(false);
   const [excluded,setExcluded]=useState(JSON.parse(localStorage.getItem("rr_excl_v2")||"[]"));
   const [travelMode,setTravelMode]=useState(localStorage.getItem("rr_mode_v1")||"car");
-  const [bcastMode,setBcastMode]=useState(()=>{const v=localStorage.getItem("rr_bcast_v1")||"modern";return BCASTS.some(b=>b.id===v)?v:"modern";});
+  const [bcastMode,setBcastMode]=useState(()=>{
+    const v=localStorage.getItem("rr_bcast_v1")||"modern";
+    // v121: old modes collapsed into two hosts: travelling radio host or local expert.
+    const mapped=v==="normal"?"local":(v==="facts"?"modern":v);
+    return BCASTS.some(b=>b.id===mapped)?mapped:"modern";
+  });
   const [voices,setVoices]=useState([]);
   const [selVoice,setSelVoice]=useState(localStorage.getItem("rr_voice")||"");
   const [timeStr,setTimeStr]=useState("");
@@ -1062,6 +1066,20 @@ function App(){
     // common english leaks → russian
     t=t.replace(/\bMeteor showers?\b/gi,"метеорные потоки").replace(/\bfossils?\b/gi,"окаменелости").replace(/три?lobites?/gi,"трилобиты").replace(/mississippian culture/gi,"миссисипская культура").replace(/\bAmerica\b/g,"Америка").replace(/\bcounty\b/gi,"округ");
     for(const[en,ru]of Object.entries(RU_STATES)){t=t.replace(new RegExp("\\b"+en+"\\b","g"),ru);}
+    // v120: убираем ИИ-мораль в конце. В логе v119 каждый блок заканчивался формулой
+    // «Удивительно/Забавно/Приятно осознавать/Честно говоря + общий вывод». Радио так не говорит.
+    t=t.replace(/,?\s+что,?\s+пожалуй,?\s+и\s+(есть|становится|делает)[^.?!…]*[.?!…]?$/i,".");
+    t=t.replace(/,?\s+что\s+(и\s+)?подкупает\s+больше\s+всего[.?!…]?$/i,".");
+    t=t.replace(/,?\s+что\s+и\s+делает\s+[^.?!…]{0,120}[.?!…]?$/i,".");
+    {
+      const parts=t.match(/[^.!?…]+[.!?…]+|[^.!?…]+$/g)||[t];
+      if(parts.length>2){
+        const last=(parts[parts.length-1]||"").trim();
+        if(/^(поразительно|удивительно|забавно|приятно|честно говоря|пожалуй|интересно|видеть|сложно представить|звучит как|вот такие|именно это|для многих|меня всегда|мне кажется)\b/i.test(last)){
+          parts.pop();t=parts.join(" ").replace(/\s{2,}/g," ").trim();
+        }
+      }
+    }
     // v91: любую ОСТАВШУЮСЯ латиницу транслитерируем в кириллицу (город/река/фамилия), чтобы не бортить блок в бесконечную перегенерацию. Дорожные коды (US 36, I-72, GPS, FM) не трогаем.
     t=translitLatin(t);
     return t.replace(/\s{2,}/g," ").trim();
@@ -1209,6 +1227,7 @@ Return exactly one JSON array with ${plan.length||4} items in this order. Every 
   const rejectedHashRef=useRef(new Set()); // v109: отвергнутый блок умирает НАВСЕГДА — обратно в эфир не попадёт
   const usedOpenersRef=useRef([]); // v110: первые слова уже прозвучавших блоков — одинаковые зачины в бан
   const structureStopRef=useRef([]); // v118: скелеты фраз/мостиков последних блоков — ловим смысловые повторы без общих слов
+  const radioTurnRef=useRef(0);       // v120: local radio continuity layer — transitions made by code, not by Gemini
 
   // v112: «Если прислушаться», «Если отвлечься», «Если говорить» — это ОДИН приём, а не три разных.
   // Ловим по первому слову: если оно уже открывало блок недавно — зачин считается заезженным.
@@ -1231,10 +1250,14 @@ Return exactly one JSON array with ${plan.length||4} items in this order. Every 
     if(!res.story||res.story.length<80)return{ok:false,reason:"too_short"};
     if(hasHallucination(res.story))return{ok:false,reason:"fiction"};
     if(hasGeoError(res.story))return{ok:false,reason:"geo_error"};
-    // v118: the host is a travelling companion, not a local resident and not standing on a tour square.
-    const localBad=/\b(наша земля|нашей земли|на этой земле,? на которой мы стоим|мы стоим|в нашем районе|в каждом из нас|наши края|наших мест|у нас|у нас тут|у нас здесь|наш округ|наш штат|наш город|наш район|наш регион|нашего округа|нашего региона|нашего штата|наша флорида|наша луизиана|наша миссисипи)\b/i;
-    const localOk=/\b(наш маршрут|наша дорога|мы едем|мы с вами|наш путь)\b/i;
-    if(localBad.test(res.story))return{ok:false,reason:"local_voice"};
+    // v121: two hosts. Default host must NOT pretend to be local. Local Expert mode may speak as a local voice.
+    const isLocalExpert=bcastRef.current==="local";
+    const localBad=/\b(наша земля|нашей земли|на этой земле,? на которой мы стоим|мы стоим|в нашем районе|в каждом из нас|для всех нас|наши края|наших мест|наши дороги|наших дорог|у нас|у нас тут|у нас здесь|наш округ|наш штат|наш город|наш район|наш регион|нашего округа|нашего региона|нашего штата|нашего общества|наша флорида|наша луизиана|наша миссисипи|весь наш штат)\b/i;
+    const localImpossible=/\b(на этой земле,? на которой мы стоим|мы стоим|в каждом из нас)\b/i;
+    if((!isLocalExpert&&localBad.test(res.story))||(isLocalExpert&&localImpossible.test(res.story)))return{ok:false,reason:"local_voice"};
+    // v120: ещё один предохранитель против «ИИ-сочинения с моралью в конце».
+    const finalSentence=(res.story.match(/[^.!?…]+[.!?…]+|[^.!?…]+$/g)||[]).slice(-1)[0]||"";
+    if(/^(\s*)(поразительно|удивительно|забавно|приятно осознавать|приятно знать|честно говоря|пожалуй|сложно представить|звучит как|вот такие детали|именно это)\b/i.test(finalSentence.trim()))return{ok:false,reason:"ai_outro_formula"};
     const nh=normHash(res.story);
     if(nh&&spokenHashRef.current.has(nh))return{ok:false,reason:"exact_duplicate"};
     if(nh&&rejectedHashRef.current.has(nh))return{ok:false,reason:"already_rejected"};
@@ -1250,7 +1273,7 @@ Return exactly one JSON array with ${plan.length||4} items in this order. Every 
     if(usedOpenersRef.current.some(o=>o.op===op))return{ok:false,reason:"stale_opener3:"+op};
     // v114: блок не может начинаться с местоимения без антецедента — слушатель не поймёт, о ком речь.
     if(/^(они|их|им|ими|он|она|оно|эти|эта|этот|такие|такой|такая)\b/i.test(res.story.trim()))return{ok:false,reason:"headless_pronoun"};
-    // v118: local-voice check moved earlier and widened (“наша земля”, “мы стоим”, etc.).
+    // v121: local-voice check is conditional: strict for Радиоведущий, relaxed for Местный эксперт.
     // v117: ловим художественную воду о природе (жалоба Вовы: «как Тургенев/Пришвин»).
     // Эти обороты — маркеры пустой пейзажной прозы без факта.
     const purpleProse=/((драматическ\w+ игр\w+ теней)|(пологих холмов)|(обретает глубину)|(сама земля дыш\w+)|(природа умеет напоминать)|(неспешный ритм жизни)|(скрытая от глаз суета)|(словно живое существо)|(шепот\w* (ветра|листвы|прошлого))|(играет красками)|(окутывает\w* (туманом|тишиной)))/i;
@@ -1341,10 +1364,96 @@ Return exactly one JSON array with ${plan.length||4} items in this order. Every 
       lat:c?+c.lat.toFixed(5):null,lng:c?+c.lng.toFixed(5):null,
       src:res._src||"",
       keys,entity:passport.entity,claimKey:res.claim_key||"",bridgeKey:res.bridge_key||"",structure:structureKeys(res.story),
+      radioBridge:res._radioBridge||"",rawStory:res._rawStory||"",
       stopList:[...semanticStopRef.current],
       story:res.story||"",
     });
     persistMemory();
+  };
+
+  // v120 RADIO CONTINUITY LAYER: returns the feeling of a human host without asking Gemini
+  // to write connected mini-arcs again. These bridges add NO facts; they only do on-air glue.
+  const topicRu={people:"людям",films:"экрану",land:"земле",economy:"деньгам",sports:"спорту",native:"первым народам",road:"дороге",sky:"небу",oddity:"странностям",wildlife:"животным",mystery:"загадкам",crafts:"ремёслам",food:"еде",water:"воде",music:"музыке",history:"истории",life:"жизни"};
+  const pickRadio=a=>a[Math.floor(Math.random()*a.length)];
+  const radioBridgeFor=(prev,cur,count)=>{
+    const pair=`${prev||""}:${cur||""}`;
+    const isLocalExpert=bcastRef.current==="local";
+    if(isLocalExpert){
+      const localBumpers=[
+        "Местная волна на связи — посмотрим на это место изнутри.",
+        "Голос этой территории продолжает эфир.",
+        "Это местная полоса Road Radio — едем дальше."
+      ];
+      const localNeutral=[
+        "У этого места есть ещё один слой.",
+        "Если смотреть по-местному, тут всплывает другая деталь.",
+        "А теперь — то, что здесь хорошо знают.",
+        "Не всё видно с трассы, но кое-что стоит знать.",
+        "Переключаемся на местный угол."
+      ];
+      if(count>0&&count%8===0)return pickRadio(localBumpers);
+      if(prev&&cur&&prev!==cur)return pickRadio(localNeutral);
+      return count%3===0?pickRadio(localNeutral):"";
+    }
+    const pairs={
+      "people:films":["От биографии — к экрану.","Теперь переведём взгляд с людей на камеры."],
+      "films:land":["Убираем киношный свет и смотрим на саму землю.","С экрана возвращаемся на карту."],
+      "land:economy":["А теперь — что эта земля даёт людям сегодня.","С почвы и воды переходим к работе и деньгам."],
+      "economy:history":["За сегодняшними делами всегда торчит старый слой.","Теперь чуть назад во времени."],
+      "history:people":["История без людей — просто даты. Берём человека.","А теперь — лицо этой истории."],
+      "water:road":["Вода рядом, но руль держит дорога.","От воды — обратно к асфальту."],
+      "road:sky":["Дорога под колёсами, небо над головой.","Теперь поднимем взгляд выше карты."],
+      "wildlife:food":["От тех, кто живёт рядом, — к тому, что попадает на стол.","Природа здесь быстро выходит и на кухню."],
+      "music:sports":["Музыку приглушаем — добавим скорости.","От ритма — к соревнованию."],
+      "native:history":["Эта тема глубже любого шоссе. Ещё один исторический слой.","Остаёмся в прошлом, но меняем угол."],
+      "mystery:oddity":["Раз уж карта подмигнула — держите ещё одну странность.","От загадки — к придорожному чудачеству."],
+      "crafts:food":["Руки сделали своё — теперь очередь вкуса.","От мастерской — к столу."],
+      "life:economy":["Быт всегда упирается в работу. Проверим, чем место живёт.","Теперь без романтики: чем здесь зарабатывают."],
+      "sports:water":["После скорости — к воде.","Соревнования в сторону, слушаем реку."],
+    };
+    const neutral=[
+      "Крутим ручку дальше.",
+      "Меняем угол.",
+      "Ещё одна короткая отметка на карте.",
+      "Ставим новую метку.",
+      "Теперь другой слой этого места.",
+      "Дальше — короткий поворот темы.",
+      "Не зависаем на одном — берём следующий слой.",
+      "Вот за это люблю дорогу: тема меняется за минуту."
+    ];
+    const bumpers=[
+      "Это Road Radio. Едем дальше — у дороги ещё есть что рассказать.",
+      "Road Radio на связи. Коротко, по делу, без пыли в глаза.",
+      "Одна волна на все штаты. Поехали к следующей метке."
+    ];
+    if(count>0&&count%8===0)return pickRadio(bumpers);
+    if(pairs[pair])return pickRadio(pairs[pair]);
+    if(prev&&cur&&prev!==cur){
+      const to=topicRu[cur]||"следующей теме";
+      const variants=[`От ${topicRu[prev]||"прошлой темы"} — к ${to}.`,`Теперь — к ${to}.`,`Смена частоты: к ${to}.`];
+      return pickRadio(variants);
+    }
+    return count%3===0?pickRadio(neutral):"";
+  };
+  const applyRadioContinuity=(res)=>{
+    if(!res||!res.story||res._src==="pause")return res;
+    if(!["ru","uk"].includes(langRef.current))return res;
+    const raw=res.story;
+    const count=(spokenLedgerRef.current||[]).length;
+    const prev=(spokenLedgerRef.current||[]).slice(-1)[0]||{};
+    const cur=res._dirTopic||res.topic_key||"";
+    // Do not bridge the very first spoken block; after that, add short radio glue about 75% of the time.
+    let bridge="";
+    if(count>0){
+      if(count%4===2)bridge=""; // let some cards breathe with no transition
+      else bridge=radioBridgeFor(prev.topic,cur,count);
+    }
+    if(bridge){
+      res._rawStory=raw;
+      res._radioBridge=bridge;
+      res.story=cleanRussianStory(`${bridge} ${raw}`);
+    }
+    return res;
   };
 
   // Compact memory block for the prompt (never dump the whole session into the model).
@@ -1741,7 +1850,13 @@ Reply ONLY valid JSON: {"story":"your spoken answer in ${al}","location":"curren
       cityApproach=`\n‼ ВПЕРЕДИ КРУПНЫЙ ГОРОД: примерно через ${Math.round(ca.miles)} миль будет ${ca.name}. Один раз, коротко (1-2 фразы), предупреди: назови город и один-два факта, если знаешь. НЕ используй шаблонную подводку, просто органично вставь. Больше про этот город заранее не напоминай.`;
       cityAnnouncedNameRef.current=ca.name;
     }
+    const isLocalExpert=bcastRef.current==="local";
+    const personaRule=isLocalExpert
+      ? `РЕЖИМ: МЕСТНЫЙ ЭКСПЕРТ. Ты — местный голос именно ЭТОЙ территории, выбранный слушателем сознательно. Можно говорить теплее и с защитой места: «у нас здесь», «наш округ», «для нас это важно» — но умеренно, не в каждом блоке. Нельзя выдумывать личные воспоминания, «я тут вырос», «я пил чай на этой веранде», если этого нет в источниках. Ты не один и тот же человек на всю Америку, а местная волна текущей зоны.`
+      : `РЕЖИМ: РАДИОВЕДУЩИЙ-ПОПУТЧИК. Ты — один голос Road Radio, который сопровождает водителя по стране. Ты НЕ местный житель Хьюстона, Луизианы, Джексонвилла и всех мест подряд. Говори «здесь», «в этом районе», «для региона», «мы едем/наш маршрут», но НЕ «у нас», НЕ «наш округ», НЕ «в наших краях».`;
     const voiceHeader=`YOU ARE THE ROAD RADIO HOST — a modern, quick-witted radio voice riding shotgun with ONE driver.
+
+${personaRule}
 
 ‼‼ ДВА РАЗНЫХ СЛОЯ — НЕ ПУТАЙ ИХ ‼‼
 
@@ -1755,20 +1870,20 @@ Reply ONLY valid JSON: {"story":"your spoken answer in ${al}","location":"curren
 — Ты НЕ Тургенев и НЕ Пришвин. НИКАКОЙ художественной прозы о красотах природы: без «драматической игры теней», «пологих холмов, обретающих глубину», «скрытой от глаз суеты».
 — Говори как современный человек в 2026-м: коротко, по делу, с искрой — будто рассказываешь другу за рулём что-то реально любопытное.
 — Один блок — 2-4 предложения. КОРОТКО. Дал факт — оживил одной фразой — передал дальше.
-— Живость: лёгкое удивление, сухой юмор, короткая личная реакция. БЕЗ приторности и пейзажных поэм.
+— Живость: сухой юмор и короткая человеческая интонация, но не в каждом блоке. БЕЗ обязательной личной реакции, без приторности и пейзажных поэм.
 
-СЛОЙ 3 — ЧЕЛОВЕЧНОСТЬ (девиз: радио, которое НЕ хочется переключать).
-Прошлая версия победила повторы, но стала как сухая телеграм-лента новостей: факт-факт-факт, без души. Оживи — но НЕ шаблонными мостиками, а по-человечески:
-— Начни блок с КРЮЧКА, который цепляет ухо: неожиданный факт, живой вопрос, конкретная деталь, число, имя. Чтобы слушатель подумал «о, а это интересно».
-— Роняй короткую человеческую реакцию на сам факт: «честно, не ожидал», «вот это мне нравится», «звучит странно, но правда». Одну на блок, не в каждом.
-— Говори РАЗГОВОРНО, как живой ведущий у микрофона, а не диктор новостей: обращайся к слушателю («представьте», «знаете»), допускай лёгкую небрежность речи.
-— Подавай факт как маленькую историю с крючком и концовкой, а не как строку из справочника. Даже в 2-3 предложениях должна быть искра.
-— Это радио для того, у кого есть свободная минута в дороге. Твоя работа — чтобы он не переключил. Каждый блок должен звучать так, будто дальше будет ещё интереснее.
+СЛОЙ 3 — ЧЕЛОВЕЧНОСТЬ v120 (девиз: радио, которое НЕ хочется переключать).
+Приложение само добавит короткие эфирные переходы между блоками. Твоя задача — НЕ писать мостики и НЕ лепить мораль в конце.
+— Начни блок сразу с живого предмета: имя, дата, число, объект, странная деталь.
+— Не заканчивай каждый блок философским выводом. Настоящий ведущий часто просто ставит точку, задаёт короткий вопрос или оставляет факт висеть в воздухе.
+— Личная реакция — редкая специя, максимум в 1 блоке из 4. Не ставь её постоянно в финальное предложение.
+— БАН финальных формул: «Удивительно, как...», «Поразительно, насколько...», «Забавно осознавать...», «Приятно осознавать...», «Честно говоря...», «Пожалуй, в этом и есть...», «Звучит как..., но...».
+— Пиши как ведущий, который уважает уши водителя: короче, живее, без сочинения на оценку.
 
 ЖЕЛЕЗНЫЕ ЗАПРЕТЫ ПОДАЧИ:
 — никаких «здесь природа умеет...», «сама земля дышит...», «неспешный ритм жизни...» — это вода, слушатель переключает;
 — каждое предложение несёт факт или мысль, а не украшение;
-— ты попутчик, едешь мимо — НИКОГДА не выдавай себя за местного: не «в наших краях», не «наш округ».
+— режим голоса важен: если выбран «Радиоведущий», НЕ выдавай себя за местного; если выбран «Местный эксперт», можно говорить как местный, но без фальшивых личных воспоминаний.
 
 НАЧАЛО БЛОКА — по-разному каждый раз, с сути: с имени, даты, числа, детали, вопроса. НЕ начинай со слов: «Контраст», «Казалось бы», «Ну что ж», «Если...», «Едем», «Посмотрите», «Вдоль», «Раз уж», «Напоследок», «Завершая». Два блока подряд не начинаются с одного слова. КАЖДЫЙ блок — с понятного подлежащего (не «Они...», не «Эти места...»): слушатель включился только что.
 
@@ -1785,8 +1900,8 @@ ${forbiddenStr?`FORBIDDEN topics — you are BANNED from mentioning these at all
 Pick something from the ALLOWED list that you have NOT covered yet. Rotate — do not stay glued to one subject (especially not landscape/farming).
 
 CORE RULES:
-1. ${lastSaid?`Do NOT make a continuous chain. Each segment must stand alone. Segment 1 may contain a tiny bridge from the last AIRED block only if it helps, but never start with “Раз уж”, “От этого”, “После трагедии”, or any hidden continuation. Start with a clear subject and a fresh hook. End the segment on a rounded thought, not mid-air.`:`THIS IS YOUR VERY FIRST LINE ON AIR. Open SHORT and warm (one sentence), and in it make clear where the listener is: ${isStopped?`settled in at ${ld.city||"this spot"}${ld.state?`, ${ld.state}`:""} — greet them warmly as someone here to enjoy this place ("Ну что ж, раз вы здесь, в ${ld.city||"этих краях"}, расскажу вам кое-что об этом месте...").`:`travelling${ld.highway?` on ${ld.highway}`:""} heading ${toDirWord(hdg,langRef.current)} through ${ld.city||"this area"}${ld.state?`, ${ld.state}`:""} — start from a real subject/fact, not from “Едем”. You may mention the road/direction briefly, but the first words should be a hook like a date, place name, river, person, animal or number. Say the direction as a full word, never a compass letter.`} Do NOT say "С вами радио" or announce a station name — just warmly begin. Then flow straight into the topic.`}
-2. FINISH A TOPIC, THEN MOVE ON. (The director below tells you which.) Within the segment, use a tiny arc: a HOOK → a real FACT → a small TURN/insight → a CLEAN close. Not a flat list of facts.
+1. ${lastSaid?`Do NOT make a continuous chain. Each segment must stand alone. Segment 1 may contain a tiny bridge from the last AIRED block only if it helps, but never start with “Раз уж”, “От этого”, “После трагедии”, or any hidden continuation. Start with a clear subject and a fresh hook. End the segment on a rounded thought, not mid-air.`:`THIS IS YOUR VERY FIRST LINE ON AIR. Open SHORT and warm (one sentence), and in it make clear where the listener is: ${isStopped?`settled in at ${ld.city||"this spot"}${ld.state?`, ${ld.state}`:""} — begin with a concrete subject, NOT a greeting and NOT "Ну что ж".`:`travelling${ld.highway?` on ${ld.highway}`:""} heading ${toDirWord(hdg,langRef.current)} through ${ld.city||"this area"}${ld.state?`, ${ld.state}`:""} — start from a real subject/fact, not from “Едем” and not from “Ну что ж”. You may mention the road/direction briefly later, but the first words should be a hook like a date, place name, river, person, animal or number. Say the direction as a full word, never a compass letter.`} Do NOT say "С вами радио" or announce a station name — just warmly begin. Then flow straight into the topic.`}
+2. FINISH A TOPIC, THEN MOVE ON. (The director below tells you which.) Use a tiny shape: HOOK → one real FACT → optional small TURN. Do NOT force a moral/insight/beautiful closing every time.
 3. Each segment is SHORT — 3 to 5 sentences. Radio, not a lecture.
 4. ${samePlace?`You ALREADY named "${ld.city}". Say "здесь", "в этом месте" — do not re-introduce it.`:`New area — you may set the scene briefly.`}
 5. DON'T INVENT. If the ALLOWED topic genuinely has nothing real for this exact spot (e.g. no real films were shot here, no famous actor is from here), DON'T fabricate a vague "a few actors were born around here" — instead honestly pivot: say you don't have a confirmed film tie to this exact spot and give a real, concrete fact from the same topic about the broader region, or note it and move to the next allowed topic. Never make up names, titles, or specifics.
@@ -1794,11 +1909,11 @@ CORE RULES:
 7. STAY FRESH — ABSOLUTE. Every segment must bring genuinely NEW information. NEVER repeat a fact, image or idea already said this session, even reworded, even from a new angle. If you have nothing new on the current subject, switch to a completely different subject. Never loop the same 2-3 facts about a place.${overused?` You OVERUSED these words — BANNED this segment: ${overused}.`:``}
 FACT DISCIPLINE: speak only real, documented things. NEVER say "все местные", "все дети", "все ловят рыбу", "каждая семья", "здесь нет McDonald's", "никаких сетевых кафе", or any idyllic small-town cliché. No sweeping claims about what all people eat, do, believe or avoid. Prefer modest wording: "в этих местах встречается", "часть местных", "для региона характерно". If you lack a concrete verified fact, stay general and modest rather than inventing. A U.S. state is a STATE, never a "республика".
 8. ${ isStopped ? `The listener is settled in ${ld.city||"this area"} and wants to hear about this place. Talk warmly about the place itself — its people, history, nature, life. Address them warmly ("здесь, в ${ld.city||"этих краях"}...", "в этом месте...").` : tm==="bike"?`On a bicycle — slower pace, closer to nature, mention things a cyclist would notice.`:tm==="walk"?`On foot — intimate pace, immediate surroundings.`:`Moving at about ${spd} mph — you may speak of the drive naturally.` }
-9. SEGMENT SHAPE (follow this human structure, do NOT sound like an encyclopedia):
-(1) A fresh hook with a clear subject. No mandatory bridge. Do not continue from a previous generated segment; only the last AIRED block exists for the listener.
-(2) ONE concrete fact — with a name, year, or vivid detail.
-(3) ONE human reaction / image / small smile — your warmth, not dry data.
-(4) A rounded closing thought so the segment doesn't cut off mid-air.
+9. SEGMENT SHAPE (anti-ИИ rhythm):
+(1) Fresh hook with a clear subject. No mandatory bridge. Do not continue from another generated segment; only the last AIRED block exists for the listener.
+(2) ONE concrete fact — with a name, year, number, object, or vivid detail.
+(3) Optional small turn. It may be absent.
+(4) End in different ways: sometimes on the fact, sometimes with a short question, sometimes with a dry aside. NEVER end every block with a moral or "how amazing it is" sentence.
 Do NOT open with an encyclopedic definition. Do NOT make a list or a lecture. BANNED openers/filler anywhere: "Знаешь","Знаете","Слушай","Слушайте","Впереди","Дальше","А вот интересно","посмотрите вокруг". Begin straight with warmth and substance.
 10. UNITS: this is the USA — ALWAYS use miles, never kilometers. Distances in miles only.
 11. WEATHER MUST MATCH REALITY: current sky is "${weatherRef.current?(weatherRef.current.desc||""):"unknown"}". Do NOT describe sunsets, golden light, clear skies, or scenery you can "see" if the weather doesn't support it. If it's raining/cloudy/snowing, either skip visual-scenery talk or frame it as "будь сейчас ясно, вы бы увидели...". Never claim a visible sunset/sunrise that contradicts the real weather.
@@ -1830,8 +1945,8 @@ ${planStr}
 
 Порядок не менять. topic_key в ответе — ровно тот, что указан для слота. Каждый блок — про СВОЮ тему и ни про что другое: если слот 1 про коренные народы, то в слотах 2-4 о них ни слова, даже вскользь. Между блоками НЕ делай скрытую цепочку. Каждый блок самостоятельный и понятен сам по себе, даже если предыдущий блок из этого батча будет удалён воротами.
 
-[{"story":"segment 1 in ${al}. КОРОТКО: 2-4 предложения. Один факт + живая подача. Самостоятельно, без ссылки на другой сгенерированный блок.","location":"exact place in English","topics":"short phrase naming the ONE thing covered","topic_key":"тема слота 1 из плана выше","entity":"main named landmark/institution or empty string","micro_topic_id":"short english kebab-case id","claim_key":"unique english kebab-case claim, e.g. jacksonville-flat-wetlands","bridge_key":"opening skeleton key, e.g. fresh-hook-land","images":["1-3 short english tags"]},{...slot 2 independent, no hidden bridge from slot 1...},{...slot 3 independent...},{...slot 4 independent...}]
-Ни один блок не повторяет факты или образы другого.`;
+[{"story":"segment 1 in ${al}. КОРОТКО: 2-4 предложения. Один факт. Без морали в конце. Самостоятельно, без ссылки на другой сгенерированный блок.","location":"exact place in English","topics":"short phrase naming the ONE thing covered","topic_key":"тема слота 1 из плана выше","entity":"main named landmark/institution or empty string","micro_topic_id":"short english kebab-case id","claim_key":"unique english kebab-case claim, e.g. jacksonville-flat-wetlands","bridge_key":"opening skeleton key, e.g. fresh-hook-land","images":["1-3 short english tags"]},{...slot 2 independent, no hidden bridge from slot 1...},{...slot 3 independent...},{...slot 4 independent...}]
+Ни один блок не повторяет факты или образы другого. Финальная фраза не должна быть одинаковой формулой удивления/морали.`;
   };
 
   // v105 CACHE: Google даёт implicit caching (скидка ~90% на вход) ТОЛЬКО если НАЧАЛО запроса
@@ -2114,12 +2229,11 @@ ${planStr}
         const gpsSpd=(c.speed!=null&&!isNaN(c.speed))?toMph(c.speed):null;
         const stoppedNow=tourist||parkedRef.current||(gpsSpd!=null&&gpsSpd<3);
         const styleId=bcastRef.current||"modern";
-        const bmReminder=styleId==="facts"
-          ?"ТЫ — ФАКТОВЫЙ ДОРОЖНЫЙ БРИФ: коротко, проверенно, без лирики. 2-3 предложения. Только факт, почему он важен, чистый выход."
-          :styleId==="normal"
-            ?"ТЫ — ТЁПЛЫЙ КРАЕВЕД, но дисциплинированный: живо, спокойно, без сиропа, без выдуманных наблюдений, без роли местного жителя."
-            :"ТЫ — MODERN ROAD DJ: умный попутчик на соседнем сиденье. Быстро, современно, короткий крючок, один конкретный факт, одна живая реакция, чистый выход. Не Тургенев, не экскурсовод у костра.";
-        const styleReminder=`\n\n‼ FINAL AND MOST IMPORTANT — VOICE/PERSONA ‼\n${bmReminder}\nNo hidden mini-arc. No poetic fog. No local-resident voice. Each segment stands alone.`;
+        const bmReminder=styleId==="local"
+          ?"ТЫ — МЕСТНЫЙ ЭКСПЕРТ ЭТОЙ ЗОНЫ: говори теплее, как человек, который болеет за это место. Допустимы «у нас/наш округ» умеренно. Без фальшивых личных воспоминаний, без придуманных фактов, без сиропа."
+          :"ТЫ — РАДИОВЕДУЩИЙ-ПОПУТЧИК: один голос Road Radio сопровождает водителя по стране. Быстро, современно, короткий крючок, один конкретный факт, чистый выход. НЕ местный житель каждого города подряд.";
+        const localLine=styleId==="local"?"Local-expert voice is allowed by user choice, but do not invent personal memories.":"No local-resident voice: say 'здесь/в этом районе/для региона', not 'у нас/наш округ'.";
+        const styleReminder=`\n\n‼ FINAL AND MOST IMPORTANT — VOICE/PERSONA ‼\n${bmReminder}\n${localLine}\nNo hidden mini-arc. No poetic fog. Each segment stands alone.`;
         lastStyleReminderRef.current=styleReminder;
         let poiLine="";
         if(stoppedNow){
@@ -2269,9 +2383,10 @@ ${planStr}
           // Пробуем взять замену из очереди; если пусто — короткая пауза, НЕ платный запрос.
           const alt=takeNextUsableFromQueue(c);
           if(alt){res=alt;}
-          else{res={story:isRu?"Секундная пауза на этой дороге — впереди найдётся, о чём рассказать.":"A brief pause — a good story is just ahead.",location:"",topics:"road-pause",entity:"",_src:"pause",_dirTopic:"road"};}
+          else{const ruNow=["ru","uk"].includes(langRef.current);res={story:ruNow?"Секундная пауза на этой дороге — впереди найдётся, о чём рассказать.":"A brief pause — a good story is just ahead.",location:"",topics:"road-pause",entity:"",_src:"pause",_dirTopic:"road"};}
         }else{res=gate.res;}
       }
+      res=applyRadioContinuity(res);
       storyText=res.story||"";
       lastIntroBcastRef.current=bcastRef.current;
       acceptSegment(res,{topic:res._dirTopic||"",lens:res._dirLens||"",scope:res._dirScope||"",source:useNext?"prefetch":"fresh"});  // record BEFORE speaking
