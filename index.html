@@ -289,7 +289,7 @@ body{font-family:'Inter',sans-serif;color:#fff;}
 const {useState,useRef,useEffect}=React;
 const PROXY="https://corsproxy.io/?https://api.anthropic.com/v1/messages";
 const KEY_STORE="rr_key_v3";
-const VER="v122";
+const VER="v123";
 // v76 MEMORY DIAGNOSTIC: prefetch & buffer OFF so every spoken segment goes through one gate.
 const PREFETCH_ENABLED=false;
 const BUFFER_ENABLED=false;
@@ -476,6 +476,9 @@ function App(){
   const neverParkRef=useRef(localStorage.getItem("rr_neverpark")==="1");  // never ask at stops
   const lastSpeedReport=useRef(0);
   const lastMotionRef=useRef(null);    // v122: estimate movement when browser GPS speed is null
+  const stationaryModeRef=useRef(false); // v123: confirmed/auto parked broadcast, not just the modal
+  const stationaryIntroSaidRef=useRef(false);
+  const lastMovingCtxRef=useRef({road:"",heading:90,city:"",county:"",state:"",t:0}); // last real driving vector for route-ahead context
   const lastHighwayReport=useRef(0);
   const lastNativeReport=useRef(0);
   const openerIdx=useRef(0);
@@ -898,7 +901,7 @@ function App(){
   const pauseAfterChunk=piece=>{
     const t=String(piece||"").trim();
     if(!t)return 90;
-    if(/^(история|спорт|кино|музыка|погода|небо|дорога|вода|еда|люди|загадки|странности|рем[её]сла|животные|коренные народы|местная волна|road radio|дорожное радио|теперь|смена частоты|одна волна|проверим|переключаемся)\b/i.test(t)&&t.length<=70)return 520;
+    if(/^(история|спорт|кино|музыка|погода|небо|дорога|вода|еда|люди|загадки|странности|рем[её]сла|животные|коренные народы|местная волна|road radio|дорожное радио|теперь|одна волна|проверим|переключаемся|ночная волна|пока стоим|колёса отдыхают)\b/i.test(t)&&t.length<=70)return 520;
     if(t.length<=55)return 260;
     return 120;
   };
@@ -1075,6 +1078,11 @@ function App(){
   const cleanRussianStory=s=>{
     if(!s)return s;
     let t=s;
+    // v123: remove internal/mechanical bridge phrases that should never leak into the listener's ear.
+    t=t.replace(/Смена\s+частоты\s*[:—-]?\s*/gi,"");
+    t=t.replace(/Следующая\s+метка\s*[:—-]?\s*/gi,"");
+    t=t.replace(/Коротко,\s*по\s+делу,\s*без\s+пыли\s+в\s+глаза\.?\s*/gi,"");
+    t=t.replace(/От\s+спорту\s+—\s+к\s+/gi,"От спорта — к ").replace(/От\s+экрану\s+—\s+к\s+/gi,"От экрана — к ").replace(/От\s+рем[её]слам\s+—\s+к\s+/gi,"От ремёсел — к ");
     // едем/едим confusion
     t=t.replace(/\bЕдим\s+(с\s+вами|на|по|через|сквозь|дальше)/g,"Едем $1").replace(/\bедим\s+(с\s+вами|на|по|через|сквозь|дальше)/g,"едем $1").replace(/\bвы\s+едите\b/g,"вы едете");
     // common broken forms seen in logs
@@ -1248,7 +1256,7 @@ Return exactly one JSON array with ${plan.length||4} items in this order. Every 
 
   // v112: «Если прислушаться», «Если отвлечься», «Если говорить» — это ОДИН приём, а не три разных.
   // Ловим по первому слову: если оно уже открывало блок недавно — зачин считается заезженным.
-  const BANNED_OPENERS=/^(контраст|казалось бы|ну что ж|а если|раз уж|напоследок|завершая|стоит упомянуть|нельзя не|интересно, что|кстати говоря|если|едем|посмотрите|вдоль)/i;
+  const BANNED_OPENERS=/^(смена частоты|следующая метка|контраст|казалось бы|ну что ж|а если|раз уж|напоследок|завершая|стоит упомянуть|нельзя не|интересно, что|кстати говоря|если|едем|посмотрите|вдоль)/i;
   const openerOf=s=>(s||"").trim().toLowerCase().replace(/[^а-яёa-z ]/gi,"").split(/\s+/).slice(0,3).join(" ");
   // Первое слово — «отпечаток» конструкции. Служебные предлоги не считаем (они безобидны).
   const SKIP_FIRST=/^(в|на|у|с|за|под|над|от|до|из|по|о|об|и|а|но)$/i;
@@ -1388,33 +1396,60 @@ Return exactly one JSON array with ${plan.length||4} items in this order. Every 
     persistMemory();
   };
 
-  // v120 RADIO CONTINUITY LAYER: returns the feeling of a human host without asking Gemini
-  // to write connected mini-arcs again. These bridges add NO facts; they only do on-air glue.
-  const topicRu={people:"людям",films:"экрану",land:"земле",economy:"деньгам",sports:"спорту",native:"первым народам",road:"дороге",sky:"небу",oddity:"странностям",wildlife:"животным",mystery:"загадкам",crafts:"ремёслам",food:"еде",water:"воде",music:"музыке",history:"истории",life:"жизни"};
+  // v123 ROAD/PARK CONTINUITY LAYER.
+  // Gemini writes independent facts; code adds human radio glue. Never add facts here.
+  const topicTo={people:"людям",films:"кино",land:"земле",economy:"экономике",sports:"спорту",native:"первым народам",road:"дороге",sky:"небу",oddity:"странностям",wildlife:"живой природе",mystery:"загадкам",crafts:"ремёслам",food:"еде",water:"воде",music:"музыке",history:"истории",life:"жизни"};
+  const topicFrom={people:"людей",films:"кино",land:"земли",economy:"экономики",sports:"спорта",native:"первых народов",road:"дороги",sky:"неба",oddity:"странностей",wildlife:"живой природы",mystery:"загадок",crafts:"ремёсел",food:"еды",water:"воды",music:"музыки",history:"истории",life:"жизни"};
   const pickRadio=a=>a[Math.floor(Math.random()*a.length)];
+  const stationaryMinutes=()=>stoppedSince.current?Math.max(0,(Date.now()-stoppedSince.current)/60000):0;
+  const isStationaryActive=()=>{
+    const c=coordsRef.current||{};
+    const gpsHasSpeed=c.speed!=null&&!isNaN(c.speed);
+    const spd=gpsHasSpeed?toMph(c.speed):(parseInt(speedVal)||null);
+    const stoppedBySpeed=spd!=null&&spd<3;
+    const longStill=stoppedBySpeed&&stoppedSince.current&&(Date.now()-stoppedSince.current>60000);
+    return !!(parkedRef.current||tourAckRef.current||stationaryModeRef.current||longStill);
+  };
+  const isOvernightRest=()=>{
+    const mins=stationaryMinutes();
+    const ph=nowPhaseRef.current||"";
+    return isStationaryActive()&&(mins>=15||/НОЧЬ|ТЕМНО/i.test(ph));
+  };
   const radioBridgeFor=(prev,cur,count)=>{
     const pair=`${prev||""}:${cur||""}`;
     const isLocalExpert=bcastRef.current==="local";
+    const resting=isOvernightRest();
+    const stopped=isStationaryActive();
     const headline={
-      people:["Люди.","Коротко о человеке."],films:["Кино.","Теперь — к экрану."],land:["Земля под колёсами.","География."],economy:["Экономика.","Теперь — чем место живёт."],
-      sports:["Спорт.","Теперь — к спорту."],native:["Коренные народы.","История до шоссе."],road:["Дорога.","Теперь — про сам маршрут."],sky:["Погода и небо.","Смотрим выше карты."],
-      oddity:["Странности.","А теперь — дорожная диковинка."],wildlife:["Животные.","Теперь — живая природа."],mystery:["Загадки.","Теперь — к загадкам."],crafts:["Ремёсла.","Теперь — ручная работа."],
-      food:["Еда.","Теперь — к вкусу."],water:["Вода.","Смена частоты: к воде."],music:["Музыка.","Смена частоты: к музыке."],history:["История.","Теперь — немного прошлого."],life:["Жизнь вокруг.","Теперь — как здесь живут."]
+      people:["Люди.","Коротко о человеке."],films:["Кино.","Теперь — к экрану."],land:["Земля.","География."],economy:["Экономика.","Чем место живёт."],
+      sports:["Спорт.","Теперь — к спорту."],native:["Коренные народы.","История до шоссе."],road:["Дорога.","Теперь — про маршрут."],sky:["Небо и погода.","Смотрим выше карты."],
+      oddity:["Странности.","Дорожная диковинка."],wildlife:["Живая природа.","Теперь — к животным."],mystery:["Загадки.","Теперь — к загадкам."],crafts:["Ремёсла.","Ручная работа."],
+      food:["Еда.","Теперь — к вкусу."],water:["Вода.","Теперь — к воде."],music:["Музыка.","Теперь — к музыке."],history:["История.","Теперь — немного прошлого."],life:["Жизнь вокруг.","Как здесь живут."]
     };
     const pickHeadline=()=>pickRadio(headline[cur]||["Следующая тема."]);
+
+    // Rest/overnight mode: softer, less “news wheel”, more background radio.
+    if(stopped||resting){
+      const quietBumpers=resting
+        ?["Ночная волна Road Radio.","Пока колёса отдыхают, карта всё ещё говорит.","Остаёмся на месте и берём историю тише."]
+        :["Пока стоим, берём круг чуть шире.","Остаёмся на этой точке, но смотрим вокруг.","Колёса отдыхают — эфир продолжается."];
+      const quietNeutral=[
+        "Ещё один слой вокруг этой точки.",
+        "Мягко меняем угол.",
+        "Посмотрим чуть дальше от этой стоянки.",
+        "Теперь спокойнее — ещё одна история рядом.",
+        "Карта здесь не заканчивается."
+      ];
+      const quietTo=[`Теперь тихо к ${topicTo[cur]||"следующей истории"}.`,`Ещё немного про ${topicTo[cur]||"это место"}.`,`Берём слой ${topicTo[cur]||"места"}.`];
+      if(count>0&&count%10===0)return pickRadio(quietBumpers);
+      if(count%5===1)return pickRadio(quietNeutral);
+      if(prev&&cur&&prev!==cur)return pickRadio(quietTo);
+      return count%4===0?pickRadio(quietNeutral):"";
+    }
+
     if(isLocalExpert){
-      const localBumpers=[
-        "Местная волна на связи.",
-        "Голос этой территории продолжает эфир.",
-        "Местный эксперт — коротко и по делу."
-      ];
-      const localNeutral=[
-        "У этого места есть ещё один слой.",
-        "Если смотреть по-местному, всплывает другая деталь.",
-        "А теперь — то, что здесь хорошо знают.",
-        "Не всё видно с трассы, но кое-что стоит знать.",
-        "Переключаемся на местный угол."
-      ];
+      const localBumpers=["Местная волна на связи.","Голос этой территории продолжает эфир.","Местный эксперт — коротко и по делу."];
+      const localNeutral=["У этого места есть ещё один слой.","Если смотреть по-местному, всплывает другая деталь.","А теперь — то, что здесь хорошо знают.","Не всё видно с трассы, но кое-что стоит знать.","Переключаемся на местный угол."];
       if(count>0&&count%8===0)return pickRadio(localBumpers);
       if(count%3===1)return pickHeadline();
       if(prev&&cur&&prev!==cur)return pickRadio(localNeutral);
@@ -1436,27 +1471,15 @@ Return exactly one JSON array with ${plan.length||4} items in this order. Every 
       "life:economy":["Быт всегда упирается в работу. Проверим, чем место живёт.","Теперь без романтики: чем здесь зарабатывают."],
       "sports:water":["После скорости — к воде.","Соревнования в сторону, слушаем реку."]
     };
-    const neutral=[
-      "Крутим ручку дальше.",
-      "Меняем угол.",
-      "Ещё одна короткая отметка на карте.",
-      "Ставим новую метку.",
-      "Теперь другой слой этого места.",
-      "Дальше — короткий поворот темы."
-    ];
-    const bumpers=[
-      "Это Road Radio. Одна волна на все штаты.",
-      "Road Radio на связи. Коротко, по делу, без пыли в глаза.",
-      "Одна волна на все штаты. Следующая метка."
-    ];
+    const neutral=["Крутим ручку дальше.","Меняем угол.","Ещё одна короткая отметка на карте.","Ставим новую метку.","Теперь другой слой этого места.","Дальше — короткий поворот темы."];
+    const bumpers=["Это Road Radio. Одна волна на все штаты.","Road Radio на связи.","Одна волна на все штаты."];
     if(count>0&&count%8===0)return pickRadio(bumpers);
-    // v122: imitate an old car-radio news wheel: History. Sports. Weather. Short pause. Then the card.
     if(count%3===1)return pickHeadline();
     if(pairs[pair])return pickRadio(pairs[pair]);
     if(prev&&cur&&prev!==cur){
       if(count%3===0)return pickHeadline();
-      const to=topicRu[cur]||"следующей теме";
-      const variants=[`От ${topicRu[prev]||"прошлой темы"} — к ${to}.`,`Теперь — к ${to}.`,`Смена частоты: к ${to}.`];
+      const to=topicTo[cur]||"следующей теме";
+      const variants=[`От ${topicFrom[prev]||"прошлой темы"} — к ${to}.`,`Теперь — к ${to}.`,`Дальше — к ${to}.`];
       return pickRadio(variants);
     }
     return count%3===0?pickRadio(neutral):"";
@@ -1464,21 +1487,25 @@ Return exactly one JSON array with ${plan.length||4} items in this order. Every 
   const applyRadioContinuity=(res)=>{
     if(!res||!res.story||res._src==="pause")return res;
     if(!["ru","uk"].includes(langRef.current))return res;
-    const raw=res.story;
+    const raw=cleanRussianStory(res.story||"").replace(/^\s*(Смена\s+частоты\s*[:—-]?\s*)/i,"");
     const count=(spokenLedgerRef.current||[]).length;
     const prev=(spokenLedgerRef.current||[]).slice(-1)[0]||{};
     const cur=res._dirTopic||res.topic_key||"";
-    // Do not bridge the very first spoken block; after that, add short radio glue about 75% of the time.
     let bridge="";
     if(count>0){
-      if(count%4===2)bridge=""; // let some cards breathe with no transition
-      else bridge=radioBridgeFor(prev.topic,cur,count);
+      const resting=isOvernightRest();
+      if(resting){
+        if(count%3!==2)bridge=radioBridgeFor(prev.topic,cur,count); // more breathable than drive mode
+      }else{
+        if(count%4!==2)bridge=radioBridgeFor(prev.topic,cur,count);
+      }
     }
     if(bridge){
+      bridge=cleanRussianStory(bridge);
       res._rawStory=raw;
       res._radioBridge=bridge;
       res.story=cleanRussianStory(`${bridge} ${raw}`);
-    }
+    }else res.story=raw;
     return res;
   };
 
@@ -1760,8 +1787,13 @@ ${mustClose?`Заверши тему красиво, законченной мы
     // Manual speed is used ONLY when GPS gives no speed at all (null/undefined) — never override a real 0.
     const gpsHasSpeed=c.speed!=null&&!isNaN(c.speed);
     const spd=gpsHasSpeed?toMph(c.speed):(parseInt(speedVal)||0);
-    // Single source of truth for "am I stopped": the tourist/parked flag (user confirmed a stop) OR a genuine near-zero speed.
-    const isStopped=isTourist||(gpsHasSpeed&&toMph(c.speed)<3);
+    // v123: stop state is not just the UI modal. If the listener chose to keep listening while stopped,
+    // or the phone has been still for a while, the whole broadcast switches to parked/rest logic.
+    const stopMin=stationaryMinutes();
+    const isStationary=isStationaryActive();
+    const isRestMode=isStationary&&(stopMin>=10||/НОЧЬ|ТЕМНО/i.test(nowPhaseRef.current||""));
+    const isOvernightMode=isStationary&&(stopMin>=15||/НОЧЬ|ТЕМНО/i.test(nowPhaseRef.current||""));
+    const isStopped=isTourist||isStationary||(gpsHasSpeed&&toMph(c.speed)<3);
     const hdg=c.heading||90;
     const now0=new Date();
     const hr=now0.getHours(),mn=now0.getMinutes();
@@ -1784,8 +1816,11 @@ ${mustClose?`Заверши тему красиво, законченной мы
     const tStr=`${hr}:${mn.toString().padStart(2,'0')}`;
     const fullDate=now0.toLocaleDateString('en',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
     const timeCtx=`${phase}, local time ${tStr}, today is ${fullDate}, ${mo}${sun?` (sunrise ${(sun.rise.split('T')[1]||'').slice(0,5)}, sunset ${(sun.set.split('T')[1]||'').slice(0,5)})`:''}. Use THIS date/season for any talk of seasons or whether days are getting longer or shorter — never contradict it.`;
-    const tmCtx=isStopped?`STOPPED / PARKED — the listener is standing still at this spot, not moving.`:tm==="car"?`car moving at about ${spd} mph`:tm==="bus"?`bus/train moving at about ${spd} mph`:tm==="bike"?`bicycle`:tm==="walk"?"walking":"vehicle";
-    const destCtx=dest?`\nHeading toward: ${dest} — for direction context ONLY. NEVER describe places not within 3 miles of current position.`:"";
+    const tmCtx=isStopped?`STOPPED / PARKED — the listener is standing still at this spot, not moving${isRestMode?" and may be resting/sleeping":""}.`:tm==="car"?`car moving at about ${spd} mph`:tm==="bus"?`bus/train moving at about ${spd} mph`:tm==="bike"?`bicycle`:tm==="walk"?"walking":"vehicle";
+    const lastMove=lastMovingCtxRef.current||{};
+    const routeAhead=isStopped?(lastMove.road?`Last known travel corridor: ${lastMove.road} heading ${toDirWord(lastMove.heading||hdg,"en")}. If the listener stays parked, you may gently look ahead along this corridor, but always say "if we continue this way" / "если продолжим этим курсом", never pretend they are moving.`:"No reliable previous travel corridor; stay around the current place and widen by radius/county."):"";
+    const destCtx=dest?`
+Heading toward: ${dest} — for direction context ONLY.${isStopped?` Since the listener is parked, discuss it only as possible future route context, not as current movement.`:` NEVER describe places not within 3 miles of current position unless code explicitly says it is a major city ahead.`}`:"";
     const exCtx=exl.length?`\nNEVER mention: ${exl.join(', ')}.`:"";
     const recentTopics=topicsUsedRef.current.slice(-8).join(", ");
     const nightCtx=isNight?`It is NIGHT and dark. Never say "you can see the landscape". Speak of what's in the headlights, the dark shapes, the night sky.`:isDawn?`It is around SUNRISE — the sun is coming up, light is growing. Do NOT say it's setting or that it's dark.`:isDusk?`It is around SUNSET — light is fading, long shadows. Do NOT say the sun is rising.`:`It is DAYTIME, full light. Do NOT mention sunset, sunrise, dusk, or darkness.`;
@@ -1838,7 +1873,10 @@ Reply ONLY valid JSON: {"story":"your spoken answer in ${al}","location":"curren
       {key:"crafts",label:"local crafts and trades — what's made by hand here, markets"},
       {key:"road",label:"the road and route — which interstate/highway this is and where it leads, pioneer trails"},
     ];
-    const allowed=TOPIC_DEFS.filter(t=>cfg[t.key]!==false).filter(t=>!(t.key==="road"&&isStopped));
+    const quietKeys=new Set(["history","people","land","water","wildlife","sky","native","music","food","mystery","oddity","crafts","life","films","economy"]);
+    const restBlockKeys=new Set(isRestMode?["sports","road"]:(isStopped?["road"]:[]));
+    let allowed=TOPIC_DEFS.filter(t=>cfg[t.key]!==false).filter(t=>!restBlockKeys.has(t.key)).filter(t=>!isRestMode||quietKeys.has(t.key));
+    if(!allowed.length)allowed=TOPIC_DEFS.filter(t=>cfg[t.key]!==false).filter(t=>t.key!=="road");
     // v114: buildSys больше НЕ создаёт план — он его ПОЛУЧАЕТ (план строится один раз на батч, см. reserveSlots).
     // Раньше makeBatchPlan() жил здесь, а buildSys дёргается на каждый запрос (включая фоновую догрузку) —
     // план пересоздавался чаще, чем расходовался, и темы разбегались.
@@ -1880,7 +1918,8 @@ Reply ONLY valid JSON: {"story":"your spoken answer in ${al}","location":"curren
     const personaRule=isLocalExpert
       ? `РЕЖИМ: МЕСТНЫЙ ЭКСПЕРТ. Ты — местный голос именно ЭТОЙ территории, выбранный слушателем сознательно. Можно говорить теплее и с защитой места: «у нас здесь», «наш округ», «для нас это важно» — но умеренно, не в каждом блоке. Нельзя выдумывать личные воспоминания, «я тут вырос», «я пил чай на этой веранде», если этого нет в источниках. Ты не один и тот же человек на всю Америку, а местная волна текущей зоны.`
       : `РЕЖИМ: РАДИОВЕДУЩИЙ-ПОПУТЧИК. Ты — один голос Road Radio, который сопровождает водителя по стране. Ты НЕ местный житель Хьюстона, Луизианы, Джексонвилла и всех мест подряд. Говори «здесь», «в этом районе», «для региона», «мы едем/наш маршрут», но НЕ «у нас», НЕ «наш округ», НЕ «в наших краях».`;
-    const voiceHeader=`YOU ARE THE ROAD RADIO HOST — a modern, quick-witted radio voice riding shotgun with ONE driver.
+    const segmentLen=isRestMode?"4-7 предложений, спокойный ночной рассказ":"2-4 предложения";
+    const voiceHeader=`YOU ARE THE ROAD RADIO HOST — a modern human radio voice riding with ONE listener.
 
 ${personaRule}
 
@@ -1895,11 +1934,11 @@ ${personaRule}
 СЛОЙ 2 — ПОДАЧА (КАК говоришь). ЖИВАЯ, СОВРЕМЕННАЯ.
 — Ты НЕ Тургенев и НЕ Пришвин. НИКАКОЙ художественной прозы о красотах природы: без «драматической игры теней», «пологих холмов, обретающих глубину», «скрытой от глаз суеты».
 — Говори как современный человек в 2026-м: коротко, по делу, с искрой — будто рассказываешь другу за рулём что-то реально любопытное.
-— Один блок — 2-4 предложения. КОРОТКО. Дал факт — оживил одной фразой — передал дальше.
+— Один блок — ${segmentLen}. ${isRestMode?"Спокойно, мягко, без рубрик-автомата; можно чуть длиннее, чтобы под это отдыхать.":"КОРОТКО. Дал факт — оживил одной фразой — передал дальше."}
 — Живость: сухой юмор и короткая человеческая интонация, но не в каждом блоке. БЕЗ обязательной личной реакции, без приторности и пейзажных поэм.
 
 СЛОЙ 3 — ЧЕЛОВЕЧНОСТЬ v122 (девиз: радио, которое НЕ хочется переключать).
-Приложение само добавит короткие эфирные переходы и паузы между блоками. Твоя задача — НЕ писать мостики и НЕ лепить мораль в конце.
+Приложение само добавит короткие эфирные переходы и паузы между блоками. Твоя задача — НЕ писать служебные мостики и НЕ лепить мораль в конце.
 — Начни блок сразу с живого предмета: имя, дата, число, объект, странная деталь.
 — Не заканчивай каждый блок философским выводом. Настоящий ведущий часто просто ставит точку, задаёт короткий вопрос или оставляет факт висеть в воздухе.
 — Личная реакция — редкая специя, максимум в 1 блоке из 4. Не ставь её постоянно в финальное предложение.
@@ -1911,14 +1950,14 @@ ${personaRule}
 — каждое предложение несёт факт или мысль, а не украшение;
 — режим голоса важен: если выбран «Радиоведущий», НЕ выдавай себя за местного; если выбран «Местный эксперт», можно говорить как местный, но без фальшивых личных воспоминаний.
 
-НАЧАЛО БЛОКА — по-разному каждый раз, с сути: с имени, даты, числа, детали, вопроса. НЕ начинай со слов: «Контраст», «Казалось бы», «Ну что ж», «Если...», «Едем», «Посмотрите», «Вдоль», «Раз уж», «Напоследок», «Завершая». Два блока подряд не начинаются с одного слова. КАЖДЫЙ блок — с понятного подлежащего (не «Они...», не «Эти места...»): слушатель включился только что.
+НАЧАЛО БЛОКА — по-разному каждый раз, с сути: с имени, даты, числа, детали, вопроса. НЕ начинай со слов: «Смена частоты», «Следующая метка», «Контраст», «Казалось бы», «Ну что ж», «Если...», «Едем», «Посмотрите», «Вдоль», «Раз уж», «Напоследок», «Завершая». Два блока подряд не начинаются с одного слова. КАЖДЫЙ блок — с понятного подлежащего (не «Они...», не «Эти места...»): слушатель включился только что.
 
 YOUR DISCIPLINE: не повторяй сказанное этой сессией — ни факт, ни образ, ни формулировку. Каждый блок — что-то реально новое.`
     const styleBlock=`========================\n‼ WHO YOU ARE — THIS DEFINES YOUR ENTIRE VOICE (non-negotiable) ‼\n${voiceHeader}\n========================`;
 
     return`${styleBlock}
 
-You are the host of "Road Radio", a personal road companion riding beside ONE driver. You create independent short radio cards about the exact place they pass.${orderCtx}
+You are the host of "Road Radio", a personal road companion for ONE listener. ${isRestMode?"The listener is parked/resting, so you create calm, longer, independent night-radio stories about the point, nearby area, county, and wider route context.":"You create independent short radio cards about the exact place they pass."}${orderCtx}
 
 ‼ TOPIC RULES — HARD CONSTRAINTS ‼
 ALLOWED topics (you may ONLY talk about these): ${allowedStr}.
@@ -1928,13 +1967,13 @@ Pick something from the ALLOWED list that you have NOT covered yet. Rotate — d
 CORE RULES:
 1. ${lastSaid?`Do NOT make a continuous chain. Each segment must stand alone. Segment 1 may contain a tiny bridge from the last AIRED block only if it helps, but never start with “Раз уж”, “От этого”, “После трагедии”, or any hidden continuation. Start with a clear subject and a fresh hook. End the segment on a rounded thought, not mid-air.`:`THIS IS YOUR VERY FIRST LINE ON AIR. Open SHORT and warm (one sentence), and in it make clear where the listener is: ${isStopped?`settled in at ${ld.city||"this spot"}${ld.state?`, ${ld.state}`:""} — begin with a concrete subject, NOT a greeting and NOT "Ну что ж".`:`travelling${ld.highway?` on ${ld.highway}`:""} heading ${toDirWord(hdg,langRef.current)} through ${ld.city||"this area"}${ld.state?`, ${ld.state}`:""} — start from a real subject/fact, not from “Едем” and not from “Ну что ж”. You may mention the road/direction briefly later, but the first words should be a hook like a date, place name, river, person, animal or number. Say the direction as a full word, never a compass letter.`} Do NOT say "С вами радио" or announce a station name — just warmly begin. Then flow straight into the topic.`}
 2. FINISH A TOPIC, THEN MOVE ON. (The director below tells you which.) Use a tiny shape: HOOK → one real FACT → optional small TURN. Do NOT force a moral/insight/beautiful closing every time.
-3. Each segment is SHORT — 3 to 5 sentences. Radio, not a lecture.
+3. Each segment length: ${isRestMode?"4 to 7 sentences, calm and smooth — night radio, not a lecture":"3 to 5 sentences — radio, not a lecture"}.
 4. ${samePlace?`You ALREADY named "${ld.city}". Say "здесь", "в этом месте" — do not re-introduce it.`:`New area — you may set the scene briefly.`}
 5. DON'T INVENT. If the ALLOWED topic genuinely has nothing real for this exact spot (e.g. no real films were shot here, no famous actor is from here), DON'T fabricate a vague "a few actors were born around here" — instead honestly pivot: say you don't have a confirmed film tie to this exact spot and give a real, concrete fact from the same topic about the broader region, or note it and move to the next allowed topic. Never make up names, titles, or specifics.
-6. ${isStopped?`Just tell warm, interesting things about this place and its region — its history, people, nature, life.`:`DISTANCES: The only distance you may state is a code-confirmed major landmark far along the highway (a big city or famous river/bridge tens of miles away) given to you explicitly below — then you may warn about it once. Otherwise state NO distance, NO minutes, NO side for anything nearby — speak generally ("в этих краях", "в этом месте"). ‼ NEVER voice limitations out loud: never explain that you lack a map, don't measure distance, or can't tell what lies along the route. If you don't know where something is, simply don't mention its location — just tell about it warmly.`}
+6. ${isStopped?`PARKED MODE: do NOT say the listener is driving, approaching, passing, looking left/right, or moving. Tell warm, interesting things about this point and its region. If the exact point runs thin, widen honestly: nearby area → county → wider region → possible forward corridor. Say "while we are stopped" or "if we continue this way" when needed.`:`DISTANCES: The only distance you may state is a code-confirmed major landmark far along the highway (a big city or famous river/bridge tens of miles away) given to you explicitly below — then you may warn about it once. Otherwise state NO distance, NO minutes, NO side for anything nearby — speak generally ("в этих краях", "в этом месте"). ‼ NEVER voice limitations out loud: never explain that you lack a map, don't measure distance, or can't tell what lies along the route. If you don't know where something is, simply don't mention its location — just tell about it warmly.`}
 7. STAY FRESH — ABSOLUTE. Every segment must bring genuinely NEW information. NEVER repeat a fact, image or idea already said this session, even reworded, even from a new angle. If you have nothing new on the current subject, switch to a completely different subject. Never loop the same 2-3 facts about a place.${overused?` You OVERUSED these words — BANNED this segment: ${overused}.`:``}
 FACT DISCIPLINE: speak only real, documented things. NEVER say "все местные", "все дети", "все ловят рыбу", "каждая семья", "здесь нет McDonald's", "никаких сетевых кафе", or any idyllic small-town cliché. No sweeping claims about what all people eat, do, believe or avoid. Prefer modest wording: "в этих местах встречается", "часть местных", "для региона характерно". If you lack a concrete verified fact, stay general and modest rather than inventing. A U.S. state is a STATE, never a "республика".
-8. ${ isStopped ? `The listener is settled in ${ld.city||"this area"} and wants to hear about this place. Talk warmly about the place itself — its people, history, nature, life. Address them warmly ("здесь, в ${ld.city||"этих краях"}...", "в этом месте...").` : tm==="bike"?`On a bicycle — slower pace, closer to nature, mention things a cyclist would notice.`:tm==="walk"?`On foot — intimate pace, immediate surroundings.`:`Moving at about ${spd} mph — you may speak of the drive naturally.` }
+8. ${ isStopped ? `The listener is settled in ${ld.city||"this area"}. If they have been stopped for a while, assume they may be resting; slow down, soften the tone, and avoid the news-wheel feeling. No forced sports/business/weather bumpers.` : tm==="bike"?`On a bicycle — slower pace, closer to nature, mention things a cyclist would notice.`:tm==="walk"?`On foot — intimate pace, immediate surroundings.`:`Moving at about ${spd} mph — you may speak of the drive naturally.` }
 9. SEGMENT SHAPE (anti-ИИ rhythm):
 (1) Fresh hook with a clear subject. No mandatory bridge. Do not continue from another generated segment; only the last AIRED block exists for the listener.
 (2) ONE concrete fact — with a name, year, number, object, or vivid detail.
@@ -1944,6 +1983,19 @@ Do NOT open with an encyclopedic definition. Do NOT make a list or a lecture. BA
 10. UNITS: this is the USA — ALWAYS use miles, never kilometers. Distances in miles only.
 11. WEATHER MUST MATCH REALITY: current sky is "${weatherRef.current?(weatherRef.current.desc||""):"unknown"}". Do NOT describe sunsets, golden light, clear skies, or scenery you can "see" if the weather doesn't support it. If it's raining/cloudy/snowing, either skip visual-scenery talk or frame it as "будь сейчас ясно, вы бы увидели...". Never claim a visible sunset/sunrise that contradicts the real weather.
 12. SUN / TIME-OF-DAY: mention time of day or the sun AT MOST once in a long while — not every segment. Never guess which side the sun is on. Use the real phase "${phase}" only; never say "закат"/"sunset" in the morning or "рассвет"/"sunrise" in the evening.
+
+${isStopped?`
+
+PARK / OVERNIGHT BROADCAST PROTOCOL — IMPORTANT:
+- The listener is NOT moving. They may be parked at a truck stop/rest area or resting for the night.
+- Pacing: ${isRestMode?"slow, warm, longer, sleep-friendly background radio":"calm parked radio, not a driving-news wheel"}.
+- Do not force every category. Avoid sports in rest mode unless the user explicitly allowed/asked.
+- Expand by scale when material runs thin: exact point → nearby area → county → 50 miles → 100 miles → likely forward corridor.
+- Current scale hint: ${stopMin<10?"exact point and immediate surroundings":stopMin<30?"nearby area and county":stopMin<60?"county and 50-mile circle":"wider circle and likely route ahead"}.
+- ${routeAhead}
+- Use quiet phrases: "пока стоим", "вокруг этой точки", "если продолжим этим курсом".
+- NEVER say internal/service phrases such as "смена частоты", "директор", "слот", "следующая метка", "карточка".
+`:""}
 
 CURRENT POSITION (ground truth):
 ${isStopped?`- Place: ${ld.city||"open country"}${ld.county?`, ${ld.county}`:""}${ld.state?`, ${ld.state}`:""} (coordinates ${c.lat.toFixed(5)}, ${Math.abs(c.lng).toFixed(5)}W).
@@ -1964,6 +2016,8 @@ ALREADY SAID THIS DRIVE (never repeat): ${recentFacts||"nothing yet — first se
 - Keep time-of-day consistent with "${phase}". The exact local time is ${tStr} — if you mention the time at all, state it correctly; do NOT approximate it to a different hour.
 - ‼ LANGUAGE LOCK ‼: write EVERY single word in ${al}. Never switch to English or any other language mid-segment. If you catch yourself starting an English word, stop and use ${al}.
 
+ABSOLUTE BAN ON AUDIBLE SERVICE PHRASES: never write "смена частоты", "следующая метка", "слот", "директор", "карточка", "рубрика", "как ИИ", "алгоритм". These are internal mechanics, not radio.
+
 Reply ONLY valid JSON — an ARRAY of exactly 4 segments.
 
 ‼ ТЕМЫ УЖЕ НАЗНАЧЕНЫ РЕЖИССЁРОМ. Ты их НЕ выбираешь. Твоя работа — написать живой текст по каждому слоту:
@@ -1971,7 +2025,7 @@ ${planStr}
 
 Порядок не менять. topic_key в ответе — ровно тот, что указан для слота. Каждый блок — про СВОЮ тему и ни про что другое: если слот 1 про коренные народы, то в слотах 2-4 о них ни слова, даже вскользь. Между блоками НЕ делай скрытую цепочку. Каждый блок самостоятельный и понятен сам по себе, даже если предыдущий блок из этого батча будет удалён воротами.
 
-[{"story":"segment 1 in ${al}. КОРОТКО: 2-4 предложения. Один факт. Без морали в конце. Самостоятельно, без ссылки на другой сгенерированный блок.","location":"exact place in English","topics":"short phrase naming the ONE thing covered","topic_key":"тема слота 1 из плана выше","entity":"main named landmark/institution or empty string","micro_topic_id":"short english kebab-case id","claim_key":"unique english kebab-case claim, e.g. jacksonville-flat-wetlands","bridge_key":"opening skeleton key, e.g. fresh-hook-land","images":["1-3 short english tags"]},{...slot 2 independent, no hidden bridge from slot 1...},{...slot 3 independent...},{...slot 4 independent...}]
+[{"story":"segment 1 in ${al}. ${isRestMode?"СПОКОЙНО: 4-7 предложений, мягкая ночная подача":"КОРОТКО: 2-4 предложения"}. Один факт или одна маленькая история. Без морали в конце. Самостоятельно, без ссылки на другой сгенерированный блок.","location":"exact place in English","topics":"short phrase naming the ONE thing covered","topic_key":"тема слота 1 из плана выше","entity":"main named landmark/institution or empty string","micro_topic_id":"short english kebab-case id","claim_key":"unique english kebab-case claim, e.g. jacksonville-flat-wetlands","bridge_key":"opening skeleton key, e.g. fresh-hook-land","images":["1-3 short english tags"]},{...slot 2 independent, no hidden bridge from slot 1...},{...slot 3 independent...},{...slot 4 independent...}]
 Ни один блок не повторяет факты или образы другого. Финальная фраза не должна быть одинаковой формулой удивления/морали.`;
   };
 
@@ -2250,14 +2304,14 @@ ${planStr}
       if(!res){
         setStatus("loading");
         const[geo,pois]=await Promise.all([reverseGeocode(c.lat,c.lng),fetchPOI(c.lat,c.lng,c.heading??90)]);
-        fetchCityAhead(c.lat,c.lng,c.heading??90); // fire-and-forget, updates cityAheadRef for next prompts
+        if(!isStationaryActive())fetchCityAhead(c.lat,c.lng,c.heading??90); // moving only: updates cityAheadRef for next prompts
         if(gen!==loopGenRef.current||!runRef.current)return;   // aborted while loading
         const gpsSpd=(c.speed!=null&&!isNaN(c.speed))?toMph(c.speed):null;
-        const stoppedNow=tourist||parkedRef.current||(gpsSpd!=null&&gpsSpd<3);
+        const stoppedNow=tourist||isStationaryActive()||(gpsSpd!=null&&gpsSpd<3);
         const styleId=bcastRef.current||"modern";
         const bmReminder=styleId==="local"
           ?"ТЫ — МЕСТНЫЙ ЭКСПЕРТ ЭТОЙ ЗОНЫ: говори теплее, как человек, который болеет за это место. Допустимы «у нас/наш округ» умеренно. Без фальшивых личных воспоминаний, без придуманных фактов, без сиропа."
-          :"ТЫ — РАДИОВЕДУЩИЙ-ПОПУТЧИК: один голос Road Radio сопровождает водителя по стране. Быстро, современно, короткий крючок, один конкретный факт, чистый выход. НЕ местный житель каждого города подряд.";
+          :(stoppedNow?"ТЫ — НОЧНОЙ/СТОЯНОЧНЫЙ ВЕДУЩИЙ ROAD RADIO: слушатель стоит и, возможно, отдыхает. Говори мягче, плавнее, длиннее, без рубрик-автомата и без фраз типа «смена частоты». НЕ притворяйся местным жителем.":"ТЫ — РАДИОВЕДУЩИЙ-ПОПУТЧИК: один голос Road Radio сопровождает водителя по стране. Быстро, современно, короткий крючок, один конкретный факт, чистый выход. НЕ местный житель каждого города подряд.");
         const localLine=styleId==="local"?"Local-expert voice is allowed by user choice, but do not invent personal memories.":"No local-resident voice: say 'здесь/в этом районе/для региона', not 'у нас/наш округ'.";
         const styleReminder=`\n\n‼ FINAL AND MOST IMPORTANT — VOICE/PERSONA ‼\n${bmReminder}\n${localLine}\nNo hidden mini-arc. No poetic fog. Each segment stands alone.`;
         lastStyleReminderRef.current=styleReminder;
@@ -2296,7 +2350,9 @@ ${planStr}
           try{
             const cfgNow=topicsCfgRef.current||{};
             const ALL_KEYS=["history","native","land","wildlife","water","people","life","food","music","films","sports","economy","mystery","oddity","sky","crafts","road"];
-            const allowedNow=ALL_KEYS.filter(k=>cfgNow[k]!==false);
+            const isParkPlan=isStationaryActive();
+            const restPlan=isOvernightRest();
+            const allowedNow=ALL_KEYS.filter(k=>cfgNow[k]!==false).filter(k=>!(isParkPlan&&k==="road")).filter(k=>!(restPlan&&(k==="sports"||k==="road")));
             lastBatchPlanRef.current=makeBatchPlan(4,allowedNow.length?allowedNow:ALL_KEYS,{});
             const p0=lastBatchPlanRef.current[0]||{};
             director={topicKey:p0.topic||"",lens:p0.lens||"",scope:p0.scope||"",text:buildBatchDirectorText()};
@@ -2310,7 +2366,9 @@ ${planStr}
           const prevBlock=(saidFactsRef.current.slice(-1)[0]||"");
           // v116: время суток — ПЕРВЫМ в меняющейся части, с приоритетом. В логе модель игнорировала его
           // («сумерки подчёркивают линии холмов» — ночью; «будь сейчас день, вы бы разглядели рощи»).
-          const varPart=`‼‼ СЕЙЧАС ${nowPhaseRef.current||""}. Это ФАКТ, а не предположение. Никогда не пиши «будь сейчас день/ночь» — ты ЗНАЕШЬ, что сейчас. Не описывай свет, которого нет.\n\n`
+          const varPart=`‼‼ СЕЙЧАС ${nowPhaseRef.current||""}. Это ФАКТ, а не предположение. Никогда не пиши «будь сейчас день/ночь» — ты ЗНАЕШЬ, что сейчас. Не описывай свет, которого нет. ${isStationaryActive()?"СЛУШАТЕЛЬ СТОИТ: не говори, что он едет, приближается или проезжает; веди спокойный эфир вокруг этой точки.":"СЛУШАТЕЛЬ В ДВИЖЕНИИ: можно вести бодрый дорожный эфир."}
+
+`
             +(prevBlock?`ПОСЛЕДНИЙ РЕАЛЬНО ОЗВУЧЕННЫЙ БЛОК (только контекст; НЕ продолжай скрытую цепочку): "${prevBlock}"\n\n`:"")+buildBatchDirectorText()+poiLine+wikiBlock+memoryBlockForPrompt()+styleReminder;
           lastPromptRef.current=sys;         // ядро для фоновой догрузки
           lastVarRef.current=varPart;        // меняющаяся часть для фоновой догрузки
@@ -2388,7 +2446,7 @@ ${planStr}
         // NEVER air a rejected candidate. If all attempts failed, air a short honest neutral bridge instead.
         if(!accepted){
           const isRu=["ru","uk"].includes(langRef.current);
-          accepted={story:isRu?"Пусть эта дорога пока помолчит секунду — впереди наверняка найдётся, о чём рассказать. Держим курс.":"Let the road breathe for a second — there'll be a good story just ahead. Keep rolling.",location:"",topics:"road-pause",entity:"",_src:"pause",_dirTopic:"road"};
+          accepted={story:isRu?(isStationaryActive()?"Пусть это место немного помолчит. Сейчас найдём другую нить вокруг этой точки.":"Пусть эта дорога пока помолчит секунду — впереди наверняка найдётся, о чём рассказать. Держим курс."):(isStationaryActive()?"Let this place breathe for a moment. We'll find another thread around this spot.":"Let the road breathe for a second — there'll be a good story just ahead. Keep rolling."),location:"",topics:"road-pause",entity:"",_src:"pause",_dirTopic:"road"};
         }
         res=accepted;
       }
@@ -2409,7 +2467,7 @@ ${planStr}
           // Пробуем взять замену из очереди; если пусто — короткая пауза, НЕ платный запрос.
           const alt=takeNextUsableFromQueue(c);
           if(alt){res=alt;}
-          else{const ruNow=["ru","uk"].includes(langRef.current);res={story:ruNow?"Секундная пауза на этой дороге — впереди найдётся, о чём рассказать.":"A brief pause — a good story is just ahead.",location:"",topics:"road-pause",entity:"",_src:"pause",_dirTopic:"road"};}
+          else{const ruNow=["ru","uk"].includes(langRef.current);res={story:ruNow?(isStationaryActive()?"Секундная пауза. Остаёмся на месте и берём другую историю вокруг этой точки.":"Секундная пауза на этой дороге — впереди найдётся, о чём рассказать."):(isStationaryActive()?"A brief pause. We'll stay with this spot and take another nearby story.":"A brief pause — a good story is just ahead."),location:"",topics:"road-pause",entity:"",_src:"pause",_dirTopic:"road"};}
         }else{res=gate.res;}
       }
       res=applyRadioContinuity(res);
@@ -2434,12 +2492,16 @@ ${planStr}
             // the previous batch's hidden arc and produced land/crafts/native loops.
             const cfgNow=topicsCfgRef.current||{};
             const ALL_KEYS=["history","native","land","wildlife","water","people","life","food","music","films","sports","economy","mystery","oddity","sky","crafts","road"];
-            const allowedNow=ALL_KEYS.filter(k=>cfgNow[k]!==false);
+            const isParkPlan=isStationaryActive();
+            const restPlan=isOvernightRest();
+            const allowedNow=ALL_KEYS.filter(k=>cfgNow[k]!==false).filter(k=>!(isParkPlan&&k==="road")).filter(k=>!(restPlan&&(k==="sports"||k==="road")));
             lastBatchPlanRef.current=makeBatchPlan(4,allowedNow.length?allowedNow:ALL_KEYS,{});
             airLogRef.current.push({t:new Date().toISOString(),_ms:Date.now(),status:"SLOT_PLAN",note:"BG "+lastBatchPlanRef.current.map(p=>p.slot+":"+p.topic).join(" | ")+"  | тем в очереди: "+topicQueueRef.current.length+" | зарезервировано: "+reservedTopicsRef.current.length});
-            const bgSys=buildSys(false,null,false);
+            const bgSys=buildSys(false,null,isStationaryActive());
             const prevBlock=(saidFactsRef.current.slice(-1)[0]||"");
-            const bgVarPart=`‼‼ СЕЙЧАС ${nowPhaseRef.current||""}. Это ФАКТ. Не описывай свет/погоду, которых нет.\n\n`
+            const bgVarPart=`‼‼ СЕЙЧАС ${nowPhaseRef.current||""}. Это ФАКТ. Не описывай свет/погоду, которых нет. ${isStationaryActive()?"СТОЯНКА/ОТДЫХ: мягкий эфир, без служебных фраз, без движения.":"ДВИЖЕНИЕ: дорожный эфир."}
+
+`
               +(prevBlock?`ПОСЛЕДНИЙ РЕАЛЬНО ОЗВУЧЕННЫЙ БЛОК (только контекст; НЕ продолжай скрытую цепочку): "${prevBlock}"\n\n`:"")
               +buildBatchDirectorText()+memoryBlockForPrompt()+(lastStyleReminderRef.current||"");
             const bg=await callClaude(bgSys,"Produce 4 independent radio segments for the assigned slots. Each segment must stand alone. Output only JSON array.",true,bgVarPart);
@@ -2524,20 +2586,28 @@ ${planStr}
     if(!coords||!runRef.current)return;
     const gpsHasSpeed=coords.speed!=null&&!isNaN(coords.speed);
     const spd=gpsHasSpeed?toMph(coords.speed):(parseInt(speedVal)||null);
+    if(spd!=null&&spd>=6){
+      lastMovingCtxRef.current={road:locDataRef.current.highway||"",heading:coords.heading||lastMovingCtxRef.current.heading||90,city:locDataRef.current.city||"",county:locDataRef.current.county||"",state:locDataRef.current.state||"",t:Date.now()};
+    }
     if(spd!=null&&spd<4){
       if(!stoppedSince.current)stoppedSince.current=Date.now();
+      const stillMs=Date.now()-stoppedSince.current;
+      if(tourAckRef.current||neverParkRef.current||stillMs>60000)stationaryModeRef.current=true;
       // Only ask if the user hasn't already chosen to keep listening while stopped.
-      if(Date.now()-stoppedSince.current>20000&&!parkedRef.current&&!tourAckRef.current&&!neverParkRef.current){
+      if(stillMs>20000&&!parkedRef.current&&!tourAckRef.current&&!neverParkRef.current){
         setParked(true);parkedRef.current=true;
         loopGenRef.current++;          // kill the live loop generation
         hardStop();
         const isRu=langRef.current==="ru";
-        const q=isRu?"Похоже, вы остановились. Продолжать местный эфир об этой точке... или подождать, пока поедете?":"Looks like you've stopped. Continue local broadcast about this spot... or wait until you're rolling again?";
+        const q=isRu?"Похоже, вы остановились. Можно продолжить спокойный эфир об этой точке... или подождать, пока поедете?":"Looks like you've stopped. I can keep a calm broadcast about this spot... or wait until you're rolling again.";
         speak(q);
+      }else if(neverParkRef.current&&stillMs>20000&&!speakingRef.current&&!loopBusyRef.current){
+        tourAckRef.current=true;stationaryModeRef.current=true;
+        if(runRef.current){loopGenRef.current++;const g=loopGenRef.current;setTimeout(()=>{if(runRef.current&&loopGenRef.current===g)loopRef.current?.(false,true);},600);}
       }
     }else{
       stoppedSince.current=null;
-      tourAckRef.current=false;   // moving again — re-enable the stop prompt for next time
+      tourAckRef.current=false;stationaryModeRef.current=false;stationaryIntroSaidRef.current=false;   // moving again — re-enable stop logic
       if(parkedRef.current){
         setParked(false);parkedRef.current=false;
         if(runRef.current){loopGenRef.current++;const g=loopGenRef.current;setTimeout(()=>{if(runRef.current&&loopGenRef.current===g)loopRef.current?.(false,false);},1000);}
@@ -2583,6 +2653,8 @@ ${planStr}
       }
       lastMotionRef.current=pt;
       const c={lat:pt.lat,lng:pt.lng,speed:sp,heading:pos.coords.heading};
+      const mphEst=(sp!=null&&!isNaN(sp))?toMph(sp):null;
+      if(mphEst!=null&&mphEst>=6){lastMovingCtxRef.current={road:locDataRef.current.highway||lastMovingCtxRef.current.road||"",heading:c.heading||lastMovingCtxRef.current.heading||90,city:locDataRef.current.city||"",county:locDataRef.current.county||"",state:locDataRef.current.state||"",t:now};}
       coordsRef.current=c;setCoords(c);
       if(++wt%60===0)fetchWeather(c.lat,c.lng);
       // Keep the on-screen place label tracking your real position (every ~12 ticks).
@@ -2599,7 +2671,7 @@ ${planStr}
     spokenLedgerRef.current=[];semanticStopRef.current=new Set();entityStopRef.current=new Set();topicFailRef.current={};topicCooldownRef.current={};lexCooldownRef.current=[];
     spokenHashRef.current=new Set();motifCooldownRef.current={};
     loadMemory(); // restore if the last session was < 40 min ago (same trip after a phone call); else stays clean
-    openerIdx.current=0;stoppedSince.current=null;fuelWarnedRef.current=0;tourAckRef.current=false;
+    openerIdx.current=0;stoppedSince.current=null;fuelWarnedRef.current=0;tourAckRef.current=false;stationaryModeRef.current=false;stationaryIntroSaidRef.current=false;lastMovingCtxRef.current={road:"",heading:(c.heading||90),city:"",county:"",state:"",t:0};
     loopBusyRef.current=false;loopGenRef.current++;        // fresh single generation
     parkedRef.current=false;pausedRef.current=false;setPaused(false);
     setErr("");setStory("");setParked(false);
@@ -3210,8 +3282,8 @@ ${planStr}
               <div className="parked-title">{isRu?"Вы остановились":"You've stopped"}</div>
               <div className="parked-sub">{isRu?"Продолжать рассказ об этом месте?":"Continue listening about this place?"}</div>
               <div className="parked-btns">
-                <button className="parked-btn go" onClick={()=>{setParked(false);parkedRef.current=false;tourAckRef.current=true;pausedRef.current=false;setPaused(false);loopBusyRef.current=false;hardStop();loopGenRef.current++;const g=loopGenRef.current;setStatus("loading");setTimeout(()=>{if(runRef.current&&loopGenRef.current===g)loopRef.current?.(false,true);},250);}}>{isRu?"✓ Продолжить":"✓ Continue"}</button>
-                <button className="parked-btn wait" onClick={()=>{setParked(false);parkedRef.current=false;tourAckRef.current=true;stoppedSince.current=Date.now();loopGenRef.current++;hardStop();setStatus("ready");}}>{isRu?"⏸ Подождать":"⏸ Wait"}</button>
+                <button className="parked-btn go" onClick={()=>{setParked(false);parkedRef.current=false;tourAckRef.current=true;stationaryModeRef.current=true;pausedRef.current=false;setPaused(false);loopBusyRef.current=false;hardStop();loopGenRef.current++;const g=loopGenRef.current;setStatus("loading");setTimeout(()=>{if(runRef.current&&loopGenRef.current===g)loopRef.current?.(false,true);},250);}}>{isRu?"✓ Продолжить":"✓ Continue"}</button>
+                <button className="parked-btn wait" onClick={()=>{setParked(false);parkedRef.current=false;tourAckRef.current=true;stationaryModeRef.current=false;stoppedSince.current=Date.now();loopGenRef.current++;hardStop();setStatus("ready");}}>{isRu?"⏸ Подождать":"⏸ Wait"}</button>
               </div>
             </div>
           )}
