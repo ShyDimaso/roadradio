@@ -289,7 +289,7 @@ body{font-family:'Inter',sans-serif;color:#fff;}
 const {useState,useRef,useEffect}=React;
 const PROXY="https://corsproxy.io/?https://api.anthropic.com/v1/messages";
 const KEY_STORE="rr_key_v3";
-const VER="v134";
+const VER="v135";
 // v76 MEMORY DIAGNOSTIC: prefetch & buffer OFF so every spoken segment goes through one gate.
 const PREFETCH_ENABLED=false;
 const BUFFER_ENABLED=false;
@@ -569,6 +569,9 @@ function App(){
   // v134 Local AI Background Lab: Local AI is optional, OFF on page load, and never blocks speech.
   // The old v133 setting is intentionally ignored so a heavy cached Qwen session cannot auto-start and crash Chrome.
   const LOCAL_AI_DEFAULT_MODEL="TinyLlama-1.1B-Chat-v1.0-q4f16_1-MLC";
+  // v135: железный сброс — убиваем ВСЕ старые Local AI ключи (v133 мог автостартовать тяжёлый Qwen
+  // из кэша и ронять Chrome). Local AI теперь только ручной запуск из Debug, каждый раз заново.
+  try{if(localStorage.getItem("rr_localai_purged")!=="v135"){["rr_local_ai_v1","rr_local_ai_v2","rr_local_ai_model_v1","rr_local_ai_model_v2","rr_local_ai_enabled","rr_local_ai_on"].forEach(k=>localStorage.removeItem(k));localStorage.setItem("rr_localai_purged","v135");}}catch{}
   const [localAiMode,setLocalAiMode]=useState(false);
   const [localAiStatus,setLocalAiStatus]=useState("off");
   const [localAiModel,setLocalAiModel]=useState(localStorage.getItem("rr_local_ai_model_v2")||LOCAL_AI_DEFAULT_MODEL);
@@ -1872,7 +1875,16 @@ Return exactly one JSON array with ${plan.length||4} items in this order. Every 
   const wikiPickKind=()=>{const enabled=wikiEnabledKinds();const mem=wikiMemoryRef.current;for(let i=0;i<enabled.length*2;i++){const k=enabled[(wikiTurnRef.current+i)%enabled.length];const recent=(mem.kinds||[]).slice(-7);if(!recent.includes(k)||i>enabled.length)return k;}return enabled[0]||"place";};
   const wikiPickRubric=(kind)=>{const map={place:["О месте.","Точка рядом.","География паузы."],water:["О воде.","Вода рядом.","Река и берега."],history:["Из старой истории.","Старая карта.","Немного прошлого."],wildlife:["Живая природа.","Кто тут живёт.","Природа рядом."],land:["О земле.","Рельеф и почва.","Под ногами."],people:["О людях.","Человеческая нить.","Кто держит округ."],road:["О дороге.","Дорожная нить.","Линия маршрута."],weather:["Погода у точки.","Воздух вокруг.","Небо сейчас."],films:["Кино и экран.","Место в кадре.","Экранная нитка."],literature:["Литературная нить.","Место в тексте.","Книги и дорога."],music:["Музыкальная нить.","Звучание места.","О местном звуке."],records:["Рекорды и странности.","Чем место отметилось.","Необычная отметка."],news:["Из местной хроники.","Городская заметка.","Хроника округа."],food:["О вкусе места.","Еда у дороги.","Местный стол."],sports:["Спорт вокруг.","Игры и дороги.","Местная скорость."],crafts:["Ручная работа.","Ремесло рядом.","Что делают руками."],native:["До шоссе.","Коренные земли.","Глубокий слой карты."],mystery:["Загадка рядом.","Тёмная нитка карты.","Местная легенда."],oddity:["Странная деталь.","Дорожная диковина.","Карта умеет удивлять."],sky:["Небо над точкой.","Смотрим выше карты.","Облака и свет."],economy:["Чем место живёт.","Рабочий округ.","Экономика без витрины."],life:["Жизнь вокруг.","Повседневная волна.","Обычный день округа."]};const arr=map[kind]||map.place;return arr[wikiRadioIdxRef.current++%arr.length];};
   const wikiFactTake=(w,kind,geo={})=>{const raw=cleanWikiText(w?.extract||"");if(!raw)return"";if((w?._lang||"")==="en"&&["ru","uk"].includes(langRef.current))return wikiRoughEnglish(w,kind,geo);let s=wikiSplitSents(raw).map(x=>x.trim()).filter(Boolean);const junk=/населени|перепис|статистически|density|км²|coordinates|координат|произнош|площадь|часовой пояс/i;s=s.filter(x=>!junk.test(x));const good=/основан|река|озеро|аэропорт|железн|истор|музей|парк|фильм|писател|книг|музык|спорт|рекорд|самый|стар|перв|коренн|индей|природ|заповед|дорог|мост|порт|университет|изобрет/i;const a=s.filter(x=>good.test(x));const use=(a.length?a:s).slice(0,3).join(" ");return use.slice(0,520);};
-  const wikiRoughEnglish=(w,kind,geo={})=>{const title=cleanWikiTitle(w?.title||"");const raw=String(w?.extract||"").toLowerCase();const county=geo?.county||locDataRef.current?.county||"округ";const state=geo?.state||locDataRef.current?.state||"штат";if(/airport/.test(raw))return `${title} связан с авиацией и дорожной логистикой ${county}: вокруг таких мест появляются рабочие места, гостиницы, аренда машин, склады и быстрые подъездные дороги.`;if(/river|lake|spring|creek|wetland/.test(raw))return `${title} — водная линия этой территории. Вода здесь объясняет старые маршруты, парки, рыбалку, мосты и то, почему дороги обходят низкие участки.`;if(/film|movie|television/.test(raw))return `${title} даёт месту экранную нитку. Такие статьи полезны для стоянки: они показывают, как регион попадал в кадр через дороги, пригороды, старые улицы или аэропорты.`;if(/writer|novel|author|book|poet/.test(raw))return `${title} открывает литературный угол этой земли. Через книги и авторов территория начинает звучать не только как карта, но и как человеческая история.`;if(/music|song|band|musician/.test(raw))return `${title} связывает регион со звуком: местные сцены, песни, исполнители и дороги часто идут рядом сильнее, чем кажется.`;if(/historic|national register|founded|established/.test(raw))return `${title} — историческая зацепка рядом с этой точкой. Старая застройка, дороги и названия помогают понять, с чего начиналась местная жизнь.`;if(/census-designated|unincorporated|community|city|town/.test(raw))return `${title} — одно из соседних названий в ${county}, ${state}. Такие места складывают повседневную географию округа: жильё, съезды, школы, магазины и короткие поездки.`;return `${title} — заметная статья рядом с этой территорией. Для стоянки это один спокойный ориентир, который расширяет разговор от точки к округу.`;};
+  const wikiRoughEnglish=(w,kind,geo={})=>{const title=cleanWikiTitle(w?.title||"");const raw=String(w?.extract||"").toLowerCase();const tl=title.toLowerCase();const county=geo?.county||locDataRef.current?.county||"округ";const state=geo?.state||locDataRef.current?.state||"штат";
+    // v135 КЛАССИФИКАТОР ТИПОВ (фикс путаницы v134: GreeneWay-шоссе и Sanford Avenue звучали как «водная линия»,
+    // Zimmerman подавался как «спокойный ориентир»).
+    // 1) Криминал/трагедии вокруг персон — в бесплатном эфире таким статьям не место вообще.
+    if(/shooting|murder|killed|homicide|manslaughter|death of|acquitt|trial of|убийств|застрел/i.test(raw))return "";
+    // 2) ДОРОГИ/РЕЛЬСЫ проверяются ПО НАЗВАНИЮ и РАНЬШЕ воды — иначе слово creek в тексте статьи
+    //    превращало шоссе в «водную линию».
+    if(/railroad|railway|rail line/.test(tl)||/railroad|railway/.test(raw.slice(0,120)))return `${title} — железнодорожная линия этих мест. Рельсы почти всегда старше шоссе: вдоль них росли станции, склады и первые улицы, и по ним до сих пор читается логика округа.`;
+    if(/greeneway|expressway|highway|freeway|toll|turnpike|beltway|avenue|boulevard|street|state road|\broute\b/.test(tl))return `${title} — дорожная артерия ${county}. Такие трассы объясняют, где растут развязки, склады, сервисы и новые районы: дорога тянет за собой всю карту.`;
+    if(/airport/.test(raw))return `${title} связан с авиацией и дорожной логистикой ${county}: вокруг таких мест появляются рабочие места, гостиницы, аренда машин, склады и быстрые подъездные дороги.`;if(/river|lake|spring|creek|wetland|bayou/.test(tl)||/is a (river|lake|spring|creek|wetland)/.test(raw))return `${title} — водная линия этой территории. Вода здесь объясняет старые маршруты, парки, рыбалку, мосты и то, почему дороги обходят низкие участки.`;if(/film|movie|television/.test(raw))return `${title} даёт месту экранную нитку. Такие статьи полезны для стоянки: они показывают, как регион попадал в кадр через дороги, пригороды, старые улицы или аэропорты.`;if(/writer|novel|author|book|poet/.test(raw))return `${title} открывает литературный угол этой земли. Через книги и авторов территория начинает звучать не только как карта, но и как человеческая история.`;if(/music|song|band|musician/.test(raw))return `${title} связывает регион со звуком: местные сцены, песни, исполнители и дороги часто идут рядом сильнее, чем кажется.`;if(/historic|national register|founded|established/.test(raw))return `${title} — историческая зацепка рядом с этой точкой. Старая застройка, дороги и названия помогают понять, с чего начиналась местная жизнь.`;if(/census-designated|unincorporated|community|city|town/.test(raw))return `${title} — одно из соседних названий в ${county}, ${state}. Такие места складывают повседневную географию округа: жильё, съезды, школы, магазины и короткие поездки.`;return `${title} — заметная статья рядом с этой территорией. Для стоянки это один спокойный ориентир, который расширяет разговор от точки к округу.`;};
   const wikiRenderArticle=(w,geo={},forcedKind="")=>{
     const kind=forcedKind||wikiKind(w);const title=cleanWikiTitle(w?.title||"это место");
     const sc=wikiArticleScore(w,geo,{theme:!!forcedKind||!!w?._thematic});
@@ -1899,6 +1911,9 @@ Return exactly one JSON array with ${plan.length||4} items in this order. Every 
     const h=wikiHash(res.story);if(h&&(wikiMemoryRef.current.hashes||[]).includes(h))return{ok:false,reason:"wiki_duplicate"};
     const first=String(res.story).split(/[.!?]/)[0].slice(0,70).toLowerCase();
     if((wikiMemoryRef.current.openers||[]).includes(first))return{ok:false,reason:"wiki_stale_opener"};
+    // v135: один и тот же вид блока (place/weather/poi...) не идёт два раза подряд — простая смена угла.
+    if(res._wikiKind&&res._wikiKind===wikiMemoryRef.current.lastKind&&res._wikiKind!=="poi")return{ok:false,reason:"wiki_same_kind_twice"};
+    if(res._wikiKind)wikiMemoryRef.current.lastKind=res._wikiKind;
     res._wiki=true;res._src="wikiradio";res._dirTopic="wiki";return{ok:true,res};
   };
   const buildWikiWeatherSegment=(geo={})=>{const pool=(WIKIBRAIN_SAFE_CAPSULES&&WIKIBRAIN_SAFE_CAPSULES.weather)||["Погода у точки. {WEATHER}. Для стоянки это не украшение: жара, влажность, ветер и свет меняют ощущение дороги так же сильно, как город или ландшафт."];const tpl=pool[(wikiTurnRef.current++)%pool.length];const story=wikiTpl(tpl,geo);return {story,location:geo.city||geo.county||geo.state||"",topics:"wiki-weather",entity:"weather:"+wikiTurnRef.current,_src:"wikiradio",_wiki:true,_dirTopic:"wiki",_wikiKind:"weather"};};
@@ -1917,6 +1932,14 @@ Return exactly one JSON array with ${plan.length||4} items in this order. Every 
     literature:["Литературный слой. У таких мест есть темы для книги: ожидание, дорога, влажный воздух, работа, маленькие районы и жизнь между городом и тишиной окраины.","Книжная сторона дороги. Здесь важны не громкие декорации, а наблюдение: как люди ездят, где живут, где вода меняет план района и как обычная стоянка становится частью большого маршрута."]
   };
   const buildWikiCapsuleSegment=(geo={},kind="")=>{const mem=wikiMemoryRef.current;let k=kind||wikiPickKind()||"place";let pool=WIKIBRAIN_SAFE_CAPSULES[k]||WIKIBRAIN_SAFE_CAPSULES.place;for(let i=0;i<pool.length;i++){const idx=(wikiNoDataIdxRef.current+i)%pool.length;const story=wikiTpl(pool[idx],geo);const h=wikiHash(story);if(!(mem.hashes||[]).includes(h)&&!(mem.capsules||[]).includes(pool[idx])){wikiNoDataIdxRef.current+=i+1;mem.capsules=[...(mem.capsules||[]),pool[idx]].slice(-240);return {story,location:geo.city||geo.county||geo.state||"",topics:"wiki-capsule",entity:"capsule:"+k+":"+wikiNoDataIdxRef.current,_src:"wikiradio",_wiki:true,_dirTopic:"wiki",_wikiKind:k};}}
+    // v135: этот fallback дал «О месте» 89 раз подряд (capsule:last в логе v134) — при пустом пуле
+    // он крутил 2 фразы по кругу с уникальным entity, обходя дедуп. Теперь не чаще 1 раза в 3 минуты,
+    // в остальное время — честная пауза.
+    const nowFb=Date.now();
+    if(nowFb-(window.__rrLastCapsuleFallback||0)<180000){
+      return {story:["ru","uk"].includes(langRef.current)?"Короткая пауза в эфире.":"A short on-air pause.",location:"",topics:"road-pause",entity:"",_src:"pause",_wiki:true,_dirTopic:"road"};
+    }
+    window.__rrLastCapsuleFallback=nowFb;
     const fallback=wikiTpl(WIKIBRAIN_SAFE_CAPSULES.place[wikiNoDataIdxRef.current++%WIKIBRAIN_SAFE_CAPSULES.place.length],geo);return {story:fallback,location:geo.city||geo.county||geo.state||"",topics:"wiki-capsule",entity:"capsule:last:"+Date.now(),_src:"wikiradio",_wiki:true,_dirTopic:"wiki",_wikiKind:k};};
   const buildWikiPoiSegment=async(lat,lng,geo={})=>{try{const pois=await Promise.race([fetchPOI(lat,lng,coordsRef.current?.heading||lastMovingCtxRef.current?.heading||90),new Promise(r=>setTimeout(()=>r([]),3500))]);const mem=wikiMemoryRef.current;const p=(pois||[]).find(x=>x&&x.name&&!(mem.poi||[]).includes(String(x.name).toLowerCase()));if(!p)return null;mem.poi=[...(mem.poi||[]),String(p.name).toLowerCase()].slice(-160);const name=String(p.name).replace(/\s+/g," ").trim();const type=p.type||"poi";let body="";if(type==="water")body=`О воде. Рядом отмечен ${name}. Такие водные места обычно влияют на парки, мосты, дренаж, старые маршруты и зелёные полосы вокруг дороги.`;else if(type==="park")body=`Зелёная точка. На карте рядом есть ${name}. Парк показывает бытовую сторону района: тень, прогулки, школьные выезды, детские площадки и короткий отдых рядом с дорогой.`;else if(type==="historic")body=`Старая отметка. Рядом есть ${name}. Такие места сохраняют кусок прежней жизни: здание, кладбище, старую дорогу, памятник или местную память.`;else if(type==="place")body=`Соседний район. Рядом есть ${name}. Такие названия помогают понять, как вокруг стоянки расположены жильё, съезды, магазины и повседневные поездки.`;else if(type==="bridge")body=`Дорожная деталь. Рядом отмечен ${name}. Мост почти всегда говорит о встрече дороги с водой, низиной или старым маршрутом.`;else body=`Ориентир рядом. На карте есть ${name}. Это реальная точка вокруг стоянки: через неё можно читать воду, дорогу, людей и район.`;return {story:body,location:name,topics:"wiki-poi",entity:"poi:"+name,_src:"wikiradio",_wiki:true,_dirTopic:"wiki",_wikiKind:"poi"};}catch{return null;}};
   const buildWikiNewsSegment=async(geo={})=>{try{const arts=await Promise.race([fetchGdeltLocalNews(geo),new Promise(r=>setTimeout(()=>r(null),3800))]);if(!arts||!arts.length)return null;const terms=wikiCtxTerms(geo);const a=(arts||[]).find(x=>{const t=wikiNorm(x.title||"");return x.title&&terms.some(k=>t.includes(k))&&!wikiMemoryRef.current.entities.includes("news:"+t.slice(0,80));});if(!a)return null;const where=geo.city||locDataRef.current?.city||geo.county||locDataRef.current?.county||"района";const title=String(a.title||"").replace(/\s+/g," ").slice(0,170);const story=`Местная хроника. Вокруг ${where} появился заголовок: «${title}». Такие новости показывают текущую жизнь района — дороги, погоду, городские решения и события рядом с маршрутом.`;return {story,location:where,topics:"wiki-news",entity:"news:"+title.toLowerCase().slice(0,80),_src:"wikiradio",_wiki:true,_dirTopic:"wiki",_wikiKind:"news"};}catch{return null;}};
@@ -2961,7 +2984,12 @@ ${planStr}
             res=(wikiQueueRef.current&&wikiQueueRef.current.length)?wikiQueueRef.current.shift():buildWikiCapsuleSegment(locDataRef.current||{},"place");
             const wg=validateWikiBeforeAir(res);
             if(wg.ok)res=wg.res;
-            else res=buildWikiCapsuleSegment({...locDataRef.current,city:(locDataRef.current?.city||locDataRef.current?.name||"эта точка")},"place");
+            else{
+              // v135: раньше здесь вставлялась капсула БЕЗ валидации — при пуле из 2 штук это дало
+              // «О месте» 89 раз подряд. Теперь: нечего сказать — честная короткая пауза, эфир дышит.
+              const ruNow=["ru","uk"].includes(langRef.current);
+              res={story:ruNow?"Небольшая пауза в эфире — рядом пока тихо, скоро возьмём новую историю.":"A short quiet moment on air — a new story is coming up.",location:"",topics:"road-pause",entity:"",_src:"pause",_dirTopic:"road",_wiki:true};
+            }
           }else{
             // Пробуем взять замену из очереди; если пусто — короткая пауза, НЕ платный запрос.
             const alt=takeNextUsableFromQueue(c);
@@ -2982,6 +3010,14 @@ ${planStr}
         }
       }
       res=applyRadioContinuity(res);
+      // v135: две паузы подряд — вторую не озвучиваем, просто тихо ждём. Иначе «короткая пауза»
+      // сама превращается в назойливый повтор.
+      if(res._src==="pause"&&window.__rrPrevWasPause){
+        setStatus("loading");
+        if(gen===loopGenRef.current&&runRef.current)scheduleNext(gen,wikiModeRef.current?15000:5000);
+        return;
+      }
+      window.__rrPrevWasPause=(res._src==="pause");
       storyText=res.story||"";
       lastIntroBcastRef.current=bcastRef.current;
       acceptSegment(res,{topic:res._dirTopic||"",lens:res._dirLens||"",scope:res._dirScope||"",source:res._src||(useNext?"prefetch":"fresh")});  // record BEFORE speaking
@@ -3048,7 +3084,21 @@ ${planStr}
           }finally{batchLoadingRef.current=false;}
         })();
       }
-      if(storyText)await speak(storyText);
+      if(storyText){
+        // v135 АНТИ-ПУЛЕМЁТ: замеряем, сколько реально длилась озвучка. Если TTS сломался/перегружен
+        // (в v134 LocalAI перегружал телефон) — speak() возвращается мгновенно, и цикл строчил блоки
+        // каждые 150мс: 168 блоков с интервалом <5 сек, «О месте» 89 раз подряд. Теперь: если озвучка
+        // заняла подозрительно мало (< текст/25 симв-в-сек), ДОБИРАЕМ паузу до честной длительности.
+        const t0=Date.now();
+        await speak(storyText);
+        const spokeMs=Date.now()-t0;
+        const expectMs=Math.min(90000,Math.max(4000,storyText.length*1000/25)); // ~25 симв/сек речи
+        if(spokeMs<expectMs*0.4){
+          airLogRef.current.push({t:new Date().toISOString(),_ms:Date.now(),status:"TTS_TOO_FAST",note:`spoke:${spokeMs}ms expected:~${Math.round(expectMs)}ms — добираю паузу (TTS сломан/занят?)`});
+          await new Promise(r=>setTimeout(r,Math.min(expectMs-spokeMs,45000)));
+          if(gen!==loopGenRef.current||!runRef.current)return;
+        }
+      }
       if(gen!==loopGenRef.current||!runRef.current||parkedRef.current)return;
     }catch(loopErr){
       // v101: РАНЬШЕ ошибка цикла улетала молча (был только finally) — лог оставался пустым, эфир стоял.
@@ -3063,7 +3113,9 @@ ${planStr}
     }
     // Continuous radio: almost no gap. The next segment is usually already prefetched, so it starts right away.
     if(gen===loopGenRef.current&&runRef.current&&!parkedRef.current){
-      const gap=wikiModeRef.current?150:1500;
+      // v135: wiki-gap был 150мс(!) — при сломанном TTS это и был пулемёт. Теперь пауза честная:
+      // стоянка 12с, движение 6с (бесплатный эфир не обязан строчить без передышки).
+      const gap=wikiModeRef.current?(isStationaryActive()?12000:6000):1500;
       scheduleNext(gen,gap);
     }
   };
@@ -3222,6 +3274,11 @@ ${planStr}
 
   const stop=()=>{
     runRef.current=false;loopGenRef.current++;loopBusyRef.current=false;bufferRef.current=[];
+    // v135: Stop должен останавливать ВСЁ. Раньше wiki-очередь и фоновые генерации переживали Stop
+    // и могли выстрелить после рестарта (вклад в пулемёт v134).
+    try{batchQRef.current=[];nextRef.current=null;wikiQueueRef.current=[];wikiFillingRef.current=false;batchLoadingRef.current=false;}catch{}
+    try{if(localAiReadyQueueRef&&localAiReadyQueueRef.current)localAiReadyQueueRef.current=[];}catch{}
+    window.__rrPrevWasPause=false;
     if(loopRef.current?.scheduled)clearTimeout(loopRef.current.scheduled);
     hardStop();setStatus("idle");
     try{wlRef.current?.release();}catch{}setWakeLock(false);
@@ -3872,7 +3929,7 @@ ${planStr}
               <button className={`sbtn big${showTxt?" act":""}`} onClick={()=>{setShowTxt(t=>{const n=!t;if(n)setRadioFocus(false);return n;});}}>{showTxt?(isRu?"📄 Текст ✓":"📄 Text ✓"):(isRu?"📄 Текст":"📄 Text")}</button>
               <button className={`sbtn big${debugOn?" act":""}`} onClick={()=>setDebugOn(d=>!d)}>{debugOn?"🐞 Debug ✓":"🐞 Debug"}</button>
               <button className={`sbtn big${wikiMode?" act":""}`} onClick={()=>{setWikiMode(w=>!w);batchQRef.current=[];nextRef.current=null;bufferRef.current=[];}}>{wikiMode?"📚 WikiRadio ✓":"📚 WikiRadio"}</button>
-              <button className={`sbtn big${localAiMode?" act":""}`} title={localAiStatus} onClick={toggleLocalAiBeta}>{localAiMode?"🧠 Local AI ✓":"🧠 Local AI"}</button>
+              {debugOn&&<button className={`sbtn big${localAiMode?" act":""}`} title={localAiStatus} onClick={toggleLocalAiBeta}>{localAiMode?"🧠 Local AI ✓":"🧠 Local AI (Lab)"}</button>}
               <button className={`sbtn big${provider==="gemini"?" act":""}`} onClick={()=>{
                 if(provider==="haiku"){
                   let gk=localStorage.getItem("rr_gemini_key")||"";
