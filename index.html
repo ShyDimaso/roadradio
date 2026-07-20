@@ -8,7 +8,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Road Radio">
 <link rel="manifest" href='data:application/manifest+json,{"name":"Road Radio","short_name":"Road Radio","start_url":".","scope":".","display":"standalone","orientation":"portrait","background_color":"%23100c1e","theme_color":"%23100c1e","icons":[{"src":"data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%22512%22 height=%22512%22%3E%3Crect width=%22512%22 height=%22512%22 fill=%22%23100c1e%22/%3E%3Ctext x=%2250%25%22 y=%2258%25%22 font-size=%22300%22 text-anchor=%22middle%22 dominant-baseline=%22middle%22%3E%F0%9F%93%BB%3C/text%3E%3C/svg%3E","sizes":"512x512","type":"image/svg+xml","purpose":"any maskable"}]}'>
-<title>Road Radio</title>
+<title>Road Radio v133</title>
 <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
 <style>
 *{box-sizing:border-box;margin:0;padding:0;}
@@ -289,7 +289,7 @@ body{font-family:'Inter',sans-serif;color:#fff;}
 const {useState,useRef,useEffect}=React;
 const PROXY="https://corsproxy.io/?https://api.anthropic.com/v1/messages";
 const KEY_STORE="rr_key_v3";
-const VER="v132";
+const VER="v133";
 // v76 MEMORY DIAGNOSTIC: prefetch & buffer OFF so every spoken segment goes through one gate.
 const PREFETCH_ENABLED=false;
 const BUFFER_ENABLED=false;
@@ -566,13 +566,35 @@ function App(){
   };
   const [debugOn,setDebugOn]=useState(false);
   const [wikiMode,setWikiMode]=useState(()=>localStorage.getItem("rr_wiki_mode_v1")==="1");   // v127: WikiRadio remembers mode and bypasses paid Gemini path
+  // v133 Local AI Beta: WebLLM runs a tiny model inside the phone browser and rewrites grounded Wiki facts.
+  const [localAiMode,setLocalAiMode]=useState(()=>localStorage.getItem("rr_local_ai_v1")==="1");
+  const [localAiStatus,setLocalAiStatus]=useState(localStorage.getItem("rr_local_ai_status_v1")||"off");
+  const [localAiModel,setLocalAiModel]=useState(localStorage.getItem("rr_local_ai_model_v1")||"Qwen2.5-0.5B-Instruct-q4f16_1-MLC");
   const [provider,setProvider]=useState(localStorage.getItem("rr_provider")||"haiku"); // v86: model switch haiku/gemini
   const wikiModeRef=useRef(false);
+  const localAiModeRef=useRef(false);
+  const localAiModelRef=useRef(localStorage.getItem("rr_local_ai_model_v1")||"Qwen2.5-0.5B-Instruct-q4f16_1-MLC");
+  const localAiEngineRef=useRef(null);
+  const localAiLoadPromiseRef=useRef(null);
+  const localAiBusyRef=useRef(false);
   useEffect(()=>{
     wikiModeRef.current=wikiMode;
     try{localStorage.setItem("rr_wiki_mode_v1",wikiMode?"1":"0");}catch{}
     if(wikiMode){try{batchQRef.current=[];nextRef.current=null;bufferRef.current=[];wikiQueueRef.current=[];}catch{}}
   },[wikiMode]);
+  useEffect(()=>{
+    localAiModeRef.current=localAiMode;
+    localAiModelRef.current=localAiModel;
+    try{
+      localStorage.setItem("rr_local_ai_v1",localAiMode?"1":"0");
+      localStorage.setItem("rr_local_ai_model_v1",localAiModel);
+      localStorage.setItem("rr_local_ai_status_v1",localAiStatus||"off");
+    }catch{}
+    if(localAiMode){
+      if(!wikiModeRef.current)setWikiMode(true);
+      setTimeout(()=>{try{const p=localAiEnsureReady();if(p&&p.catch)p.catch(()=>{});}catch{}},80);
+    }
+  },[localAiMode,localAiModel,localAiStatus]);
   const [debugLine,setDebugLine]=useState("");
   const dirMoodRef=useRef("normal");   // mood of the next block
   const callPhaseRef=useRef("idle");
@@ -1721,6 +1743,13 @@ Return exactly one JSON array with ${plan.length||4} items in this order. Every 
       }else if(r.status==="GEMINI_HTTP_ERR"){
         lines.push(`[${r.t}]  ✗ GEMINI_HTTP_ERR  status:${r.httpStatus}`);
         lines.push(`  raw: ${r.raw||""}`);
+      }else if(String(r.status||"").startsWith("LOCAL_AI")){
+        lines.push(`[${r.t}]  🧠 ${r.status}  ${r.note||""}`);
+        if(r.model)lines.push(`  model: ${r.model}`);
+        if(r.progress!=null)lines.push(`  progress: ${r.progress}%`);
+        if(r.basePreview)lines.push(`  BASE: ${r.basePreview}`);
+        if(r.storyPreview)lines.push(`  STORY: ${r.storyPreview}`);
+        if(r.rawTextPreview)lines.push(`  RAW: ${r.rawTextPreview}`);
       }else if(r.status==="TTS_START"){
         lines.push(`[${r.t}]  🔊 TTS_START  textLen:${r.textLen} chunks:${r.chunks} voice:${r.voice||"?"}`);
         lines.push(`  firstChunk: ${r.firstChunk||""}`);
@@ -1743,9 +1772,13 @@ Return exactly one JSON array with ${plan.length||4} items in this order. Every 
       const cost=(tin-tcache)/1e6*0.25+tcache/1e6*0.025+tout/1e6*1.50;
       const perHour=durMin>0?cost/durMin*60:0;
       lines.push("");lines.push("=".repeat(60));
-      lines.push("SUMMARY (v132 WikiBrain relevance-gate)");
+      lines.push("SUMMARY (v133 Local AI Beta / WikiBrain)");
       lines.push(`  duration: ${durMin.toFixed(1)} min`);
+      const lai=rows.filter(r=>String(r.status||"").startsWith("LOCAL_AI"));
+      const rew=rows.filter(r=>r.status==="LOCAL_AI_REWRITE").length;
+      const lrej=rows.filter(r=>r.status==="LOCAL_AI_REJECT"||r.status==="LOCAL_AI_FINAL_REJECT").length;
       lines.push(`  Gemini requests: ${gm.length}   aired: ${aired}   rejected: ${rej}`);
+      lines.push(`  Local AI events: ${lai.length}   rewrites: ${rew}   local rejects: ${lrej}`);
       lines.push(`  input tokens: ${tin.toLocaleString()}   output: ${tout.toLocaleString()}   cached: ${tcache.toLocaleString()} (${tin?Math.round(tcache/tin*100):0}%)`);
       lines.push(`  avg promptTok: ${avgP}   max promptTok: ${maxP}  ${maxP>9000?"⚠ Wikipedia-раздув есть":"✓ раздува нет"}`);
       lines.push(`  estimated cost: $${cost.toFixed(3)}   →  ~$${perHour.toFixed(3)}/hour`);
@@ -1897,6 +1930,140 @@ Return exactly one JSON array with ${plan.length||4} items in this order. Every 
     return buildWikiCapsuleSegment(geo,"place");};
   const fillWikiQueue=async(lat,lng,geo={},target=14)=>{if(wikiFillingRef.current)return;wikiFillingRef.current=true;try{target=Math.max(target||0,14);const g=geo||locDataRef.current||{};const started=Date.now();let guard=0;while(wikiQueueRef.current.length<target&&guard++<target+12){const seg=await buildWikiSingleSegment(lat,lng,g);const gate=validateWikiBeforeAir(seg);if(gate.ok)wikiQueueRef.current.push(gate.res);if(Date.now()-started>16000)break;}airLogRef.current.push({t:new Date().toISOString(),_ms:Date.now(),status:"WIKI_QUEUE",note:`queue:${wikiQueueRef.current.length}`});}catch(e){airLogRef.current.push({t:new Date().toISOString(),_ms:Date.now(),status:"WIKIBRAIN_BUFFER_ERR",note:String(e&&e.message||e).slice(0,160)});}finally{wikiFillingRef.current=false;}};
   const buildWikiSegment=async(lat,lng,geo={})=>{const g=geo||locDataRef.current||{};if(wikiQueueRef.current.length){const seg=wikiQueueRef.current.shift();setTimeout(()=>fillWikiQueue(lat,lng,g,14),5);return seg;}const quick=buildWikiCapsuleSegment(g,wikiPickKind());setTimeout(()=>fillWikiQueue(lat,lng,g,14),5);return quick;};
+
+  // ==== v133 LOCAL AI BETA ====================================================
+  // This is deliberately a LAB mode. It keeps the paid Gemini protocol untouched.
+  // Wiki/OSM/weather still provide facts; a small local WebLLM model only rewrites them as radio.
+  const LOCAL_AI_MODELS=[
+    {id:"Qwen2.5-0.5B-Instruct-q4f16_1-MLC",ru:"Qwen 2.5 0.5B — лучше русский/смысл, тяжелее",size:"~945 MB"},
+    {id:"TinyLlama-1.1B-Chat-v1.0-q4f16_1-MLC",ru:"TinyLlama 1.1B — легче, но может быть тупее",size:"~697 MB"}
+  ];
+  const localAiShortModel=m=>String(m||"").replace(/-q4f16_1-MLC$/,"").replace(/-Instruct/,"");
+  const localAiLog=(status,note,extra={})=>{try{airLogRef.current.push({t:new Date().toISOString(),_ms:Date.now(),status,note,...extra});}catch{}};
+  const chooseLocalAiModel=()=>{
+    const q=LOCAL_AI_MODELS[0],t=LOCAL_AI_MODELS[1];
+    const msg=[
+      "Local AI Beta скачает модель в кэш ЭТОГО браузера на телефоне.",
+      "1 — "+q.ru+" ("+q.size+")",
+      "2 — "+t.ru+" ("+t.size+")",
+      "",
+      "Введите 1 или 2:"
+    ].join("\n");
+    const ans=(prompt(msg,localAiModelRef.current.includes("TinyLlama")?"2":"1")||"1").trim();
+    return ans==="2"?t.id:q.id;
+  };
+  const toggleLocalAiBeta=()=>{
+    if(localAiModeRef.current){
+      setLocalAiMode(false);setLocalAiStatus("off");
+      localAiLog("LOCAL_AI_OFF","Local AI Beta выключен");
+      return;
+    }
+    const model=chooseLocalAiModel();
+    if(localAiModelRef.current!==model){localAiEngineRef.current=null;localAiLoadPromiseRef.current=null;}
+    localAiModelRef.current=model;setLocalAiModel(model);
+    setWikiMode(true);setLocalAiMode(true);setLocalAiStatus("starting "+localAiShortModel(model));
+    localAiLog("LOCAL_AI_ON","model:"+model);
+    setTimeout(()=>{try{const p=localAiEnsureReady();if(p&&p.catch)p.catch(()=>{});}catch{}},100);
+  };
+  const localAiEnsureReady=async()=>{
+    if(!localAiModeRef.current)return null;
+    if(localAiEngineRef.current)return localAiEngineRef.current;
+    if(localAiLoadPromiseRef.current)return await localAiLoadPromiseRef.current;
+    const model=localAiModelRef.current||"Qwen2.5-0.5B-Instruct-q4f16_1-MLC";
+    if(!navigator.gpu){
+      const msg="WebGPU недоступен в этом браузере";
+      setLocalAiStatus(msg);localAiLog("LOCAL_AI_FAIL",msg,{model});
+      throw new Error(msg);
+    }
+    setLocalAiStatus("loading "+localAiShortModel(model));
+    localAiLog("LOCAL_AI_LOAD_START","model:"+model,{model});
+    localAiLoadPromiseRef.current=(async()=>{
+      const webllm=await (0,eval)('import("https://esm.run/@mlc-ai/web-llm")');
+      const appConfig={...(webllm.prebuiltAppConfig||{}),cacheBackend:"indexeddb"};
+      const engine=await webllm.CreateMLCEngine(model,{
+        appConfig,
+        initProgressCallback:(p)=>{
+          const txt=(p&&p.text)?String(p.text):(p&&p.progress!=null?"progress "+Math.round(p.progress*100)+"%":"loading");
+          const pct=(p&&p.progress!=null)?(" "+Math.round(p.progress*100)+"%"):"";
+          setLocalAiStatus((txt+pct).slice(0,90));
+          if(p&&p.progress!=null){
+            const pp=Math.round(p.progress*100);
+            if(pp%10===0)localAiLog("LOCAL_AI_LOAD_PROGRESS",pp+"%",{model,progress:pp});
+          }
+        }
+      });
+      localAiEngineRef.current=engine;
+      setLocalAiStatus("ready "+localAiShortModel(model));
+      localAiLog("LOCAL_AI_READY","model:"+model,{model});
+      return engine;
+    })().catch(e=>{
+      localAiLoadPromiseRef.current=null;
+      localAiEngineRef.current=null;
+      const msg=String(e&&e.message||e).slice(0,180);
+      setLocalAiStatus("error: "+msg);
+      localAiLog("LOCAL_AI_FAIL",msg,{model});
+      throw e;
+    });
+    return await localAiLoadPromiseRef.current;
+  };
+  const localAiCleanOutput=(text)=>{
+    let s=String(text||"").replace(/^```[a-z]*|```$/g,"").trim();
+    s=s.replace(/^([«"“”']|Ответ:|Текст:|Вариант:|Road Radio:)+/i,"").trim();
+    s=s.replace(/^(конечно|вот|я могу|как модель)[,:\s]+/i,"").trim();
+    s=s.split(/\n+/).map(x=>x.trim()).filter(Boolean).join(" ");
+    s=s.replace(/\s+/g," ").trim();
+    const parts=(s.match(/[^.!?…]+[.!?…]+|[^.!?…]+$/g)||[]).slice(0,4);
+    return parts.join(" ").trim();
+  };
+  const localAiLooksBad=(text)=>/\b(я не могу|как языковая модель|как ии|не имею доступа|неизвестно|данные отсутствуют|вы предоставили|в предоставленном тексте|алгоритм|шаблон|промпт)\b/i.test(text||"");
+  const localAiEnhanceSegment=async(res,c,geo={})=>{
+    if(!res||!res.story||!localAiModeRef.current)return res;
+    // During first download, keep normal WikiRadio speaking. Once the local model is ready, future blocks are rewritten.
+    if(!localAiEngineRef.current){try{const p=localAiEnsureReady();if(p&&p.catch)p.catch(()=>{});}catch{};return res;}
+    if(localAiBusyRef.current)return res; // no queue jam: one local rewrite at a time
+    const base=String(res.story||"").trim();
+    if(base.length<80)return res;
+    localAiBusyRef.current=true;
+    const started=Date.now();
+    try{
+      const engine=await localAiEnsureReady();
+      const city=(geo&&geo.city)||locDataRef.current?.city||locDataRef.current?.name||"эта точка";
+      const state=(geo&&geo.state)||locDataRef.current?.state||"";
+      const speed=(c&&c.speed!=null&&!isNaN(c.speed))?Math.round(toMph(c.speed)):0;
+      const parked=parkedRef.current||isStationaryActive();
+      const sys=[
+        "Ты — ведущий Road Radio. Пиши по-русски, живо, как радио для водителя.",
+        "Тебе даны факты. НЕ добавляй новых фактов, имён, дат, мест и сенсаций.",
+        "Не объясняй алгоритм. Не говори 'карта молчит', 'если источники', 'эфир', 'ведущий', 'модель'.",
+        "Сделай 2–4 предложения, 55–95 слов. Без списков. Без английской транслитерации.",
+        "Стиль: ближе к платному Road Radio — конкретно, тепло, без справочной сухости и без поэзии."
+      ].join(" ");
+      const user=[
+        "Место: "+city+(state?", "+state:""),
+        "Режим: "+(parked?"стоянка/пауза":"движение")+", скорость около "+speed+" mph.",
+        "Факты, которые можно использовать:",
+        base.slice(0,1000),
+        "",
+        "Перепиши это как один короткий блок Road Radio. Только на основе этих фактов."
+      ].join("\n");
+      const out=await engine.chat.completions.create({
+        messages:[{role:"system",content:sys},{role:"user",content:user}],
+        temperature:0.45,top_p:0.85,max_tokens:150
+      });
+      const raw=out&&out.choices&&out.choices[0]&&out.choices[0].message?out.choices[0].message.content:"";
+      const text=localAiCleanOutput(raw);
+      if(!text||text.length<80||localAiLooksBad(text)){
+        localAiLog("LOCAL_AI_REJECT","bad_output",{rawTextPreview:String(raw||"").slice(0,220),basePreview:base.slice(0,160)});
+        return res;
+      }
+      const nr={...res,story:text,_rawStory:base,_src:"local_ai_beta",_localAi:true,_wiki:true,entity:(res.entity||"")+"+local-ai"};
+      localAiLog("LOCAL_AI_REWRITE","ok "+(Date.now()-started)+"ms",{model:localAiModelRef.current,rawTextPreview:String(raw||"").slice(0,220),storyPreview:text.slice(0,220),basePreview:base.slice(0,220)});
+      return nr;
+    }catch(e){
+      localAiLog("LOCAL_AI_ERROR",String(e&&e.message||e).slice(0,180));
+      return res;
+    }finally{localAiBusyRef.current=false;}
+  };
 
   const memoryBlockForPrompt=()=>{
     const recent=spokenLedgerRef.current.slice(-10).map(x=>x.summary);
@@ -2772,6 +2939,17 @@ ${planStr}
             else{const ruNow=["ru","uk"].includes(langRef.current);res={story:ruNow?(isStationaryActive()?"Пусть место немного подышит. Останемся в тишине на несколько секунд, а потом возьмём другую историю рядом.":"Короткая пауза на дороге. Впереди ещё найдётся хорошая история."):(isStationaryActive()?"Let this place breathe for a moment. We'll take another nearby story next.":"A short road pause. Another good story will come up ahead."),location:"",topics:"road-pause",entity:"",_src:"pause",_dirTopic:"road"};}
           }
         }else{res=gate.res;}
+      }
+      // v133: Local AI Beta rewrites the already-approved Wiki facts into a more human radio voice.
+      // If the local model is missing/slow/weird, we keep the original Wiki segment instead of breaking the trip.
+      if(localAiModeRef.current&&res&&res._wiki&&res._src!=="pause"){
+        const beforeLocal=res;
+        const aiRes=await localAiEnhanceSegment(res,c,locDataRef.current||{});
+        if(aiRes&&aiRes!==beforeLocal){
+          const aiGate=validateBeforeAir(aiRes,{topic:aiRes._dirTopic||"wiki",source:"local_ai_beta"});
+          if(aiGate.ok)res=aiGate.res;
+          else{localAiLog("LOCAL_AI_FINAL_REJECT",aiGate.reason||"final_gate",{story:(aiRes.story||"").slice(0,180)});res=beforeLocal;}
+        }
       }
       res=applyRadioContinuity(res);
       storyText=res.story||"";
@@ -3664,6 +3842,7 @@ ${planStr}
               <button className={`sbtn big${showTxt?" act":""}`} onClick={()=>{setShowTxt(t=>{const n=!t;if(n)setRadioFocus(false);return n;});}}>{showTxt?(isRu?"📄 Текст ✓":"📄 Text ✓"):(isRu?"📄 Текст":"📄 Text")}</button>
               <button className={`sbtn big${debugOn?" act":""}`} onClick={()=>setDebugOn(d=>!d)}>{debugOn?"🐞 Debug ✓":"🐞 Debug"}</button>
               <button className={`sbtn big${wikiMode?" act":""}`} onClick={()=>{setWikiMode(w=>!w);batchQRef.current=[];nextRef.current=null;bufferRef.current=[];}}>{wikiMode?"📚 WikiRadio ✓":"📚 WikiRadio"}</button>
+              <button className={`sbtn big${localAiMode?" act":""}`} title={localAiStatus} onClick={toggleLocalAiBeta}>{localAiMode?"🧠 Local AI ✓":"🧠 Local AI"}</button>
               <button className={`sbtn big${provider==="gemini"?" act":""}`} onClick={()=>{
                 if(provider==="haiku"){
                   let gk=localStorage.getItem("rr_gemini_key")||"";
@@ -3678,7 +3857,7 @@ ${planStr}
             <button className="roadwatch-btn" onClick={()=>{if(coordsRef.current){const{lat,lng}=coordsRef.current;const ts=new Date().toISOString();const data=JSON.parse(localStorage.getItem("rr_roadwatch")||"[]");data.push({lat,lng,ts,type:"roadkill"});localStorage.setItem("rr_roadwatch",JSON.stringify(data.slice(-100)));alert(isRu?"✓ Отметка сохранена":"✓ Marked");}}}>
               ⚠️ ROADWATCH
             </button>
-            <div className="wakeinfo">{wakeLock?(isRu?"🔆 Экран включён":"🔆 Screen on"):(isRu?"⚠ Экран может погаснуть":"⚠ Screen may turn off")}</div>
+            <div className="wakeinfo">{wakeLock?(isRu?"🔆 Экран включён":"🔆 Screen on"):(isRu?"⚠ Экран может погаснуть":"⚠ Screen may turn off")}{localAiMode?` · 🧠 ${localAiStatus}`:""}</div>
           </div>
           )}
         </>
