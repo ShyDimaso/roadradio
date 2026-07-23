@@ -289,7 +289,7 @@ body{font-family:'Inter',sans-serif;color:#fff;}
 const {useState,useRef,useEffect}=React;
 const PROXY="https://corsproxy.io/?https://api.anthropic.com/v1/messages";
 const KEY_STORE="rr_key_v3";
-const VER="v137";
+const VER="v138";
 // v76 MEMORY DIAGNOSTIC: prefetch & buffer OFF so every spoken segment goes through one gate.
 const PREFETCH_ENABLED=false;
 const BUFFER_ENABLED=false;
@@ -1079,7 +1079,18 @@ function App(){
       const tl=L[langRef.current]?.tts||"en-US";
       const u=new SpeechSynthesisUtterance(chunk);
       u.lang=tl;u.rate=voiceRateRef.current||0.9;u.pitch=1.0;
-      try{const vs=s.getVoices();const v=selVoice?vs.find(x=>x.name===selVoice):vs.find(x=>x.lang===tl)||vs.find(x=>x.lang.startsWith(tl.split("-")[0]))||vs[0];if(v)u.voice=v;}catch{}
+      try{const vs=s.getVoices();
+      // v138: ФИКС «ассамского Индия» голоса для русского. Раньше при отсутствии точного ru-RU
+      // код брал vs[0] — первый попавшийся голос системы (у Вовы это индийский). Теперь:
+      // 1) точное совпадение локали, 2) тот же язык но БЕЗ индийских локалей, 3) любой того же языка.
+      const base=tl.split("-")[0];
+      const badLoc=/(^|-)(as|bn|gu|hi|kn|ml|mr|or|pa|ta|te|ur)(-|$)|IN$/i;
+      const sameLang=vs.filter(x=>x.lang&&x.lang.replace("_","-").toLowerCase().startsWith(base.toLowerCase()));
+      const cleanSame=sameLang.filter(x=>!badLoc.test(x.lang.replace("_","-")));
+      const v=selVoice?vs.find(x=>x.name===selVoice)
+        :vs.find(x=>x.lang&&x.lang.replace("_","-").toLowerCase()===tl.toLowerCase())
+        ||cleanSame[0]||sameLang[0]||vs[0];
+      if(v)u.voice=v;}catch{}
       u.onend=fin;u.onerror=fin;
       const w=chunk.split(/\s+/).length;
       guard=setTimeout(fin,Math.max(8000,w*1100));
@@ -1615,13 +1626,8 @@ Return exactly one JSON array with ${plan.length||4} items in this order. Every 
     const isLocalExpert=bcastRef.current==="local";
     const resting=isOvernightRest();
     const stopped=isStationaryActive();
-    const headline={
-      people:["Люди.","Коротко о человеке."],films:["Кино.","Теперь — к экрану."],land:["Земля.","География."],economy:["Экономика.","Чем место живёт."],
-      sports:["Спорт.","Теперь — к спорту."],native:["Коренные народы.","История до шоссе."],road:["Дорога.","Теперь — про маршрут."],sky:["Небо и погода.","Смотрим выше карты."],
-      oddity:["Странности.","Дорожная диковинка."],wildlife:["Живая природа.","Теперь — к животным."],mystery:["Загадки.","Теперь — к загадкам."],crafts:["Ремёсла.","Ручная работа."],
-      food:["Еда.","Теперь — к вкусу."],water:["Вода.","Теперь — к воде."],music:["Музыка.","Теперь — к музыке."],history:["История.","Теперь — немного прошлого."],life:["Жизнь вокруг.","Как здесь живут."]
-    };
-    const pickHeadline=()=>pickRadio(headline[cur]||["Следующая тема."]);
+    // v138: объект headline и pickHeadline УДАЛЕНЫ — это была фабрика рубричных ярлыков.
+
 
     // Rest/overnight mode: do NOT sound like a category wheel. No labels, no “layers”, no commands.
     // Most parked blocks need no intro at all; the story itself should breathe.
@@ -1643,40 +1649,35 @@ Return exactly one JSON array with ${plan.length||4} items in this order. Every 
 
     if(isLocalExpert){
       const localBumpers=["Местная волна на связи.","Голос этой территории продолжает эфир.","Местный эксперт — коротко и по делу."];
-      const localNeutral=["У этого места есть ещё одна деталь.","Если смотреть по-местному, всплывает другая история.","А теперь — то, что здесь хорошо знают.","Не всё видно с трассы, но кое-что стоит знать.","Посмотрим на местный угол."];
-      if(count>0&&count%8===0)return pickRadio(localBumpers);
-      if(count%3===1)return pickHeadline();
+      const localNeutral=["У этого места есть ещё одна деталь.","Если смотреть по-местному, всплывает другая история.","То, что здесь хорошо знают.","Не всё видно с трассы, но кое-что стоит знать.","Посмотрим на местный угол."];
+      if(count>0&&count%12===0)return pickRadio(localBumpers);
       if(prev&&cur&&prev!==cur)return pickRadio(localNeutral);
-      return count%3===0?pickRadio(localNeutral):"";
+      return count%4===0?pickRadio(localNeutral):"";
     }
     const pairs={
-      "people:films":["От биографии — к экрану.","Теперь переведём взгляд с людей на камеры."],
+      "people:films":["От биографии — к экрану.","Эти места знакомы и по экрану."],
       "films:land":["С экрана возвращаемся на карту.","Убираем киношный свет и смотрим на землю."],
-      "land:economy":["А теперь — что эта земля даёт людям сегодня.","С почвы и воды переходим к работе и деньгам."],
-      "economy:history":["За сегодняшними делами всегда есть старая причина.","Теперь чуть назад во времени."],
-      "history:people":["История без людей — просто даты. Берём человека.","А теперь — лицо этой истории."],
+      "land:economy":["Эта земля до сих пор кормит тех, кто на ней работает.","С почвы и воды всё упирается в работу."],
+      "economy:history":["За сегодняшними делами всегда есть старая причина.","У сегодняшних дел всегда была старая причина."],
+      "history:people":["История без людей — просто даты. Берём человека.","У этой истории есть конкретное лицо."],
       "water:road":["Вода рядом, но руль держит дорога.","От воды — обратно к асфальту."],
-      "road:sky":["Дорога под колёсами, небо над головой.","Теперь поднимем взгляд выше карты."],
-      "wildlife:food":["От живой природы — к тому, что попадает на стол.","Природа здесь быстро выходит и на кухню."],
+      "road:sky":["Дорога под колёсами, небо над головой.","Небо тут меняется быстрее дороги."],
+      "wildlife:food":["Природа здесь быстро выходит и на кухню.","То, что растёт вокруг, попадает и на стол."],
       "music:sports":["Музыку приглушаем — добавим скорости.","От ритма — к соревнованию."],
       "native:history":["Эта тема глубже любого шоссе.","Остаёмся в прошлом, но меняем угол."],
-      "mystery:oddity":["Раз карта подмигнула — держите ещё одну странность.","От загадки — к придорожному чудачеству."],
+      "mystery:oddity":["У этой карты есть ещё один странный угол.","Странностей тут больше, чем кажется."],
       "crafts:food":["Руки сделали своё — теперь очередь вкуса.","От мастерской — к столу."],
-      "life:economy":["Быт всегда упирается в работу. Проверим, чем место живёт.","Теперь без романтики: чем здесь зарабатывают."],
+      "life:economy":["Быт всегда упирается в работу. Проверим, чем место живёт.","Без романтики: чем здесь зарабатывают."],
       "sports:water":["После скорости — к воде.","Соревнования в сторону, слушаем реку."]
     };
-    const neutral=["Крутим ручку дальше.","Меняем угол.","Ещё одна короткая история.","Продолжим эфир.","Теперь другая сторона этого места.","Дальше — короткий поворот темы."];
+    const neutral=["Крутим ручку дальше.","Меняем угол.","Ещё одна короткая история.","Продолжим эфир.","Другая сторона этого места.","Короткий поворот темы."];
     const bumpers=["Это Road Radio. Одна волна на все штаты.","Road Radio на связи.","Одна волна на все штаты."];
-    if(count>0&&count%8===0)return pickRadio(bumpers);
-    if(count%3===1)return pickHeadline();
+    // v138: рубричные ярлыки («Еда.», «Спорт.») и швы «Теперь — к X» УБРАНЫ. Их пришивал код после
+    // генерации, поэтому валидатор их не ловил — а в эфире они звучали как диктор объявляет рубрику.
+    // Станционный бампер стал редким: раз в 14 блоков вместо 8.
+    if(count>0&&count%14===0)return pickRadio(bumpers);
     if(pairs[pair])return pickRadio(pairs[pair]);
-    if(prev&&cur&&prev!==cur){
-      if(count%3===0)return pickHeadline();
-      const to=topicTo[cur]||"следующей теме";
-      const variants=[`От ${topicFrom[prev]||"прошлой темы"} — к ${to}.`,`Теперь — к ${to}.`,`Дальше — к ${to}.`];
-      return pickRadio(variants);
-    }
-    return count%3===0?pickRadio(neutral):"";
+    return count%4===0?pickRadio(neutral):"";
   };
   const applyRadioContinuity=(res)=>{
     if(!res||!res.story||res._src==="pause")return res;
@@ -2474,6 +2475,7 @@ CORE RULES:
 3. Length: ${isRestMode?"4-7 sentences, calm night radio":"3-5 sentences, radio not a lecture"}.
 4. ${samePlace?`You ALREADY named "${ld.city}". Say "здесь", "в этом месте", do not re-introduce it.`:``}
 FACT DISCIPLINE: speak only real, documented things. NEVER say "все местные", "все дети", "все ловят рыбу", "каждая семья", "здесь нет McDonald's", "никаких сетевых кафе", or any idyllic small-town cliché. No sweeping claims about what all people eat, do, believe or avoid. Prefer modest wording: "в этих местах встречается", "часть местных", "для региона характерно". If you lack a concrete verified fact, stay general and modest rather than inventing. A U.S. state is a STATE, never a "республика".
+‼ NO INVENTED LOCAL SPECIFICS. Without a Wikipedia/POI source in this prompt you are FORBIDDEN to claim any of these about THIS county or town: that a film was shot here; that a named band, quartet or festival exists here; that a specific factory, mill or company operated here; that an annual event or local federation is held here; that local cafés or markets serve a particular dish; that something is "the only" or "the largest" here. These are the exact claims listeners fact-check and catch. If you have no source, either raise the scale to the STATE level (where the fact is genuinely known) or pick another angle. Better an honest state-level fact than an invented local one.
 8. ${ isStopped ? `The listener is settled in ${ld.city||"this area"}. If they have been stopped for a while, assume they may be resting; slow down, soften the tone, and avoid the news-wheel feeling. No forced sports/business/weather bumpers.` : tm==="bike"?`On a bicycle — slower pace, closer to nature, mention things a cyclist would notice.`:tm==="walk"?`On foot — intimate pace, immediate surroundings.`:`Moving at about ${spd} mph — you may speak of the drive naturally.` }
 9. SEGMENT SHAPE (anti-ИИ rhythm):
 (1) Fresh hook with a clear subject. No mandatory bridge. Do not continue from another generated segment; only the last AIRED block exists for the listener.
