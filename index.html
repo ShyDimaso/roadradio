@@ -289,7 +289,7 @@ body{font-family:'Inter',sans-serif;color:#fff;}
 const {useState,useRef,useEffect}=React;
 const PROXY="https://corsproxy.io/?https://api.anthropic.com/v1/messages";
 const KEY_STORE="rr_key_v3";
-const VER="v139";
+const VER="v140";
 // v76 MEMORY DIAGNOSTIC: prefetch & buffer OFF so every spoken segment goes through one gate.
 const PREFETCH_ENABLED=false;
 const BUFFER_ENABLED=false;
@@ -528,40 +528,117 @@ function App(){
   const airLogRef=useRef([]);          // v77: full session transcript with detector notes, for export
   const tokenCountRef=useRef({in:0,out:0}); // v81: session token counter (server cost)
   const [tokenDisp,setTokenDisp]=useState({in:0,out:0});
-  // v78: persist broadcast memory across accidental reloads (phone calls). New trip if idle > 40 min.
-  const MEM_STORE="rr_mem_v78";
-  const IDLE_NEW_TRIP=40*60*1000;      // 40 min gap = new trip → memory resets
-  const LOG_WINDOW=2*60*60*1000;       // keep last 2 hours of log
+  // v140 ПАМЯТЬ ЭФИРА. Раньше: 40 минут перерыва — и всё стиралось. Вова отвлекался на полчаса,
+  // возвращался, и радио заново рассказывало те же истории. Плюс в ledger не сохранялись id/timestamp
+  // (ломалась логика «что звучало за последние 30 минут»), и вообще не сохранялись spokenHash /
+  // motifCooldown / rejectedMotifs / covered entities — половина анти-повторного контура.
+  // Теперь три уровня: та же поездка (жёсткая память) → тот же день (мягкая) → новая поездка (чисто).
+  const MEM_STORE="rr_air_memory_v140";
+  const MEM_STORE_OLD="rr_mem_v78";
+  const SAME_TRIP_SOFT_MS=90*60*1000;        // до 1.5 ч перерыва — точно та же поездка
+  const SAME_TRIP_HARD_MS=4*60*60*1000;      // до 4 ч — та же, если не уехал далеко
+  const SAME_TRIP_CORRIDOR_MS=6*60*60*1000;  // до 6 ч — та же, если тот же штат и та же трасса
+  const DAY_MEMORY_MS=24*60*60*1000;         // сутки — мягкая память дня
+  const SAME_TRIP_MILES=120;                 // не уехал дальше 120 миль — та же поездка
+  const LOG_WINDOW=2*60*60*1000;             // keep last 2 hours of log
+  const memMiles=(a,b)=>{
+    try{
+      if(!a||!b||a.lat==null||b.lat==null)return 1e9;
+      const R=3958.8,tr=Math.PI/180;
+      const dLat=(b.lat-a.lat)*tr,dLng=(b.lng-a.lng)*tr;
+      const la1=a.lat*tr,la2=b.lat*tr;
+      const h=Math.sin(dLat/2)**2+Math.cos(la1)*Math.cos(la2)*Math.sin(dLng/2)**2;
+      return 2*R*Math.asin(Math.sqrt(h));
+    }catch{return 1e9;}
+  };
   const persistMemory=()=>{
     try{
       const now=Date.now();
       airLogRef.current=airLogRef.current.filter(r=>!r._ms||now-r._ms<=LOG_WINDOW);
+      const c=coordsRef.current;
+      const g=(locDataRef&&locDataRef.current)?locDataRef.current:{};
       const data={
         savedAt:now,
+        lastCoords:(c&&c.lat!=null)?{lat:c.lat,lng:c.lng}:null,
+        lastState:g.state||g.region||"",
+        lastHighway:g.highway||g.road||"",
         stop:[...semanticStopRef.current],
         ents:[...entityStopRef.current],
-        ledger:spokenLedgerRef.current.slice(-120).map(p=>({summary:p.summary,sh:[...p.shingles3].slice(0,60),keys:p.keys,entity:p.entity,topic:p.topic})),
+        ledger:spokenLedgerRef.current.slice(-120).map(p=>({
+          id:p.id||p.t||now, t:p.t||p.id||now,
+          summary:p.summary, sh:[...(p.shingles3||[])].slice(0,60),
+          keys:p.keys, entity:p.entity, topic:p.topic
+        })),
         cooldown:topicCooldownRef.current,
         fails:topicFailRef.current,
+        hashes:[...(spokenHashRef.current||[])].slice(-140),
+        motifCooldown:motifCooldownRef.current||{},
+        rejectedMotifs:rejectedMotifsRef.current||{},
+        covered:[...(coveredEntitiesRef.current||[])].slice(-100),
+        dirTopics:(dirRecentTopicsRef.current||[]).slice(-40),
+        dirSummaries:(dirSummariesRef.current||[]).slice(-24),
         log:airLogRef.current.slice(-400),
       };
       localStorage.setItem(MEM_STORE,JSON.stringify(data));
     }catch(e){}
   };
+  const isSameTrip=(d)=>{
+    try{
+      const age=Date.now()-d.savedAt;
+      if(age>DAY_MEMORY_MS)return false;
+      if(age<SAME_TRIP_SOFT_MS)return true;
+      const c=coordsRef.current;
+      const dist=memMiles(d.lastCoords,(c&&c.lat!=null)?{lat:c.lat,lng:c.lng}:null);
+      if(age<SAME_TRIP_HARD_MS&&dist<SAME_TRIP_MILES)return true;
+      const g=(locDataRef&&locDataRef.current)?locDataRef.current:{};
+      const st=g.state||g.region||"", hw=g.highway||g.road||"";
+      if(age<SAME_TRIP_CORRIDOR_MS&&st&&d.lastState===st&&hw&&d.lastHighway===hw)return true;
+      return false;
+    }catch{return false;}
+  };
   const loadMemory=()=>{
     try{
+      try{localStorage.removeItem(MEM_STORE_OLD);}catch{}
       const raw=localStorage.getItem(MEM_STORE);
       if(!raw)return;
       const d=JSON.parse(raw);
       if(!d||!d.savedAt)return;
-      if(Date.now()-d.savedAt>IDLE_NEW_TRIP){localStorage.removeItem(MEM_STORE);return;}
-      semanticStopRef.current=new Set(d.stop||[]);
+      const age=Date.now()-d.savedAt;
+      if(age>DAY_MEMORY_MS){localStorage.removeItem(MEM_STORE);return;}
+      const same=isSameTrip(d);
+      const now=Date.now();
+      const mapLedger=(arr)=>(arr||[]).map(p=>({
+        id:p.id||p.t||d.savedAt||now, t:p.t||p.id||d.savedAt||now,
+        summary:p.summary||"", shingles3:new Set(p.sh||[]),
+        keys:p.keys||[], entity:p.entity||"", topic:p.topic||"", story:""
+      }));
       entityStopRef.current=new Set(d.ents||[]);
-      spokenLedgerRef.current=(d.ledger||[]).map(p=>({summary:p.summary,shingles3:new Set(p.sh||[]),keys:p.keys||[],entity:p.entity||"",topic:p.topic||"",story:""}));
-      topicCooldownRef.current=d.cooldown||{};
-      topicFailRef.current=d.fails||{};
+      spokenHashRef.current=new Set(d.hashes||[]);
+      try{coveredEntitiesRef.current=new Set(d.covered||[]);}catch{}
       airLogRef.current=(d.log||[]);
-      console.log("[RR MEMORY] restored",{stop:semanticStopRef.current.size,ledger:spokenLedgerRef.current.length});
+      if(same){
+        semanticStopRef.current=new Set(d.stop||[]);
+        spokenLedgerRef.current=mapLedger(d.ledger);
+        topicCooldownRef.current=d.cooldown||{};
+        topicFailRef.current=d.fails||{};
+        motifCooldownRef.current=d.motifCooldown||{};
+        rejectedMotifsRef.current=d.rejectedMotifs||{};
+        try{dirRecentTopicsRef.current=d.dirTopics||[];}catch{}
+        try{dirSummariesRef.current=d.dirSummaries||[];}catch{}
+      }else{
+        semanticStopRef.current=new Set((d.stop||[]).slice(-40));
+        spokenLedgerRef.current=mapLedger((d.ledger||[]).slice(-40));
+        topicCooldownRef.current={};topicFailRef.current={};
+        motifCooldownRef.current={};rejectedMotifsRef.current={};
+      }
+      const info={mode:same?"same_trip":"soft_day",ageMin:Math.round(age/60000),
+        ledger:spokenLedgerRef.current.length,hashes:spokenHashRef.current.size,ents:entityStopRef.current.size};
+      window.__rrMemRestore=info;
+      // v140: пишем в лог эфира — чтобы по логу было видно, восстановилась память или нет
+      try{airLogRef.current.push({t:new Date().toISOString(),_ms:Date.now(),
+        status:"MEMORY_RESTORED",
+        note:`${info.mode} age:${info.ageMin}min ledger:${info.ledger} hashes:${info.hashes} ents:${info.ents}`});}catch{}
+      console.log("[RR MEMORY] restored",window.__rrMemRestore);
     }catch(e){}
   };
   const [debugOn,setDebugOn]=useState(false);
@@ -613,7 +690,21 @@ function App(){
   const lastSpokeRef=useRef(Date.now());
 
   useEffect(()=>{const t=setTimeout(()=>setSplash(false),3200);return()=>clearTimeout(t);},[]);
-  useEffect(()=>{loadMemory();},[]); // restore memory+log on load (survives phone-call reloads within 40 min)
+  useEffect(()=>{loadMemory();},[]); // v140: restore trip memory (survives backgrounding, reloads, long stops)
+  // v140: Android может убить вкладку в фоне без предупреждения. Раньше память писалась только
+  // в acceptSegment — если Вова свернул приложение, последние блоки терялись. Теперь пишем и при уходе.
+  useEffect(()=>{
+    const save=()=>{try{persistMemory();}catch{}};
+    const onVis=()=>{if(document.hidden)save();};
+    window.addEventListener("pagehide",save);
+    window.addEventListener("beforeunload",save);
+    document.addEventListener("visibilitychange",onVis);
+    return ()=>{
+      window.removeEventListener("pagehide",save);
+      window.removeEventListener("beforeunload",save);
+      document.removeEventListener("visibilitychange",onVis);
+    };
+  },[]);
   useEffect(()=>{
     try{const last=parseInt(localStorage.getItem("rr_review")||"0");if(localStorage.getItem("rr_started")&&Date.now()-last>3*86400000)setNeedsReview(true);}catch{}
   },[]);
@@ -3265,9 +3356,12 @@ ${planStr}
     coordsRef.current=c;setCoords(c);destRef.current=destination;
     runRef.current=true;histRef.current=[];nextRef.current=null;batchQRef.current=[];batchLoadingRef.current=false;topicQueueRef.current=[];reservedTopicsRef.current=[];lastBatchPlanRef.current=[];usedOpenersRef.current=[];topicFailRef.current={};topicPauseRef.current={};topicsUsedRef.current=[];saidFactsRef.current=[];bufferRef.current=[];recentStoriesRef.current=[];
     dirTopicRef.current=null;dirCountRef.current=0;dirTargetRef.current=2;dirRecentTopicsRef.current=[];dirSummariesRef.current=[];coveredEntitiesRef.current=[];dirTopicStartRef.current=0;dirForceSwitchRef.current=false;lastIntroBcastRef.current=bcastRef.current;qaHistRef.current=[];
+    // v140: СНАЧАЛА записываем то, что уже прозвучало, и только ПОТОМ обнуляем рефы.
+    // Иначе при нажатии «Старт» после паузы последние блоки прошлой сессии терялись безвозвратно.
+    try{persistMemory();}catch{}
     spokenLedgerRef.current=[];semanticStopRef.current=new Set();entityStopRef.current=new Set();topicFailRef.current={};topicCooldownRef.current={};lexCooldownRef.current=[];
     spokenHashRef.current=new Set();motifCooldownRef.current={};rejectedMotifsRef.current={};
-    loadMemory(); // restore if the last session was < 40 min ago (same trip after a phone call); else stays clean
+    loadMemory(); // v140: та же поездка → жёсткая память; тот же день → мягкая; иначе чистый лист
     openerIdx.current=0;stoppedSince.current=null;fuelWarnedRef.current=0;tourAckRef.current=false;stationaryModeRef.current=false;stationaryIntroSaidRef.current=false;lastMovingCtxRef.current={road:"",heading:(c.heading||90),city:"",county:"",state:"",t:0};
     loopBusyRef.current=false;loopGenRef.current++;        // fresh single generation
     parkedRef.current=false;pausedRef.current=false;setPaused(false);
