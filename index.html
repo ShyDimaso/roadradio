@@ -289,7 +289,7 @@ body{font-family:'Inter',sans-serif;color:#fff;}
 const {useState,useRef,useEffect}=React;
 const PROXY="https://corsproxy.io/?https://api.anthropic.com/v1/messages";
 const KEY_STORE="rr_key_v3";
-const VER="v138";
+const VER="v139";
 // v76 MEMORY DIAGNOSTIC: prefetch & buffer OFF so every spoken segment goes through one gate.
 const PREFETCH_ENABLED=false;
 const BUFFER_ENABLED=false;
@@ -813,7 +813,7 @@ function App(){
       if(!pid||pid==="-1")return null;
       let extract=(pages[pid].extract||"").trim();
       if(!extract)return null;
-      if(extract.length>2600)extract=extract.slice(0,2600);
+      if(extract.length>900)extract=extract.slice(0,900);
       return{title:pages[pid].title||title,extract,pageid:pages[pid].pageid,sourceTitle:title,_lang:langTag||base.match(/https:\/\/([^.]*)\./)?.[1]||""};
     }catch{return null;}
   };
@@ -1441,6 +1441,7 @@ Return exactly one JSON array with ${plan.length||4} items in this order. Every 
   };
 
   const motifCooldownRef=useRef({});
+  const rejectedMotifsRef=useRef({}); // v139: сколько раз мотив уже отбит валидатором в этой сессии
   const rejectedHashRef=useRef(new Set()); // v109: отвергнутый блок умирает НАВСЕГДА — обратно в эфир не попадёт
   const usedOpenersRef=useRef([]); // v110: первые слова уже прозвучавших блоков — одинаковые зачины в бан
   const structureStopRef=useRef([]); // v118: скелеты фраз/мостиков последних блоков — ловим смысловые повторы без общих слов
@@ -1506,7 +1507,12 @@ Return exactly one JSON array with ${plan.length||4} items in this order. Every 
     if(purpleProse.test(res.story))return{ok:false,reason:"purple_prose"};
     const semanticKeys=memoryKeysForStory(res);
     const repeatedSem=semanticKeys.filter(k=>semanticStopRef.current.has(k));
-    if(repeatedSem.length)return{ok:false,reason:"semantic_repeat:"+repeatedSem.join(",")};
+    if(repeatedSem.length){
+      // v139: запоминаем ЗАБРАКОВАННЫЕ мотивы. Раньше кулдаун ставился только на озвученное,
+      // поэтому модель могла 14 раз подряд генерить corn-soy-farming — брак копился, деньги горели.
+      try{repeatedSem.forEach(k=>{rejectedMotifsRef.current[k]=(rejectedMotifsRef.current[k]||0)+1;});}catch{}
+      return{ok:false,reason:"semantic_repeat:"+repeatedSem.join(",")};
+    }
     const sk=structureKeys(res.story);
     const repeatedStruct=sk.filter(k=>structureStopRef.current.includes(k));
     if(repeatedStruct.length)return{ok:false,reason:"structure_repeat:"+repeatedStruct.join(",")};
@@ -1652,7 +1658,7 @@ Return exactly one JSON array with ${plan.length||4} items in this order. Every 
       const localNeutral=["У этого места есть ещё одна деталь.","Если смотреть по-местному, всплывает другая история.","То, что здесь хорошо знают.","Не всё видно с трассы, но кое-что стоит знать.","Посмотрим на местный угол."];
       if(count>0&&count%12===0)return pickRadio(localBumpers);
       if(prev&&cur&&prev!==cur)return pickRadio(localNeutral);
-      return count%4===0?pickRadio(localNeutral):"";
+      return "";
     }
     const pairs={
       "people:films":["От биографии — к экрану.","Эти места знакомы и по экрану."],
@@ -1670,14 +1676,13 @@ Return exactly one JSON array with ${plan.length||4} items in this order. Every 
       "life:economy":["Быт всегда упирается в работу. Проверим, чем место живёт.","Без романтики: чем здесь зарабатывают."],
       "sports:water":["После скорости — к воде.","Соревнования в сторону, слушаем реку."]
     };
-    const neutral=["Крутим ручку дальше.","Меняем угол.","Ещё одна короткая история.","Продолжим эфир.","Другая сторона этого места.","Короткий поворот темы."];
     const bumpers=["Это Road Radio. Одна волна на все штаты.","Road Radio на связи.","Одна волна на все штаты."];
-    // v138: рубричные ярлыки («Еда.», «Спорт.») и швы «Теперь — к X» УБРАНЫ. Их пришивал код после
-    // генерации, поэтому валидатор их не ловил — а в эфире они звучали как диктор объявляет рубрику.
-    // Станционный бампер стал редким: раз в 14 блоков вместо 8.
+    // v139: пустые нейтральные мостики («Крутим ручку дальше», «Продолжим эфир», «Другая сторона
+    // этого места») УБРАНЫ — они ничего не сообщали и звучали как служебная вставка.
+    // Остаются только ОСМЫСЛЕННЫЕ парные переходы (вода→дорога и т.п.) и редкий станционный бампер.
     if(count>0&&count%14===0)return pickRadio(bumpers);
     if(pairs[pair])return pickRadio(pairs[pair]);
-    return count%4===0?pickRadio(neutral):"";
+    return "";
   };
   const applyRadioContinuity=(res)=>{
     if(!res||!res.story||res._src==="pause")return res;
@@ -2130,8 +2135,16 @@ Return exactly one JSON array with ${plan.length||4} items in this order. Every 
     const hard=[...semanticStopRef.current].slice(-40);
     const ents=[...entityStopRef.current].slice(-24);
     const cooled=motifsOnCooldown();
+    // v139: мотивы, которые валидатор УЖЕ отбивал 2+ раза в этой сессии. Модель их не видела и
+    // упрямо генерила заново (corn-soy-farming — 14 отбивок за поездку). Теперь она о них знает.
+    let deadText="";
+    try{
+      const dead=Object.entries(rejectedMotifsRef.current||{}).filter(([,n])=>n>=2).map(([k])=>k);
+      if(dead.length)deadText=dead.join("|");
+    }catch{}
     const motifRu={"night-sky-milkyway":"ночное небо/Млечный Путь/звёзды/метеоры","prairie-storms":"грозы прерий/торнадо","local-fishing":"рыбалка/сом/окунь","corn-soy-farming":"кукуруза/соя/фермеры","ancient-sea-fossils":"древнее море/окаменелости","mississippi-river-life":"река Миссисипи/баржи","river-music-tradition":"блюз/джаз/кантри","cowboy-cattle-drive":"ковбои/перегон скота"};
     const cooledText=cooled.length?cooled.map(k=>motifRu[k]||k).join("; "):"";
+    const deadRu=deadText?deadText.split("|").map(k=>motifRu[k]||k).join("; "):"";
     // v108 АНТИ-ЗАЛИПАНИЕ: считаем, какие темы уже звучали за последние 30 минут.
     // Тема, прозвучавшая 2+ раза, уходит в жёсткий бан — иначе модель бесконечно крутит одно и то же
     // (индейцы, ночное небо, рыбалка). Это не про конкретную тему — залипать нельзя НИ НА ЧЁМ.
@@ -2145,8 +2158,8 @@ Return exactly one JSON array with ${plan.length||4} items in this order. Every 
       const hot=Object.entries(counts).filter(([,n])=>n>=2).map(([k])=>k);
       if(hot.length)hotBan=`\n‼‼ ЭТИ ТЕМЫ УЖЕ ЗВУЧАЛИ И ЗАПРЕЩЕНЫ НА БЛИЖАЙШИЕ ПОЛЧАСА — не бери их ни в один из шести блоков, даже вскользь: ${hot.join(", ")}. Возьми ДРУГИЕ темы из списка.`;
     }catch{}
-    if(!recent.length&&!hard.length&&!cooledText&&!hotBan)return "";
-    return `\n\n=== ПАМЯТЬ ЭФИРА (СТРОГО НЕ ПОВТОРЯТЬ) ===${hotBan}${cooledText?`\n‼‼ ЭТИ ОБРАЗЫ УЖЕ ЗВУЧАЛИ И СЕЙЧАС ЗАПРЕЩЕНЫ: ${cooledText}.\nЛюбой блок, где они всплывут даже одной фразой, будет ВЫБРОШЕН и не попадёт в эфир. Если тема слота тянет тебя к ним (например, слот про воду — а ты про большую реку), возьми в этом слоте ДРУГОЙ поворот: не река, а колодцы, дожди, водонапорная башня, паводок, лёд, рыбхоз, мельница.`:""}\nУЖЕ РАСКРЫТЫЕ ОБРАЗЫ (не возвращайся к ним ВООБЩЕ): ${hard.join("; ")||"—"}.\nУЖЕ БЫЛИ ГЛАВНЫМИ (не делай их снова центром): ${ents.join("; ")||"—"}.\nПОСЛЕДНИЕ СЕГМЕНТЫ (не повторяй их смысл): ${recent.join(" || ")||"—"}.\n========================`;
+    if(!recent.length&&!hard.length&&!cooledText&&!hotBan&&!deadRu)return "";
+    return `\n\n=== ПАМЯТЬ ЭФИРА (СТРОГО НЕ ПОВТОРЯТЬ) ===${hotBan}${deadRu?`\n‼‼ ЭТИ ОБРАЗЫ УЖЕ ОТВЕРГНУТЫ НЕСКОЛЬКО РАЗ — НЕ ПРЕДЛАГАЙ ИХ БОЛЬШЕ НИ В ОДНОМ БЛОКЕ, НИ ПОД КАКОЙ ТЕМОЙ: ${deadRu}. Даже если тема другая — заходи с ДРУГОГО образа.`:""}${cooledText?`\n‼‼ ЭТИ ОБРАЗЫ УЖЕ ЗВУЧАЛИ И СЕЙЧАС ЗАПРЕЩЕНЫ: ${cooledText}.\nЛюбой блок, где они всплывут даже одной фразой, будет ВЫБРОШЕН и не попадёт в эфир. Если тема слота тянет тебя к ним (например, слот про воду — а ты про большую реку), возьми в этом слоте ДРУГОЙ поворот: не река, а колодцы, дожди, водонапорная башня, паводок, лёд, рыбхоз, мельница.`:""}\nУЖЕ РАСКРЫТЫЕ ОБРАЗЫ (не возвращайся к ним ВООБЩЕ): ${hard.join("; ")||"—"}.\nУЖЕ БЫЛИ ГЛАВНЫМИ (не делай их снова центром): ${ents.join("; ")||"—"}.\nПОСЛЕДНИЕ СЕГМЕНТЫ (не повторяй их смысл): ${recent.join(" || ")||"—"}.\n========================`;
   };
 
   const getOpener=()=>{
@@ -3253,7 +3266,7 @@ ${planStr}
     runRef.current=true;histRef.current=[];nextRef.current=null;batchQRef.current=[];batchLoadingRef.current=false;topicQueueRef.current=[];reservedTopicsRef.current=[];lastBatchPlanRef.current=[];usedOpenersRef.current=[];topicFailRef.current={};topicPauseRef.current={};topicsUsedRef.current=[];saidFactsRef.current=[];bufferRef.current=[];recentStoriesRef.current=[];
     dirTopicRef.current=null;dirCountRef.current=0;dirTargetRef.current=2;dirRecentTopicsRef.current=[];dirSummariesRef.current=[];coveredEntitiesRef.current=[];dirTopicStartRef.current=0;dirForceSwitchRef.current=false;lastIntroBcastRef.current=bcastRef.current;qaHistRef.current=[];
     spokenLedgerRef.current=[];semanticStopRef.current=new Set();entityStopRef.current=new Set();topicFailRef.current={};topicCooldownRef.current={};lexCooldownRef.current=[];
-    spokenHashRef.current=new Set();motifCooldownRef.current={};
+    spokenHashRef.current=new Set();motifCooldownRef.current={};rejectedMotifsRef.current={};
     loadMemory(); // restore if the last session was < 40 min ago (same trip after a phone call); else stays clean
     openerIdx.current=0;stoppedSince.current=null;fuelWarnedRef.current=0;tourAckRef.current=false;stationaryModeRef.current=false;stationaryIntroSaidRef.current=false;lastMovingCtxRef.current={road:"",heading:(c.heading||90),city:"",county:"",state:"",t:0};
     loopBusyRef.current=false;loopGenRef.current++;        // fresh single generation
