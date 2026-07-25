@@ -289,7 +289,7 @@ body{font-family:'Inter',sans-serif;color:#fff;}
 const {useState,useRef,useEffect}=React;
 const PROXY="https://corsproxy.io/?https://api.anthropic.com/v1/messages";
 const KEY_STORE="rr_key_v3";
-const VER="v144";
+const VER="v145";
 // v76 MEMORY DIAGNOSTIC: prefetch & buffer OFF so every spoken segment goes through one gate.
 const PREFETCH_ENABLED=false;
 const BUFFER_ENABLED=false;
@@ -298,6 +298,46 @@ const OPENERS_RU=["На этой земле...","Да, кстати...","Мал�
 const OPENERS_EN=["On this land...","Here's something few know...","Just to your right...","The history here...","A hundred years ago...","Locals know that...","In a few miles...","What's remarkable is...","This stretch of highway...","Worth knowing..."];
 
 const TRAVEL=[{id:"car",icon:"🚗",en:"Car",ru:"Машина"},{id:"bus",icon:"🚌",en:"Bus/Train",ru:"Автобус"},{id:"bike",icon:"🚲",en:"Bike",ru:"Велосипед"},{id:"walk",icon:"🚶",en:"Walk",ru:"Пешком"}];
+const ENV_BANK={
+  desert:[
+    {key:"env-desert-life",entity:"жизнь в пустыне",facts:["растения пустыни запасают воду в стеблях и листьях","многие животные активны ночью, а днём прячутся от жары","корни некоторых кустарников уходят на десятки метров вглубь"]},
+    {key:"env-desert-heat",entity:"жара и сушь",facts:["днём поверхность раскаляется, а ночью быстро остывает","сухой воздух почти не держит тепло после заката","редкий дождь испаряется, не успевая дойти до земли"]},
+    {key:"env-desert-plants",entity:"растения засухи",facts:["креозотовый куст отгоняет соседей от своей воды","кактусы раскрывают поры только ночью, чтобы не терять влагу","семена некоторых растений ждут дождя годами"]},
+  ],
+  mountain:[
+    {key:"env-mtn-origin",entity:"происхождение гор",facts:["горы растут там, где сталкиваются плиты земной коры","реки и ледники веками режут в них долины","чем моложе горы, тем острее их вершины"]},
+    {key:"env-mtn-climate",entity:"климат высоты",facts:["с каждой тысячей метров воздух заметно холодает","на одном склоне лес, на другом голый камень — решает ветер","погода в горах меняется за минуты"]},
+  ],
+  forest:[
+    {key:"env-pine-kinds",entity:"сосны и хвойные",facts:["в Северной Америке больше сотни видов хвойных","сосна сбрасывает нижние ветви, тянясь к свету","хвоя вместо листьев помогает пережить и засуху, и мороз"]},
+    {key:"env-forest-life",entity:"жизнь леса",facts:["упавшее дерево кормит лес десятки лет","грибница под землёй связывает деревья в сеть","для многих сосен пожар — способ раскрыть шишки"]},
+  ],
+  plains:[
+    {key:"env-prairie-grass",entity:"травы равнин",facts:["корни степных трав уходят глубже, чем стебель над землёй","густая сеть корней держит почву от выветривания","огонь и копытные веками не давали степи зарасти лесом"]},
+    {key:"env-prairie-sky",entity:"небо над равниной",facts:["на плоской равнине грозу видно за десятки миль","ветру тут нечего останавливать, и он дует ровно","закат над степью тянется дольше из-за открытого горизонта"]},
+  ],
+  water:[
+    {key:"env-river-work",entity:"как река меняет землю",facts:["река точит внешний берег и намывает внутренний","за века русло гуляет по долине из стороны в сторону","половодье оставляет самый плодородный слой на берегах"]},
+  ],
+  generic:[
+    {key:"env-soil",entity:"земля под дорогой",facts:["верхний плодородный слой копится сантиметр за век","цвет почвы выдаёт, чего в ней больше","под асфальтом всегда лежит история местных пород"]},
+    {key:"env-weather-now",entity:"погода прямо сейчас",facts:["ветер и температура на дороге меняются с высотой и временем суток","ясное небо ночью быстрее отдаёт дневное тепло","перед сменой погоды первым меняется ветер"]},
+    {key:"env-stars",entity:"ночное небо в дороге",facts:["вдали от городов видно в разы больше звёзд","Млечный Путь — это диск нашей галактики с ребра","чем суше воздух, тем чётче звёзды"]},
+  ],
+};
+const classifyEnv=(ld,c)=>{
+  try{
+    const st=((ld&&(ld.state||ld.region))||"").toLowerCase();
+    const nm=((ld&&(ld.name||ld.city||ld.county))||"").toLowerCase();
+    const blob=st+" "+nm;
+    if(/desert|mojave|sonora|death valley|nevada|arizona/.test(blob))return "desert";
+    if(/mountain|rocky|sierra|cascade|colorado|wyoming|montana|utah/.test(blob))return "mountain";
+    if(/forest|pine|redwood|sequoia|oregon|washington|maine/.test(blob))return "forest";
+    if(/river|lake|delta|bay|coast/.test(blob))return "water";
+    if(/kansas|nebraska|iowa|dakota|oklahoma|prairie|plain/.test(blob))return "plains";
+    return "generic";
+  }catch{return "generic";}
+};
 const BCASTS=[
   {id:"modern",icon:"🎙️",en:"Road Radio Host",ru:"Радиоведущий",desc:"One Road Radio voice",descRu:"Один голос эфира, не местный",prompt:"ROAD RADIO HOST. Ты — живой человек за микрофоном, а не справочная служба. ХАРАКТЕР: ты сам ездишь по этим дорогам много лет и до сих пор не устал удивляться. Тебя цепляют не рекорды и не рейтинги, а человеческие мелочи: почему посёлок назвали именно так, кто первым додумался поставить тут мельницу, зачем построили дорогу в обход. Ты уважаешь людей, которые тут живут и работают, и говоришь о них без снисходительности и без умиления. МАНЕРА: спокойный, тёплый, чуть ироничный. Позволяешь себе удивиться вслух («вот это меня и цепляет»), усомниться («если верить архивам»), признать, что чего-то не знаешь. Иногда коротко подмечаешь смешное — но не шутишь натужно и никогда не смеёшься над местными. ЧЕГО НЕ ДЕЛАЕШЬ: не притворяешься местным жителем — говоришь «здесь», «в этом районе», «для региона», а не «у нас» и «наш округ». Не восторгаешься общими словами («богатая история», «уникальная природа»). Не читаешь лекцию и не подводишь мораль в конце."},
   {id:"local",icon:"📍",en:"Local Expert",ru:"Местный эксперт",desc:"Local voice for this area",descRu:"Голос этой территории",prompt:"LOCAL EXPERT — a local field voice for the current area only. You may care about this place and use local phrasing sparingly, but stay factual and never invent memories or fake personal experiences."},
@@ -533,8 +573,7 @@ function App(){
   // (ломалась логика «что звучало за последние 30 минут»), и вообще не сохранялись spokenHash /
   // motifCooldown / rejectedMotifs / covered entities — половина анти-повторного контура.
   // Теперь три уровня: та же поездка (жёсткая память) → тот же день (мягкая) → новая поездка (чисто).
-  const MEM_STORE="rr_air_memory_v144";
-  const MEM_STORE_PREV="rr_air_memory_v140";
+  const MEM_STORE="rr_air_memory_v140";
   const MEM_STORE_OLD="rr_mem_v78";
   const SAME_TRIP_SOFT_MS=90*60*1000;        // до 1.5 ч перерыва — точно та же поездка
   const SAME_TRIP_HARD_MS=4*60*60*1000;      // до 4 ч — та же, если не уехал далеко
@@ -565,26 +604,20 @@ function App(){
         lastHighway:g.highway||g.road||"",
         stop:[...semanticStopRef.current],
         ents:[...entityStopRef.current],
-        ledger:spokenLedgerRef.current.slice(-160).map(p=>({
+        ledger:spokenLedgerRef.current.slice(-120).map(p=>({
           id:p.id||p.t||now, t:p.t||p.id||now,
-          summary:p.summary||"", sh:[...(p.shingles3||[])].slice(0,80),
-          keys:p.keys||[], entity:p.entity||"", topic:p.topic||"",
-          claimKey:p.claimKey||p.claim_key||"", bridgeKey:p.bridgeKey||p.bridge_key||"",
-          motifKey:p.motifKey||((p.keys&&p.keys[0])||""),
-          city:p.city||"", county:p.county||"", state:p.state||""
+          summary:p.summary, sh:[...(p.shingles3||[])].slice(0,60),
+          keys:p.keys, entity:p.entity, topic:p.topic
         })),
         cooldown:topicCooldownRef.current,
         fails:topicFailRef.current,
-        hashes:[...(spokenHashRef.current||[])].slice(-180),
+        hashes:[...(spokenHashRef.current||[])].slice(-140),
         motifCooldown:motifCooldownRef.current||{},
         rejectedMotifs:rejectedMotifsRef.current||{},
-        rejectedHashes:[...(rejectedHashRef.current||[])].slice(-180),
-        usedOpeners:(usedOpenersRef.current||[]).slice(-40),
-        structures:(structureStopRef.current||[]).slice(-60),
-        covered:[...(coveredEntitiesRef.current||[])].slice(-140),
-        dirTopics:(dirRecentTopicsRef.current||[]).slice(-60),
-        dirSummaries:(dirSummariesRef.current||[]).slice(-40),
-        log:airLogRef.current.slice(-500),
+        covered:[...(coveredEntitiesRef.current||[])].slice(-100),
+        dirTopics:(dirRecentTopicsRef.current||[]).slice(-40),
+        dirSummaries:(dirSummariesRef.current||[]).slice(-24),
+        log:airLogRef.current.slice(-400),
       };
       localStorage.setItem(MEM_STORE,JSON.stringify(data));
     }catch(e){}
@@ -604,29 +637,25 @@ function App(){
     }catch{return false;}
   };
   const loadMemory=()=>{
+    let memDiag="none";
     try{
       try{localStorage.removeItem(MEM_STORE_OLD);}catch{}
-      const raw=localStorage.getItem(MEM_STORE)||localStorage.getItem(MEM_STORE_PREV);
-      if(!raw){try{airLogRef.current.push({t:new Date().toISOString(),_ms:Date.now(),status:"MEMORY_EMPTY",note:"no persisted trip memory"});}catch{};return;}
+      const raw=localStorage.getItem(MEM_STORE);
+      if(!raw){memDiag="no_saved_memory";try{localStorage.setItem("rr_mem_diag",memDiag);}catch{}return;}
       const d=JSON.parse(raw);
-      if(!d||!d.savedAt)return;
+      if(!d||!d.savedAt){memDiag="bad_json";try{localStorage.setItem("rr_mem_diag",memDiag);}catch{}return;}
       const age=Date.now()-d.savedAt;
-      if(age>DAY_MEMORY_MS){localStorage.removeItem(MEM_STORE);return;}
+      if(age>DAY_MEMORY_MS){localStorage.removeItem(MEM_STORE);memDiag="expired_"+Math.round(age/60000)+"min";try{localStorage.setItem("rr_mem_diag",memDiag);}catch{}return;}
       const same=isSameTrip(d);
       const now=Date.now();
       const mapLedger=(arr)=>(arr||[]).map(p=>({
         id:p.id||p.t||d.savedAt||now, t:p.t||p.id||d.savedAt||now,
         summary:p.summary||"", shingles3:new Set(p.sh||[]),
-        keys:p.keys||[], entity:p.entity||"", topic:p.topic||"", story:"",
-        claimKey:p.claimKey||"", bridgeKey:p.bridgeKey||"", motifKey:p.motifKey||"",
-        city:p.city||"", county:p.county||"", state:p.state||""
+        keys:p.keys||[], entity:p.entity||"", topic:p.topic||"", story:""
       }));
       entityStopRef.current=new Set(d.ents||[]);
       spokenHashRef.current=new Set(d.hashes||[]);
-      rejectedHashRef.current=new Set(d.rejectedHashes||[]);
-      usedOpenersRef.current=d.usedOpeners||[];
-      structureStopRef.current=d.structures||[];
-      try{coveredEntitiesRef.current=Array.from(d.covered||[]);}catch{coveredEntitiesRef.current=[];}
+      try{coveredEntitiesRef.current=new Set(d.covered||[]);}catch{}
       airLogRef.current=(d.log||[]);
       if(same){
         semanticStopRef.current=new Set(d.stop||[]);
@@ -646,6 +675,7 @@ function App(){
       const info={mode:same?"same_trip":"soft_day",ageMin:Math.round(age/60000),
         ledger:spokenLedgerRef.current.length,hashes:spokenHashRef.current.size,ents:entityStopRef.current.size};
       window.__rrMemRestore=info;
+      try{localStorage.setItem("rr_mem_diag","restored_"+info.mode+"_ledger"+info.ledger);}catch{}
       // v140: пишем в лог эфира — чтобы по логу было видно, восстановилась память или нет
       try{airLogRef.current.push({t:new Date().toISOString(),_ms:Date.now(),
         status:"MEMORY_RESTORED",
@@ -1445,7 +1475,6 @@ function App(){
   // Модель — актёр, а не режиссёр: она пишет текст по назначенным слотам, тем не выбирает.
   // Раньше просили «будь разнообразным» — это слабая просьба, модель жевала один мотив.
   const lastBatchPlanRef=useRef([]);
-  const lastDirectorTargetsRef=useRef([]); // v144: code chooses concrete target/facts BEFORE paid Gemini call
   const topicQueueRef=useRef([]);  // v112: карусель тем — перемешанная очередь, тема не вернётся, пока не пройдут все
   const reservedTopicsRef=useRef([]); // v114: темы, отданные в генерацию, но ещё НЕ прозвучавшие
   const topicPauseRef=useRef({});     // v115: тема на паузе до этого времени
@@ -1526,89 +1555,6 @@ function App(){
     return plan;
   };
 
-
-  // v144 PRE-GENERATION DIRECTOR. Phone/code chooses the concrete target BEFORE paid Gemini call.
-  // Gemini is a writer, not a scout: it gets a topic + target entity + fact card + banned motifs.
-  const safeWords=s=>String(s||"").toLowerCase().replace(/ё/g,"е").replace(/[^a-zа-я0-9 ]/gi," ").replace(/\s+/g," ").trim();
-  const targetKey=s=>safeWords(s).split(" ").filter(w=>w.length>2).slice(0,5).join("-");
-  const topicFactScore=(topic,card)=>{
-    const txt=safeWords((card.title||"")+" "+(card.text||""));let sc=0;
-    const has=rx=>rx.test(txt);
-    if(topic==="history"&&has(/found|establish|built|opened|year|history|historic|основан|истор|постро|откры/))sc+=6;
-    if(topic==="native"&&has(/tribe|native|indian|serrano|tongva|cahuilla|arapaho|cheyenne|плем|коренн|индей|серрано|тонгва/))sc+=8;
-    if(topic==="water"&&has(/river|lake|creek|water|reservoir|aqueduct|irrig|река|озер|вода|ручь|водохранил|орош/))sc+=8;
-    if(topic==="road"&&has(/road|route|highway|interstate|rail|pass|trail|трасс|дорог|шоссе|железн|перевал/))sc+=8;
-    if(topic==="wildlife"&&has(/deer|bear|bird|condor|wildlife|animal|растен|живот|птиц|олень|кондор/))sc+=8;
-    if(topic==="films"&&has(/film|movie|cinema|studio|shot|сним|фильм|кино|экран/))sc+=8;
-    if(topic==="music"&&has(/music|song|band|jazz|blues|rock|музык|песн|джаз|блюз|рок/))sc+=8;
-    if(topic==="food"&&has(/food|fruit|orange|citrus|farm|market|еда|вкус|фрукт|цитрус|апельсин|рын/))sc+=8;
-    if(topic==="economy"&&has(/work|industry|logistic|warehouse|port|oil|gas|эконом|работ|логист|склад|порт|нефт|газ/))sc+=8;
-    if(topic==="sky"&&has(/weather|sky|storm|wind|sun|heat|rain|cloud|погод|небо|гроза|ветер|солн|жар/))sc+=8;
-    if(topic==="land"&&has(/mountain|desert|fault|geolog|soil|land|canyon|гор|пустын|разлом|геолог|земл|каньон/))sc+=8;
-    if(topic==="people"&&has(/born|person|writer|leader|founder|scientist|people|родил|человек|писател|основател|учен/))sc+=7;
-    if(topic==="sports"&&has(/sport|race|team|stadium|athlet|спорт|гонк|команд|стадион|атлет/))sc+=7;
-    if(topic==="crafts"&&has(/craft|pottery|clay|wood|leather|ремес|керамик|глин|дерев|кож/))sc+=7;
-    if(topic==="mystery"&&has(/mystery|legend|ghost|strange|odd|тайн|легенд|призрак|странн/))sc+=7;
-    if(topic==="oddity"&&has(/largest|first|record|odd|unusual|museum|перв|самый|рекорд|странн|музей/))sc+=7;
-    return sc;
-  };
-  const defaultTargetForTopic=(topic,geo={},pois=[],weather=null)=>{
-    const place=[geo.city,geo.county,geo.state].filter(Boolean).join(", ")||"этот район";
-    const poi=(pois||[]).map(p=>p.name).filter(Boolean).slice(0,4).join(", ");
-    const wx=weather?`${weather.desc||"погода"}, ${weather.temp||"?"}°F, ветер ${weather.wind??"?"} mph`:"текущая погода неизвестна";
-    const state=geo.state||"этот штат";
-    const map={
-      sky:{entity:"текущая погода",facts:`Сейчас: ${wx}. Говори только о реальной погоде и ощущении дороги, без выдуманных закатов и гроз.`,angle:"weather-driver-angle"},
-      road:{entity:geo.highway||geo.road||"текущий дорожный коридор",facts:`Текущий район: ${place}. Дорога/коридор: ${geo.highway||geo.road||"не определён"}. Без неподтверждённых историй дороги.`,angle:"road-current-corridor"},
-      life:{entity:place,facts:`Текущий район: ${place}. Можно говорить о повседневной жизни осторожно, без конкретных цифр и событий, если их нет в фактах.`,angle:"daily-life-cautious"},
-      economy:{entity:place,facts:`Текущий район: ${place}. Упоминай экономику только общо, если нет fact card: дороги, сервисы, логистика у трасс. Без точных процентов и «главный работодатель».`,angle:"work-cautious"},
-      water:{entity:`вода вокруг ${state}`,facts:`Текущий район: ${place}. Если нет конкретной реки/озера в фактах, говори осторожно о засушливости, воде и инфраструктуре региона.`,angle:"water-cautious-region"},
-      land:{entity:`ландшафт ${state}`,facts:`Текущий район: ${place}. Описывай только проверяемый общий масштаб: горы/долины/пустыня/штат, без утверждений о конкретном объекте, если его нет в фактах.`,angle:"land-cautious-region"},
-      wildlife:{entity:`животные региона`,facts:`Текущий район: ${place}. Без точных локальных популяций; можно осторожно о типичных животных региона, если это не звучало.`,angle:"wildlife-cautious"},
-      food:{entity:`еда штата`,facts:`Текущий штат: ${state}. Без заявлений «местные кафе подают» и «это местная классика», если нет источника.`,angle:"food-state-cautious"},
-      films:{entity:`кино штата`,facts:`Текущий штат: ${state}. Нельзя говорить, что фильм снимали здесь, если нет fact card. Лучше: как ландшафты штата часто используются в кино — без точных локаций.`,angle:"film-state-cautious"},
-      music:{entity:`музыка штата`,facts:`Текущий штат: ${state}. Без привязки музыканта к этому месту, если нет источника.`,angle:"music-state-cautious"},
-      sports:{entity:`спорт штата`,facts:`Текущий штат: ${state}. Без ежегодных турниров/местных федераций, если нет источника.`,angle:"sports-state-cautious"},
-      crafts:{entity:`ремёсла региона`,facts:`Текущий район: ${place}. Без конкретных мастерских/традиций, если нет источника.`,angle:"crafts-cautious"},
-      native:{entity:`коренные народы региона`,facts:`Текущий район: ${place}. Если нет fact card, говори только осторожно: регион имеет коренную историю; не называй племя, если оно не подтверждено.`,angle:"native-cautious"},
-      history:{entity:place,facts:`Текущий район: ${place}. Без дат основания/имен, если нет fact card. Можно говорить о роли дороги/округа осторожно.`,angle:"history-cautious"},
-      people:{entity:`люди региона`,facts:`Текущий район: ${place}. Не называй знаменитостей, если нет fact card.`,angle:"people-cautious"},
-      mystery:{entity:`местные легенды`,facts:`Без источника не выдумывай исчезновения, призраков и НЛО. Можно дать мягкий блок о том, как дороги и горы рождают легенды, без имен и дат.`,angle:"mystery-no-invention"},
-      oddity:{entity:`дорожная странность региона`,facts:`Без источника не называй рекорд/музей/самый большой объект. Можно говорить об oddity только как о форме дорожной культуры штата.`,angle:"oddity-no-invention"}
-    };
-    const d=map[topic]||{entity:place,facts:`Текущий район: ${place}.`,angle:`${topic}-cautious`};
-    if(poi)d.facts+=` Подтверждённые nearby names из OSM (без фактов, расстояний и сторон, если не указано отдельно): ${poi}.`;
-    return {factId:"CTX",title:d.entity,text:d.facts,angle:d.angle,source:"context"};
-  };
-  const makePreGenTargets=(plan,ctx={})=>{
-    const cards=(ctx.factCards||[]).slice(0,8);
-    const usedEnts=new Set([...(entityStopRef.current||[]),...(spokenLedgerRef.current||[]).map(p=>p.entity||"")].map(targetKey).filter(Boolean));
-    const hardMotifs=new Set([...(semanticStopRef.current||[]),...Object.keys(motifCooldownRef.current||{}).filter(k=>(motifCooldownRef.current[k]||0)>Date.now()),...Object.entries(rejectedMotifsRef.current||{}).filter(([,n])=>n>=1).map(([k])=>k)]);
-    const picked=new Set();
-    return (plan||[]).map((p,i)=>{
-      let best=null,bestScore=-999;
-      for(const c of cards){
-        const entKey=targetKey(c.title||c.factId||"");
-        if(picked.has(c.factId)||usedEnts.has(entKey))continue;
-        let sc=topicFactScore(p.topic,c);
-        if(sc>bestScore){best=c;bestScore=sc;}
-      }
-      if(!best||bestScore<5)best=defaultTargetForTopic(p.topic,ctx.geo||{},ctx.pois||[],weatherRef.current);
-      picked.add(best.factId);
-      const ent=best.title||best.entity||p.topic;
-      const angle=`${p.topic}-${targetKey(ent)||"ctx"}-${p.lens||"lens"}`.slice(0,80);
-      return {
-        slot:p.slot,topic:p.topic,lens:p.lens,scope:p.scope,
-        target_id:`T${p.slot}`,
-        entity:ent,
-        factId:best.factId||"CTX",
-        source:best.source||"context",
-        angle_key:angle,
-        facts:String(best.text||"").slice(0,520),
-        banned:[...hardMotifs].slice(0,18).join(", ")||"none"
-      };
-    });
-  };
   const buildBatchDirectorText=()=>{
     const plan=lastBatchPlanRef.current||[];
     const summaries=dirSummariesRef.current.slice(-12);
@@ -1623,17 +1569,16 @@ The only allowed outside context is the LAST AIRED block if it is provided, and 
 Assigned slots, fixed by code:
 ${plan.map(p=>`${p.slot}. ${p.topic} | ${p.lens} | ${p.scope}`).join("\n")}
 
-STRICT PRE-CHOSEN TARGETS (v144): code already selected the entity/fact/angle BEFORE this paid request. Do NOT choose your own subject. If the facts are thin, write a cautious warm segment using ONLY the allowed facts; do not invent a better local story.
-${(lastDirectorTargetsRef.current||[]).map(t=>`SLOT ${t.slot} target_id=${t.target_id} topic=${t.topic} entity="${t.entity}" fact=${t.factId} source=${t.source} angle_key=${t.angle_key}\nAllowed facts: ${t.facts}\nBanned motifs for this slot: ${t.banned}`).join("\n---\n")||"No targets loaded — use only current context."}
-
 HOT TOPICS recently aired 2+ times, avoid unless assigned and unavoidable: ${hotList}.
 Already said, do not repeat by meaning: ${summaries.length?summaries.join(" || "):"nothing yet"}.
-Return exactly one JSON array with ${plan.length||4} items in this order. Every item needs target_id, fact_ids_used, angle_key, motif_key, unique claim_key and bridge_key.
+Return exactly one JSON array with ${plan.length||4} items in this order. Every item needs a unique claim_key and bridge_key.
 ========================`;
   };
 
   const motifCooldownRef=useRef({});
   const rejectedMotifsRef=useRef({}); // v139: сколько раз мотив уже отбит валидатором в этой сессии
+  const emptyBatchRef=useRef(0);      // v145: батчей подряд без единого блока в эфир
+  const forceEnvRef=useRef(false);    // v145: тормоз — форсировать факты среды вместо слепого вызова
   const rejectedHashRef=useRef(new Set()); // v109: отвергнутый блок умирает НАВСЕГДА — обратно в эфир не попадёт
   const usedOpenersRef=useRef([]); // v110: первые слова уже прозвучавших блоков — одинаковые зачины в бан
   const structureStopRef=useRef([]); // v118: скелеты фраз/мостиков последних блоков — ловим смысловые повторы без общих слов
@@ -1672,11 +1617,6 @@ Return exactly one JSON array with ${plan.length||4} items in this order. Every 
     if(!res||!res.story)return{ok:false,reason:"empty"};
     try{res.story=cleanRussianStory(res.story);}catch{}
     if(!res.story||res.story.length<80)return{ok:false,reason:"too_short"};
-    // v144: paid model must not invent exact local specifics when code gave only context/model_color.
-    if((res._src||res.source_type||"").toLowerCase().includes("model")||String(res.source_type||"").toLowerCase()==="context"){
-      const exactLocal=/(снимал[аи]?|съ[её]мк|фестиваль|ежегодн|федерац|единственн|самый первый|самая первая|самый большой|крупнейш|местные кафе|рестораны можно найти десятки|открылся|исчезновен|призрак|нло|тысяч[аи]? участников|семьдесят процентов|\d{2,3}\s*процент)/i;
-      if(exactLocal.test(res.story))return{ok:false,reason:"model_specific_claim"};
-    }
     if(hasHallucination(res.story))return{ok:false,reason:"fiction"};
     if(hasGeoError(res.story))return{ok:false,reason:"geo_error"};
     // v124: if a director/service phrase survived cleanup, reject it before speech.
@@ -1776,9 +1716,7 @@ Return exactly one JSON array with ${plan.length||4} items in this order. Every 
       summary:buildSummary(res,meta),
       shingles3:shingles(res.story,3),
       keys,
-      entity:res.entity?String(res.entity).toLowerCase().slice(0,80):"",
-      claimKey:res.claim_key||"",bridgeKey:res.bridge_key||"",motifKey:res.motif_key||((keys&&keys[0])||""),
-      city:(locDataRef.current||{}).city||"",county:(locDataRef.current||{}).county||"",state:(locDataRef.current||{}).state||"",
+      entity:res.entity?String(res.entity).toLowerCase().slice(0,40):"",
     };
     spokenLedgerRef.current.push(passport);
     if(spokenLedgerRef.current.length>300)spokenLedgerRef.current.shift();
@@ -2805,7 +2743,7 @@ ${planStr}
 
 Порядок не менять. topic_key в ответе — ровно тот, что указан для слота. Каждый блок — про СВОЮ тему и ни про что другое: если слот 1 про коренные народы, то в слотах 2-4 о них ни слова, даже вскользь. Между блоками НЕ делай скрытую цепочку. Каждый блок самостоятельный и понятен сам по себе, даже если предыдущий блок из этого батча будет удалён воротами.
 
-[{"target_id":"T1","story":"segment 1 in ${al}. ${isRestMode?"СПОКОЙНО: 4-7 предложений, мягкая ночная подача":"КОРОТКО: 2-4 предложения"}. Use ONLY the pre-chosen target for slot 1 and its allowed facts. Один факт или одна маленькая история. Без морали в конце. Самостоятельно, без ссылки на другой сгенерированный блок.","location":"exact place in English","topics":"short phrase naming the ONE thing covered","topic_key":"тема слота 1 из плана выше","entity":"the pre-chosen target entity only","fact_ids_used":["F1 or CTX"],"angle_key":"the pre-chosen angle_key","motif_key":"short english motif, must not match banned motifs","micro_topic_id":"short english kebab-case id","claim_key":"unique english kebab-case claim, e.g. jacksonville-flat-wetlands","bridge_key":"opening skeleton key, e.g. fresh-hook-land","source_type":"wikipedia|osm|weather|context|model_color","images":["1-3 short english tags"]},{...slot 2 independent, uses target_id T2 only...},{...slot 3 independent...},{...slot 4 independent...}]
+[{"story":"segment 1 in ${al}. ${isRestMode?"СПОКОЙНО: 4-7 предложений, мягкая ночная подача":"КОРОТКО: 2-4 предложения"}. Один факт или одна маленькая история. Без морали в конце. Самостоятельно, без ссылки на другой сгенерированный блок.","location":"exact place in English","topics":"short phrase naming the ONE thing covered","topic_key":"тема слота 1 из плана выше","entity":"main named landmark/institution or empty string","micro_topic_id":"short english kebab-case id","claim_key":"unique english kebab-case claim, e.g. jacksonville-flat-wetlands","bridge_key":"opening skeleton key, e.g. fresh-hook-land","images":["1-3 short english tags"]},{...slot 2 independent, no hidden bridge from slot 1...},{...slot 3 independent...},{...slot 4 independent...}]
 Ни один блок не повторяет факты или образы другого. Финальная фраза не должна быть одинаковой формулой удивления/морали.`;
   };
 
@@ -3136,7 +3074,6 @@ ${planStr}
         // из 45 — половина брака и половина потраченных денег.
         let wikiBlock="";
         let sourceLevel="model_general";
-        let factCardsForDirector=[];
         try{
           const packRaw=await Promise.race([
             (async()=>{
@@ -3155,22 +3092,34 @@ ${planStr}
           const pack=(packRaw||[]).filter(a=>a&&a.extract);
           if(pack.length){
             sourceLevel="wikipedia";
-            factCardsForDirector=pack.map((a,i)=>{
+            const cards=pack.map((a,i)=>{
               const flat=String(a.extract).replace(/\s+/g," ").trim();
               const sents=flat.match(/[^.!?]+[.!?]+/g)||[flat];
-              const short=sents.slice(0,2).join(" ").trim().slice(0,360);
-              return {factId:`F${i+1}`,title:a.title||`fact ${i+1}`,text:short,source:"wikipedia"};
-            });
-            const cards=factCardsForDirector.map(c=>`[${c.factId}] ${c.title}: ${c.text}`).join("\n");
+              const short=sents.slice(0,2).join(" ").trim().slice(0,260);
+              return `[F${i+1}] ${a.title}: ${short}`;
+            }).join("\n");
             wikiBlock="\n\n=== ПРОВЕРЕННЫЕ ФАКТЫ ОБ ЭТИХ МЕСТАХ ("+pack.length+") ===\n"+cards+"\n"
               +"\u203c РАЗНЫЕ блоки батча опираются на РАЗНЫЕ карточки: блок 1 \u2192 [F1], блок 2 \u2192 [F2], блок 3 \u2192 [F3], блок 4 \u2192 любая свободная.\n"
               +"\u203c Пересказывай СВОИМИ словами, не цитируй. Не выдумывай имён, годов и учреждений, которых нет в карточках.\n"
               +"\u203c Если карточка не подходит теме блока \u2014 возьми из неё деталь-зацепку (человека, год, предмет) и построй вокруг неё. НЕ уходи в дежурные образы прерии: пионерская тропа, кукуруза и соя, коренные народы, железная дорога \u2014 они уже звучали в эфире.";
           }
         }catch{}
-        if(sourceLevel==="model_general"){
-          wikiBlock="\n\n\u203c НЕТ проверенного источника об этом месте: НЕ называй конкретных имён/годов/учреждений (можешь выдумать). Говори осторожно и общо о регионе и штате, честно, без выдуманной конкретики."
-            +"\n\u203c И НЕ уходи в дежурные образы прерии (пионерская тропа, кукуруза и соя, коренные народы, железная дорога) \u2014 они уже звучали. Возьми угол пошире: штат, климат, дороги, современная жизнь.";
+        if(sourceLevel==="model_general"||forceEnvRef.current){
+          try{
+            const envKind=classifyEnv(locDataRef.current,c);
+            const pool=(ENV_BANK[envKind]||ENV_BANK.generic).concat(ENV_BANK.generic);
+            const fresh=pool.filter(card=>!(spokenHashRef.current&&spokenHashRef.current.has("env:"+card.key)));
+            const chosen=(fresh.length?fresh:pool).slice(0,3);
+            if(chosen.length){
+              sourceLevel="env_facts";
+              const cards=chosen.map((card,idx)=>"[E"+(idx+1)+"] "+card.entity+": "+card.facts.join("; ")+".").join("\n");
+              try{chosen.forEach(card=>spokenHashRef.current&&spokenHashRef.current.add("env:"+card.key));}catch{}
+              wikiBlock="\n\n=== О ЧЁМ РАССКАЗАТЬ (реальные факты о среде вокруг: "+envKind+") ===\n"+cards+"\n\u203c Про конкретный посёлок фактов нет — говори про ОКРУЖАЮЩУЮ ПРИРОДУ и край, живо, опираясь на карточки. РАЗНЫЕ блоки — разные карточки [E1],[E2],[E3]. Это НЕ про местное село: говори про сам тип природы (пустыню, сосны, горы, небо, землю), не выдумывай имён, годов и учреждений.";
+            }
+          }catch{}
+          if(sourceLevel==="model_general"){
+            wikiBlock="\n\n\u203c НЕТ проверенного источника: говори осторожно и общо о регионе и штате, честно, без выдуманной конкретики. И НЕ уходи в дежурные образы прерии (пионерская тропа, кукуруза-соя, коренные народы, железная дорога) — возьми угол пошире: климат, дороги, современная жизнь.";
+          }
         }
         let attempt=0,accepted=null;
         while(attempt<4){
@@ -3185,8 +3134,6 @@ ${planStr}
             const restPlan=isOvernightRest();
             const allowedNow=ALL_KEYS.filter(k=>cfgNow[k]!==false).filter(k=>!(isParkPlan&&k==="road")).filter(k=>!(restPlan&&(k==="sports"||k==="road")));
             lastBatchPlanRef.current=makeBatchPlan(4,allowedNow.length?allowedNow:ALL_KEYS,{});
-            lastDirectorTargetsRef.current=makePreGenTargets(lastBatchPlanRef.current,{geo,pois,factCards:factCardsForDirector,sourceLevel});
-            try{airLogRef.current.push({t:new Date().toISOString(),_ms:Date.now(),status:"PREDIRECTOR",note:lastDirectorTargetsRef.current.map(t=>`${t.slot}:${t.topic}:${t.entity}:${t.factId}`).join(" | ")});}catch{}
             const p0=lastBatchPlanRef.current[0]||{};
             director={topicKey:p0.topic||"",lens:p0.lens||"",scope:p0.scope||"",text:buildBatchDirectorText()};
             airLogRef.current.push({t:new Date().toISOString(),_ms:Date.now(),status:"SLOT_PLAN",note:lastBatchPlanRef.current.map(p=>p.slot+":"+p.topic).join(" | ")+"  | тем в очереди: "+topicQueueRef.current.length+" | зарезервировано: "+reservedTopicsRef.current.length});
@@ -3235,20 +3182,13 @@ ${planStr}
             const plan=lastBatchPlanRef.current||[];
             if(plan[0])cand._dirTopic=plan[0].topic;
             const seen=new Set([normHash(cand.story||"")]);
-            const seenClaims=new Set([String(cand.claim_key||cand.micro_topic_id||cand.angle_key||"").toLowerCase()].filter(Boolean));
-            const seenEnts=new Set([targetKey(cand.entity||"")].filter(Boolean));
-            const seenMotifs=new Set([...(memoryKeysForStory(cand)||[]),String(cand.motif_key||cand.angle_key||"").toLowerCase()].filter(Boolean));
             const tail=[];
             cand._batchTail.forEach((x,i)=>{
               if(!x||!x.story)return;
               x.story=cleanRussianStory(x.story);
               const h=normHash(x.story);
-              const cl=String(x.claim_key||x.micro_topic_id||x.angle_key||"").toLowerCase();
-              const ek=targetKey(x.entity||"");
-              const mk=[...(memoryKeysForStory(x)||[]),String(x.motif_key||x.angle_key||"").toLowerCase()].filter(Boolean);
-              const dupKey=(h&&seen.has(h))||(cl&&seenClaims.has(cl))||(ek&&seenEnts.has(ek))||mk.some(k=>seenMotifs.has(k));
-              if(dupKey){airLogRef.current.push({t:new Date().toISOString(),_ms:Date.now(),status:"REJECTED-QUEUE",reason:"duplicate_inside_batch_key",topic:"?",story:x.story.slice(0,100)});return;}
-              if(h)seen.add(h);if(cl)seenClaims.add(cl);if(ek)seenEnts.add(ek);mk.forEach(k=>seenMotifs.add(k));
+              if(h&&seen.has(h)){airLogRef.current.push({t:new Date().toISOString(),_ms:Date.now(),status:"REJECTED-QUEUE",reason:"duplicate_inside_batch",topic:"?",story:x.story.slice(0,100)});return;}
+              if(h)seen.add(h);
               const p=plan[i+1]||{};
               x._dirTopic=p.topic||cand._dirTopic||"";x._dirLens=p.lens||"";x._dirScope=p.scope||"";x._slot=i+2;
               x._src=sourceLevel;x._lat=c.lat;x._lng=c.lng;
@@ -3259,7 +3199,6 @@ ${planStr}
           }
           const p0=(lastBatchPlanRef.current||[])[0]||{};
           cand._dirTopic=p0.topic||director.topicKey||cand.topic_key||"";cand._dirLens=p0.lens||director.lens||"";cand._dirScope=p0.scope||director.scope||"";cand._slot=1;cand._src=sourceLevel;
-          try{const t=(lastDirectorTargetsRef.current||[])[0]||{};cand._targetId=t.target_id||cand.target_id||"";cand._targetEntity=t.entity||"";cand._targetFact=t.factId||"";}catch{}
           if(cand._suppress){attempt++;continue;}
           // 1) Clean Russian grammar/leaks BEFORE any check or airing.
           cand.story=cleanRussianStory(cand.story);
@@ -3309,9 +3248,27 @@ ${planStr}
         }
         // NEVER air a rejected candidate. If all attempts failed, air a short honest neutral bridge instead.
         if(!accepted){
-          const isRu=["ru","uk"].includes(langRef.current);
-          accepted={story:isRu?(isStationaryActive()?"Пусть место немного подышит. Останемся в тишине на несколько секунд, а потом возьмём другую историю рядом.":"Пусть эта дорога пока помолчит секунду — впереди наверняка найдётся, о чём рассказать. Держим курс."):(isStationaryActive()?"Let this place breathe for a moment. We'll find another thread around this spot.":"Let the road breathe for a second — there'll be a good story just ahead. Keep rolling."),location:"",topics:"road-pause",entity:"",_src:"pause",_dirTopic:"road"};
-        }
+          // v145: весь батч забракован. Раньше тут была служебная фраза «Пусть дорога помолчит» —
+          // Вова её ненавидит. Теперь: считаем пустой батч, включаем тормоз (следующий заход пойдёт
+          // на факты среды, а не вслепую), и НЕ молчим — отдаём короткий живой факт о среде без нового запроса.
+          emptyBatchRef.current++;
+          if(emptyBatchRef.current>=2){forceEnvRef.current=true;
+            try{airLogRef.current.push({t:new Date().toISOString(),_ms:Date.now(),status:"CIRCUIT_BREAKER",note:"2 пустых батча подряд, форсирую факты среды"});}catch{}
+          }
+          try{
+            const envKind=classifyEnv(locDataRef.current,c);
+            const pool=(ENV_BANK[envKind]||ENV_BANK.generic).concat(ENV_BANK.generic);
+            const fresh=pool.filter(card=>!(spokenHashRef.current&&spokenHashRef.current.has("said:"+card.key)));
+            const card=(fresh.length?fresh:pool)[0];
+            if(card){
+              try{spokenHashRef.current&&spokenHashRef.current.add("said:"+card.key);}catch{}
+              accepted={story:card.entity.charAt(0).toUpperCase()+card.entity.slice(1)+" — "+card.facts[0]+". "+(card.facts[1]||""),location:locDataRef.current.name||"",topics:"env:"+card.key,entity:"env:"+card.key,_dirTopic:"land"};
+            }
+          }catch{}
+          if(!accepted){
+            accepted={story:["ru","uk"].includes(langRef.current)?"Крутим дальше.":"Rolling on.",location:"",topics:"filler",_dirTopic:"road"};
+          }
+        }else{emptyBatchRef.current=0;forceEnvRef.current=false;}
         res=accepted;
       }
       if(gen!==loopGenRef.current||!runRef.current)return;
@@ -3396,7 +3353,6 @@ ${planStr}
             const restPlan=isOvernightRest();
             const allowedNow=ALL_KEYS.filter(k=>cfgNow[k]!==false).filter(k=>!(isParkPlan&&k==="road")).filter(k=>!(restPlan&&(k==="sports"||k==="road")));
             lastBatchPlanRef.current=makeBatchPlan(4,allowedNow.length?allowedNow:ALL_KEYS,{});
-            lastDirectorTargetsRef.current=makePreGenTargets(lastBatchPlanRef.current,{geo:locDataRef.current||{},pois:[],factCards:[],sourceLevel:"context"});
             airLogRef.current.push({t:new Date().toISOString(),_ms:Date.now(),status:"SLOT_PLAN",note:"BG "+lastBatchPlanRef.current.map(p=>p.slot+":"+p.topic).join(" | ")+"  | тем в очереди: "+topicQueueRef.current.length+" | зарезервировано: "+reservedTopicsRef.current.length});
             const bgSys=buildSys(false,null,isStationaryActive());
             const prevBlock=(saidFactsRef.current.slice(-1)[0]||"");
@@ -3592,6 +3548,7 @@ ${planStr}
     spokenLedgerRef.current=[];semanticStopRef.current=new Set();entityStopRef.current=new Set();topicFailRef.current={};topicCooldownRef.current={};lexCooldownRef.current=[];
     spokenHashRef.current=new Set();motifCooldownRef.current={};rejectedMotifsRef.current={};
     loadMemory(); // v140: та же поездка → жёсткая память; тот же день → мягкая; иначе чистый лист
+    try{const diag=localStorage.getItem("rr_mem_diag")||"unknown";airLogRef.current.push({t:new Date().toISOString(),_ms:Date.now(),status:"MEMORY_LOAD",note:diag});}catch{}
     openerIdx.current=0;stoppedSince.current=null;fuelWarnedRef.current=0;tourAckRef.current=false;stationaryModeRef.current=false;stationaryIntroSaidRef.current=false;lastMovingCtxRef.current={road:"",heading:(c.heading||90),city:"",county:"",state:"",t:0};
     loopBusyRef.current=false;loopGenRef.current++;        // fresh single generation
     parkedRef.current=false;pausedRef.current=false;setPaused(false);
