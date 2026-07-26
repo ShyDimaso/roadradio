@@ -289,7 +289,7 @@ body{font-family:'Inter',sans-serif;color:#fff;}
 const {useState,useRef,useEffect}=React;
 const PROXY="https://corsproxy.io/?https://api.anthropic.com/v1/messages";
 const KEY_STORE="rr_key_v3";
-const VER="v145";
+const VER="v146";
 // v76 MEMORY DIAGNOSTIC: prefetch & buffer OFF so every spoken segment goes through one gate.
 const PREFETCH_ENABLED=false;
 const BUFFER_ENABLED=false;
@@ -398,11 +398,271 @@ const toMph=ms=>ms&&ms>0?Math.round(ms*2.237):0;
 const WI={0:"☀️",1:"🌤",2:"⛅",3:"☁️",45:"🌫",51:"🌦",61:"🌧",71:"❄️",80:"🌧",95:"⛈"};
 const getWI=c=>{const k=Object.keys(WI).map(Number).sort((a,b)=>b-a).find(k=>c>=k);return WI[k]||"☀️";};
 
+/* ============================================================
+   ANTISON — GYRO TEST BENCH (изолированный модуль, v146+antison)
+   Не трогает эфир. Не тратит токены. Только датчики движения.
+   ============================================================ */
+function AntisonTest({isRu,onClose}){
+  const [perm,setPerm]=React.useState("idle"); // idle|ok|denied|nosensor
+  const [running,setRunning]=React.useState(false);
+  const [mode,setMode]=React.useState(null);
+  const [road,setRoad]=React.useState("mid"); // good|mid|bad
+  const [note,setNote]=React.useState("");
+  const [count,setCount]=React.useState(0);
+  const [live,setLive]=React.useState({a:0,b:0,g:0,ax:0,ay:0,az:0});
+  const [dur,setDur]=React.useState(0);
+  const logRef=React.useRef([]);
+  const canvasRef=React.useRef(null);
+  const histRef=React.useRef([]); // {t,gz} for graph
+  const startTsRef=React.useRef(0);
+  const runRef=React.useRef(false);
+  const modeRef=React.useRef(null);
+  const roadRef=React.useRef("mid");
+  const lastOriRef=React.useRef({alpha:0,beta:0,gamma:0});
+
+  const T=(ru,en)=>isRu?ru:en;
+
+  // --- запрос разрешения на датчики (iOS 13+ требует явного) ---
+  const askPerm=async()=>{
+    try{
+      let granted=true;
+      if(typeof DeviceMotionEvent!=="undefined" && typeof DeviceMotionEvent.requestPermission==="function"){
+        const r=await DeviceMotionEvent.requestPermission();
+        granted=(r==="granted");
+      }
+      if(typeof DeviceOrientationEvent!=="undefined" && typeof DeviceOrientationEvent.requestPermission==="function"){
+        try{await DeviceOrientationEvent.requestPermission();}catch{}
+      }
+      if(!("DeviceMotionEvent" in window) && !("DeviceOrientationEvent" in window)){
+        setPerm("nosensor");return;
+      }
+      setPerm(granted?"ok":"denied");
+    }catch(e){ setPerm("denied"); }
+  };
+
+  // --- обработчики датчиков ---
+  React.useEffect(()=>{
+    if(perm!=="ok")return;
+    const onOri=(e)=>{
+      lastOriRef.current={alpha:e.alpha||0,beta:e.beta||0,gamma:e.gamma||0};
+      setLive(v=>({...v,a:e.alpha||0,b:e.beta||0,g:e.gamma||0}));
+    };
+    const onMot=(e)=>{
+      const r=e.rotationRate||{};
+      const ai=e.accelerationIncludingGravity||{};
+      const gz=(r.alpha!=null?r.alpha:0); // yaw rate ~ поворот руля/рыскание
+      // график: сдвиг рыскания (right/left)
+      const t=Date.now();
+      histRef.current.push({t,gz:gz, gamma:lastOriRef.current.gamma});
+      if(histRef.current.length>240)histRef.current.shift();
+      setLive(v=>({...v,ax:ai.x||0,ay:ai.y||0,az:ai.z||0}));
+      // запись в лог
+      if(runRef.current){
+        logRef.current.push({
+          t:(t-startTsRef.current),
+          mode:modeRef.current, road:roadRef.current,
+          rr_a:r.alpha!=null?+r.alpha.toFixed(2):null,
+          rr_b:r.beta!=null?+r.beta.toFixed(2):null,
+          rr_g:r.gamma!=null?+r.gamma.toFixed(2):null,
+          ori_a:+lastOriRef.current.alpha.toFixed(1),
+          ori_b:+lastOriRef.current.beta.toFixed(1),
+          ori_g:+lastOriRef.current.gamma.toFixed(1),
+          acc_x:ai.x!=null?+ai.x.toFixed(2):null,
+          acc_y:ai.y!=null?+ai.y.toFixed(2):null,
+          acc_z:ai.z!=null?+ai.z.toFixed(2):null,
+        });
+        setCount(logRef.current.length);
+      }
+    };
+    window.addEventListener("deviceorientation",onOri);
+    window.addEventListener("devicemotion",onMot);
+    return()=>{window.removeEventListener("deviceorientation",onOri);window.removeEventListener("devicemotion",onMot);};
+  },[perm]);
+
+  // --- таймер длительности ---
+  React.useEffect(()=>{
+    if(!running)return;
+    const id=setInterval(()=>setDur(Math.round((Date.now()-startTsRef.current)/1000)),500);
+    return()=>clearInterval(id);
+  },[running]);
+
+  // --- живой график рыскания (right/left) ---
+  React.useEffect(()=>{
+    let raf;
+    const draw=()=>{
+      const c=canvasRef.current;
+      if(c){
+        const ctx=c.getContext("2d");
+        const W=c.width,H=c.height;
+        ctx.clearRect(0,0,W,H);
+        // центр
+        ctx.strokeStyle="rgba(255,255,255,0.15)";ctx.beginPath();ctx.moveTo(0,H/2);ctx.lineTo(W,H/2);ctx.stroke();
+        const h=histRef.current;
+        if(h.length>1){
+          const scale=6; // px на ед. рыскания
+          ctx.strokeStyle="#4a9eff";ctx.lineWidth=2;ctx.beginPath();
+          for(let i=0;i<h.length;i++){
+            const x=(i/(240-1))*W;
+            let y=H/2 - (h[i].gz||0)*scale;
+            if(y<2)y=2;if(y>H-2)y=H-2;
+            if(i===0)ctx.moveTo(x,y);else ctx.lineTo(x,y);
+          }
+          ctx.stroke();
+        }
+        // подписи
+        ctx.fillStyle="rgba(255,255,255,0.4)";ctx.font="10px monospace";
+        ctx.fillText(T("вправо →","right →"),4,12);
+        ctx.fillText(T("влево →","left →"),4,H-4);
+      }
+      raf=requestAnimationFrame(draw);
+    };
+    raf=requestAnimationFrame(draw);
+    return()=>cancelAnimationFrame(raf);
+  },[isRu]);
+
+  const startRec=(m)=>{
+    modeRef.current=m; setMode(m);
+    if(!running){
+      logRef.current=[];
+      startTsRef.current=Date.now();
+      setCount(0);setDur(0);
+      runRef.current=true;setRunning(true);
+    }
+    // маркер смены режима в логе
+    logRef.current.push({t:(Date.now()-startTsRef.current),marker:"MODE_START",mode:m,road:roadRef.current});
+  };
+  const marker=(label)=>{
+    if(!runRef.current)return;
+    logRef.current.push({t:(Date.now()-startTsRef.current),marker:label,mode:modeRef.current,road:roadRef.current,note});
+    setCount(logRef.current.length);
+  };
+  const stopRec=()=>{
+    runRef.current=false;setRunning(false);setMode(null);
+    logRef.current.push({t:(Date.now()-startTsRef.current),marker:"STOP"});
+  };
+  const download=()=>{
+    const meta={
+      app:"RoadRadio-antison-gyrotest",
+      ver:"v146+antison",
+      ts:new Date().toISOString(),
+      ua:navigator.userAgent,
+      road_hint:roadRef.current,
+      note,
+      samples:logRef.current.length,
+    };
+    const out={meta, rows:logRef.current};
+    const blob=new Blob([JSON.stringify(out,null,1)],{type:"application/json"});
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement("a");
+    a.href=url;
+    a.download="antison_gyro_"+new Date().toISOString().replace(/[:.]/g,"-")+".json";
+    document.body.appendChild(a);a.click();
+    setTimeout(()=>{document.body.removeChild(a);URL.revokeObjectURL(url);},500);
+  };
+
+  const setRoadH=(r)=>{roadRef.current=r;setRoad(r);};
+
+  const modeLabel=(m)=>({
+    hold:T("Держу руль РОВНО","Holding wheel STEADY"),
+    correct:T("Постоянно ПОДРУЛИВАЮ","Constantly CORRECTING"),
+    normal:T("Обычная езда","Normal driving"),
+    lane:T("Смена полосы","Lane change"),
+    turn:T("Вхожу в поворот","Entering a turn"),
+    accel:T("Ускорение/торможение","Accel/brake"),
+  }[m]||m);
+
+  const modes=["hold","correct","normal","lane","turn","accel"];
+
+  return (
+    <div style={{position:"fixed",inset:0,zIndex:9999,background:"#05060c",color:"#f0f4f8",overflowY:"auto",fontFamily:"'Inter',sans-serif",padding:"14px",boxSizing:"border-box"}}>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"10px"}}>
+        <div style={{fontFamily:"'Orbitron',monospace",fontWeight:900,fontSize:"17px",color:"#ff6b35"}}>🛡 ANTISON · GYRO TEST</div>
+        <button onClick={onClose} style={{background:"rgba(255,255,255,0.1)",border:"none",color:"#fff",borderRadius:"10px",padding:"8px 14px",fontSize:"15px"}}>✕</button>
+      </div>
+
+      {perm==="idle"&&(
+        <div style={{textAlign:"center",marginTop:"30px"}}>
+          <div style={{fontSize:"14px",lineHeight:1.6,color:"#8a9bb0",marginBottom:"18px"}}>
+            {T("Тест-стенд для гироскопа. Эфир НЕ включается, деньги НЕ тратятся. Только датчики движения телефона.",
+               "Gyro test bench. Air is OFF, no tokens spent. Phone motion sensors only.")}
+          </div>
+          <button onClick={askPerm} style={{background:"linear-gradient(135deg,#0f401b,#1c6e32)",border:"1px solid #00e87a",color:"#8cffbe",borderRadius:"14px",padding:"16px 22px",fontSize:"16px",fontWeight:700}}>
+            ▶ {T("Разрешить датчики и начать","Enable sensors & start")}
+          </button>
+        </div>
+      )}
+      {perm==="denied"&&<div style={{color:"#ff6666",marginTop:"20px",lineHeight:1.5}}>{T("Датчики не разрешены. Открой сайт по HTTPS и разреши доступ к движению в настройках браузера.","Sensors denied. Open via HTTPS and allow motion access in browser settings.")}</div>}
+      {perm==="nosensor"&&<div style={{color:"#ff6666",marginTop:"20px"}}>{T("Датчики движения недоступны на этом устройстве/браузере.","Motion sensors unavailable on this device/browser.")}</div>}
+
+      {perm==="ok"&&(
+        <>
+          {/* живой график */}
+          <div style={{background:"rgba(15,21,37,0.6)",border:"1px solid rgba(74,158,255,0.2)",borderRadius:"12px",padding:"8px",marginBottom:"10px"}}>
+            <div style={{fontSize:"11px",color:"#8a9bb0",marginBottom:"4px"}}>{T("Рыскание (руль вправо/влево) — живой график","Yaw (wheel right/left) — live")}</div>
+            <canvas ref={canvasRef} width={320} height={110} style={{width:"100%",height:"110px",display:"block"}}/>
+          </div>
+
+          {/* числа */}
+          <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:"6px",marginBottom:"10px",fontFamily:"monospace",fontSize:"12px"}}>
+            <div style={{background:"rgba(15,21,37,0.6)",borderRadius:"8px",padding:"6px",textAlign:"center"}}><div style={{color:"#4a9eff",fontSize:"16px"}}>{live.g.toFixed(0)}</div><div style={{color:"#8a9bb0",fontSize:"9px"}}>{T("наклон γ","tilt γ")}</div></div>
+            <div style={{background:"rgba(15,21,37,0.6)",borderRadius:"8px",padding:"6px",textAlign:"center"}}><div style={{color:"#00e87a",fontSize:"16px"}}>{live.a.toFixed(0)}</div><div style={{color:"#8a9bb0",fontSize:"9px"}}>{T("курс α","heading α")}</div></div>
+            <div style={{background:"rgba(15,21,37,0.6)",borderRadius:"8px",padding:"6px",textAlign:"center"}}><div style={{color:"#f5c842",fontSize:"16px"}}>{live.ay.toFixed(1)}</div><div style={{color:"#8a9bb0",fontSize:"9px"}}>{T("ускор Y","accel Y")}</div></div>
+          </div>
+
+          {/* тип дороги */}
+          <div style={{marginBottom:"10px"}}>
+            <div style={{fontSize:"11px",color:"#8a9bb0",marginBottom:"5px"}}>{T("Дорога сейчас:","Road now:")}</div>
+            <div style={{display:"flex",gap:"6px"}}>
+              {[["good",T("идеальная","smooth")],["mid",T("средняя","medium")],["bad",T("плохая","rough")]].map(([k,lbl])=>(
+                <button key={k} onClick={()=>setRoadH(k)} style={{flex:1,padding:"9px",borderRadius:"9px",fontSize:"12px",border:road===k?"1px solid #ff6b35":"1px solid rgba(255,255,255,0.12)",background:road===k?"rgba(255,107,53,0.15)":"rgba(15,21,37,0.6)",color:road===k?"#ffb08a":"#8a9bb0"}}>{lbl}</button>
+              ))}
+            </div>
+          </div>
+
+          {/* статус записи */}
+          <div style={{background:running?"rgba(0,232,122,0.1)":"rgba(15,21,37,0.6)",border:running?"1px solid #00e87a":"1px solid rgba(255,255,255,0.1)",borderRadius:"10px",padding:"10px",marginBottom:"10px",textAlign:"center"}}>
+            {running?(
+              <div><span style={{color:"#00e87a",fontWeight:700}}>● {T("ИДЁТ ЗАПИСЬ","RECORDING")}</span> · {dur}s · {count} {T("точек","pts")} · <span style={{color:"#ffb08a"}}>{modeLabel(mode)}</span></div>
+            ):(
+              <div style={{color:"#8a9bb0"}}>{count>0?T("Запись остановлена · ","Stopped · ")+count+T(" точек","pts"):T("Готов. Выбери режим ниже.","Ready. Pick a mode below.")}</div>
+            )}
+          </div>
+
+          {/* режимы */}
+          <div style={{fontSize:"11px",color:"#8a9bb0",marginBottom:"5px"}}>{T("Режим (тапни — начнётся/сменится запись):","Mode (tap to start/switch recording):")}</div>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"6px",marginBottom:"10px"}}>
+            {modes.map(m=>(
+              <button key={m} onClick={()=>startRec(m)} style={{padding:"12px 8px",borderRadius:"10px",fontSize:"13px",fontWeight:600,textAlign:"left",border:mode===m?"1px solid #00e87a":"1px solid rgba(255,255,255,0.12)",background:mode===m?"rgba(0,232,122,0.12)":"rgba(15,21,37,0.6)",color:mode===m?"#8cffbe":"#f0f4f8"}}>
+                {modeLabel(m)}
+              </button>
+            ))}
+          </div>
+
+          <textarea value={note} onChange={e=>setNote(e.target.value)} placeholder={T("Заметка (например: ветер боковой, фура обгоняла)","Note (e.g. crosswind, truck passing)")} style={{width:"100%",boxSizing:"border-box",background:"rgba(15,21,37,0.6)",border:"1px solid rgba(255,255,255,0.12)",borderRadius:"9px",color:"#f0f4f8",padding:"8px",fontSize:"13px",marginBottom:"10px",minHeight:"40px"}}/>
+
+          <div style={{display:"flex",gap:"6px",marginBottom:"8px"}}>
+            <button onClick={()=>marker("EVENT")} disabled={!running} style={{flex:1,padding:"11px",borderRadius:"10px",fontSize:"13px",border:"1px solid rgba(74,158,255,0.4)",background:running?"rgba(74,158,255,0.12)":"rgba(15,21,37,0.4)",color:running?"#4a9eff":"#556",fontWeight:600}}>⚑ {T("Метка","Marker")}</button>
+            <button onClick={stopRec} disabled={!running} style={{flex:1,padding:"11px",borderRadius:"10px",fontSize:"13px",border:"1px solid #ff4444",background:running?"rgba(255,68,68,0.12)":"rgba(15,21,37,0.4)",color:running?"#ff6666":"#556",fontWeight:600}}>■ {T("Стоп","Stop")}</button>
+          </div>
+
+          <button onClick={download} disabled={count===0} style={{width:"100%",padding:"14px",borderRadius:"12px",fontSize:"15px",fontWeight:700,border:"1px solid #00e87a",background:count>0?"linear-gradient(135deg,#0f401b,#1c6e32)":"rgba(15,21,37,0.4)",color:count>0?"#8cffbe":"#556"}}>⬇ {T("Скачать лог теста","Download test log")}</button>
+
+          <div style={{fontSize:"11px",color:"#556",marginTop:"12px",lineHeight:1.5,textAlign:"center"}}>
+            {T("Скачивание работает без эфира — токены не тратятся. Первый раз проверь стоя. Не смотри на график на ходу — просто тапай режимы и рули.",
+               "Download needs no air — no tokens. First run: check while parked. Don't watch the graph while driving — just tap modes and drive.")}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
 function App(){
   const saved=localStorage.getItem(KEY_STORE)||"";
   const onboarded=localStorage.getItem("rr_onboarded")||"";
   const autoL=(navigator.language||"en").split("-")[0].toLowerCase();
   const [splash,setSplash]=useState(true);
+  const [antisonOpen,setAntisonOpen]=useState(false);
   const [screen,setScreen]=useState(!saved?"apikey":!onboarded?"onboard":"setup");
   const [obStep,setObStep]=useState(0);
   const [apiInput,setApiInput]=useState("");
@@ -737,11 +997,13 @@ function App(){
   // в acceptSegment — если Вова свернул приложение, последние блоки терялись. Теперь пишем и при уходе.
   useEffect(()=>{
     const save=()=>{try{persistMemory();}catch{}};
+    const memTimer=setInterval(save,60000); // v146: страховка — Android может убить вкладку без pagehide
     const onVis=()=>{if(document.hidden)save();};
     window.addEventListener("pagehide",save);
     window.addEventListener("beforeunload",save);
     document.addEventListener("visibilitychange",onVis);
     return ()=>{
+      clearInterval(memTimer);
       window.removeEventListener("pagehide",save);
       window.removeEventListener("beforeunload",save);
       document.removeEventListener("visibilitychange",onVis);
@@ -1922,6 +2184,9 @@ Return exactly one JSON array with ${plan.length||4} items in this order. Every 
       }else if(r.status==="TTS_START"){
         lines.push(`[${r.t}]  🔊 TTS_START  textLen:${r.textLen} chunks:${r.chunks} voice:${r.voice||"?"}`);
         lines.push(`  firstChunk: ${r.firstChunk||""}`);
+      }else if(r.status==="MEMORY_LOAD"||r.status==="MEMORY_RESTORED"||r.status==="CIRCUIT_BREAKER"||r.status==="PROMPT_BIG"||r.status==="VARPART_TRIM"){
+        // v146: диагностика памяти/тормоза раньше не попадала в скачиваемый лог — теперь видна
+        lines.push(`[${r.t}]  🧠 ${r.status}  ${r.note||""}`);
       }
     }
     // v126 SUMMARY (по запросу GPT): сводка для быстрой проверки экономии.
@@ -2625,12 +2890,7 @@ ${personaRule}
 
 НАЧАЛО БЛОКА — по-разному каждый раз, с сути: с имени, даты, числа, детали, вопроса. НЕ начинай со слов: «Смена частоты», «Следующая метка», «Берём слой», «Контраст», «Казалось бы», «Ну что ж», «Если...», «Едем», «Посмотрите», «Вдоль», «Раз уж», «Напоследок», «Завершая». Два блока подряд не начинаются с одного слова. КАЖДЫЙ блок — с понятного подлежащего (не «Они...», не «Эти места...»): слушатель включился только что.
 
-‼ НИКОГДА НЕ ОБЪЯВЛЯЙ РУБРИКУ. Ты живой ведущий, а не диктор с программой передач. ЗАПРЕЩЕНО начинать блок с названия темы или с перехода к ней: «Теперь — к вкусу», «Теперь — к спорту», «Дальше — к музыке», «Перейдём к...», «Поговорим о...», «Немного о...», «Еда.», «Музыка.», «Экономика.», «География.», «Спорт.», «Как здесь живут.». Слушатель не должен догадаться, что темы вообще кем-то назначены.
-ВМЕСТО ЭТОГО первое предложение начинается сразу с КОНКРЕТНОГО ПРЕДМЕТА: человек, дата, число, город, река, дорога, животное, растение, объект или событие. Тема должна быть понятна из самого факта, а не из заголовка.
-ПЛОХО: «Теперь — к вкусу. Чёрный грецкий орех растёт в этих местах.»
-ХОРОШО: «Чёрный грецкий орех — вкус, по которому сельский Миссури узнают сразу.»
-ПЛОХО: «Дальше — к музыке. Блюз здесь любят.»
-ХОРОШО: «Блюз и джаз в Миссури слышны далеко за Канзас-Сити и Сент-Луисом.»
+‼ НЕ ОБЪЯВЛЯЙ РУБРИКУ и не начинай с ярлыка темы («Теперь — к вкусу», «Еда.», «Музыка.»). Начинай сразу с КОНКРЕТНОГО ПРЕДМЕТА — человека, даты, числа, реки, дороги, объекта. Тема ясна из факта, а не из заголовка.
 
 ‼‼ ГЛАВНОЕ ПРАВИЛО ТОНА: ты не зачитываешь справку — ты рассказываешь про край, который тебе самому интересен.
 ЗАПРЕЩЕНО НАЧИНАТЬ С ОПРЕДЕЛЕНИЯ. Такой блок будет ВЫБРОШЕН и не попадёт в эфир:
@@ -3067,41 +3327,24 @@ ${planStr}
           if(noGeo.length)poiLine+=`\nKnown in the general area (mention only generally, NO distance, NO side): ${noGeo.join(", ")}.`;
           poiLine+=`\nIf an object is not in the list above, you MUST NOT say how far it is or which side it's on.`;
         }
-        // ==== v142 FACT PACK: несколько РАЗНЫХ статей на батч ====
-        // Было: одна статья + инструкция «только для ОДНОГО блока». Батч генерит 4 блока — значит
-        // 3 из 4 шли БЕЗ фактов, и модель сползала к четырём стереотипам прерии (пионерская тропа,
-        // кукуруза-соя, коренные народы, железная дорога). В логе v141 это 22 отбивки semantic_repeat
-        // из 45 — половина брака и половина потраченных денег.
+        // ==== v146: ОДНА статья вместо трёх ====
+        // v142-v145 тянули 2-3 статьи на батч, каждая до 1400 символов. Промпт раздулся до 14000
+        // токенов, цена выросла вдвое — а модель всё равно использовала в основном одну статью,
+        // остальные висели балластом. Теперь одна статья, но ПОЛНАЯ (до 3 предложений): фактов на
+        // блок больше, токенов меньше. Фокус вместо трёх огрызков.
         let wikiBlock="";
         let sourceLevel="model_general";
         try{
-          const packRaw=await Promise.race([
-            (async()=>{
-              const out=[];
-              for(let i=0;i<2;i++){
-                const a=await fetchWiki(c.lat,c.lng,langRef.current);
-                if(!a||!a.extract)break;
-                if(out.some(x=>x.title===a.title))continue;
-                out.push(a);
-              }
-              return out;
-            })(),
-            new Promise(r=>setTimeout(()=>r([]),6000))
-          ]);
+          const a=await Promise.race([fetchWiki(c.lat,c.lng,langRef.current),new Promise(r=>setTimeout(()=>r(null),6000))]);
           if(gen!==loopGenRef.current||!runRef.current)return;
-          const pack=(packRaw||[]).filter(a=>a&&a.extract);
-          if(pack.length){
+          if(a&&a.extract){
             sourceLevel="wikipedia";
-            const cards=pack.map((a,i)=>{
-              const flat=String(a.extract).replace(/\s+/g," ").trim();
-              const sents=flat.match(/[^.!?]+[.!?]+/g)||[flat];
-              const short=sents.slice(0,2).join(" ").trim().slice(0,260);
-              return `[F${i+1}] ${a.title}: ${short}`;
-            }).join("\n");
-            wikiBlock="\n\n=== ПРОВЕРЕННЫЕ ФАКТЫ ОБ ЭТИХ МЕСТАХ ("+pack.length+") ===\n"+cards+"\n"
-              +"\u203c РАЗНЫЕ блоки батча опираются на РАЗНЫЕ карточки: блок 1 \u2192 [F1], блок 2 \u2192 [F2], блок 3 \u2192 [F3], блок 4 \u2192 любая свободная.\n"
-              +"\u203c Пересказывай СВОИМИ словами, не цитируй. Не выдумывай имён, годов и учреждений, которых нет в карточках.\n"
-              +"\u203c Если карточка не подходит теме блока \u2014 возьми из неё деталь-зацепку (человека, год, предмет) и построй вокруг неё. НЕ уходи в дежурные образы прерии: пионерская тропа, кукуруза и соя, коренные народы, железная дорога \u2014 они уже звучали в эфире.";
+            const flat=String(a.extract).replace(/\s+/g," ").trim();
+            const sents=flat.match(/[^.!?]+[.!?]+/g)||[flat];
+            const short=sents.slice(0,3).join(" ").trim().slice(0,600);
+            wikiBlock="\n\n=== ПРОВЕРЕННЫЕ ФАКТЫ ОБ ЭТОМ МЕСТЕ ===\n"+a.title+": "+short
+              +"\n\u203c Пересказывай СВОИМИ словами, не цитируй. Разные блоки батча берут из этого РАЗНЫЕ детали (год, человека, предмет, событие) — не пересказывай одно и то же."
+              +"\n\u203c Не выдумывай имён, годов и учреждений, которых тут нет. НЕ уходи в дежурные образы прерии (пионерская тропа, кукуруза-соя, коренные народы, железная дорога).";
           }
         }catch{}
         if(sourceLevel==="model_general"||forceEnvRef.current){
@@ -4101,6 +4344,7 @@ ${planStr}
           <button className={`geobtn${geoOk?" ok":""}`} onClick={getGeo}>{geoOk?(isRu?"✓ Местоположение найдено!":"✓ Location Detected!"):(isRu?"📍 Определить местоположение":"📍 Auto-Detect My Location")}</button>
           {err&&<div className="errbox">⚠ {err}</div>}
           <button className="bigbtn green" style={{marginTop:"8px"}} onClick={startTour}>▶ {isRu?"Начать тур":"Start Tour"}</button>
+          <button className="bigbtn" style={{marginTop:"8px",background:"linear-gradient(135deg,#3a0d0d 0%,#681818 100%)",border:"1px solid #ff6b35",color:"#ffb08a"}} onClick={()=>setAntisonOpen(true)}>🛡 {isRu?"АНТИСОН — тест гироскопа":"ANTISON — gyro test"}</button>
           <div className="sep">{isRu?"или введите вручную":"or enter manually"}</div>
           <div><label className="flabel">📍 {isRu?"Координаты":"Coordinates (lat, lng)"}</label><input className="finput" value={coordInput} onChange={e=>setCoordInput(e.target.value)} placeholder="35.4615, -97.6882"/></div>
           <div><label className="flabel">🏁 {isRu?"Куда едете?":"Destination?"}</label><input className="finput" value={destination} onChange={e=>setDestination(e.target.value)} placeholder={isRu?"Лос-Анджелес, CA":"Los Angeles, CA"}/></div>
@@ -4259,6 +4503,7 @@ ${planStr}
           )}
         </>
       )}
+      {antisonOpen&&<AntisonTest isRu={isRu} onClose={()=>setAntisonOpen(false)}/>}
     </div>
   );
 }
