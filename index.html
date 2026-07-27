@@ -289,7 +289,7 @@ body{font-family:'Inter',sans-serif;color:#fff;}
 const {useState,useRef,useEffect}=React;
 const PROXY="https://corsproxy.io/?https://api.anthropic.com/v1/messages";
 const KEY_STORE="rr_key_v3";
-const VER="v146";
+const VER="v147";
 // v76 MEMORY DIAGNOSTIC: prefetch & buffer OFF so every spoken segment goes through one gate.
 const PREFETCH_ENABLED=false;
 const BUFFER_ENABLED=false;
@@ -543,7 +543,7 @@ function AntisonTest({isRu,onClose}){
   const download=()=>{
     const meta={
       app:"RoadRadio-antison-gyrotest",
-      ver:"v146+antison",
+      ver:"v147+antison",
       ts:new Date().toISOString(),
       ua:navigator.userAgent,
       road_hint:roadRef.current,
@@ -657,12 +657,255 @@ function AntisonTest({isRu,onClose}){
   );
 }
 
+/* ============================================================
+   ANTISON — WHEEL CAMERA TEST (трекинг меток лейкопластыря)
+   Лёгкий: ~8 fps, ищет яркие пятна на тёмном руле, следит за
+   смещением = поворот руля. Не MediaPipe (бережём батарею/CPU).
+   Не трогает эфир, токены не тратит.
+   ============================================================ */
+function WheelCamTest({isRu,onClose}){
+  const T=(ru,en)=>isRu?ru:en;
+  const [phase,setPhase]=React.useState("idle"); // idle|live|error
+  const [errMsg,setErrMsg]=React.useState("");
+  const [facing,setFacing]=React.useState("user"); // user=фронталка (видит руль у Вовы), environment=задняя
+  const [thresh,setThresh]=React.useState(180); // порог яркости метки (0-255)
+  const [glow,setGlow]=React.useState(0); // ночная подсветка низа экрана 0..1
+  const [running,setRunning]=React.useState(false);
+  const [mode,setMode]=React.useState(null);
+  const [note,setNote]=React.useState("");
+  const [count,setCount]=React.useState(0);
+  const [dur,setDur]=React.useState(0);
+  const [detN,setDetN]=React.useState(0); // сколько меток видно сейчас
+  const [posX,setPosX]=React.useState(0.5); // норм. положение центра меток 0..1
+  const [motion,setMotion]=React.useState(0); // текущее движение
+
+  const videoRef=React.useRef(null);
+  const rawRef=React.useRef(null);   // маленький canvas для анализа
+  const viewRef=React.useRef(null);  // видимый canvas с оверлеем
+  const streamRef=React.useRef(null);
+  const runRef=React.useRef(false);
+  const modeRef=React.useRef(null);
+  const startTsRef=React.useRef(0);
+  const logRef=React.useRef([]);
+  const lastXRef=React.useRef(null);
+  const histRef=React.useRef([]); // {t,x,motion,n}
+  const rafRef=React.useRef(0);
+  const threshRef=React.useRef(180);
+  React.useEffect(()=>{threshRef.current=thresh;},[thresh]);
+
+  const AW=80, AH=60; // разрешение анализа (маленькое = быстро)
+
+  const startCam=async(face)=>{
+    setErrMsg("");
+    try{
+      if(streamRef.current){streamRef.current.getTracks().forEach(t=>t.stop());}
+      const s=await navigator.mediaDevices.getUserMedia({
+        video:{facingMode:face||facing,width:{ideal:320},height:{ideal:240}},
+        audio:false
+      });
+      streamRef.current=s;
+      if(videoRef.current){videoRef.current.srcObject=s;await videoRef.current.play().catch(()=>{});}
+      setPhase("live");
+      loop();
+    }catch(e){
+      setErrMsg((e&&e.name?e.name+": ":"")+(e&&e.message?e.message:String(e)));
+      setPhase("error");
+    }
+  };
+
+  const stopCam=()=>{
+    cancelAnimationFrame(rafRef.current);
+    if(streamRef.current){streamRef.current.getTracks().forEach(t=>t.stop());streamRef.current=null;}
+  };
+  React.useEffect(()=>()=>stopCam(),[]);
+
+  // основной цикл анализа (~8 fps через setTimeout+raf)
+  const loop=()=>{
+    const v=videoRef.current, raw=rawRef.current, view=viewRef.current;
+    if(!v||!raw||!view){rafRef.current=requestAnimationFrame(loop);return;}
+    if(v.readyState>=2){
+      const rc=raw.getContext("2d",{willReadFrequently:true});
+      rc.drawImage(v,0,0,AW,AH);
+      let img;
+      try{img=rc.getImageData(0,0,AW,AH);}catch(e){img=null;}
+      let cx=null, n=0, sumX=0, blobMinX=1, blobMaxX=0;
+      if(img){
+        const d=img.data, th=threshRef.current;
+        for(let y=0;y<AH;y++){
+          for(let x=0;x<AW;x++){
+            const i=(y*AW+x)*4;
+            const lum=(d[i]*0.299+d[i+1]*0.587+d[i+2]*0.114);
+            if(lum>=th){
+              n++; sumX+=x;
+              const nx=x/AW; if(nx<blobMinX)blobMinX=nx; if(nx>blobMaxX)blobMaxX=nx;
+            }
+          }
+        }
+      }
+      let normX=lastXRef.current==null?0.5:lastXRef.current;
+      if(n>=3){ normX=(sumX/n)/AW; }
+      const mv=(lastXRef.current==null)?0:Math.abs(normX-lastXRef.current);
+      lastXRef.current=normX;
+
+      const t=Date.now();
+      histRef.current.push({t,x:normX,mv,n});
+      if(histRef.current.length>200)histRef.current.shift();
+
+      setDetN(n); setPosX(normX); setMotion(mv);
+
+      // рисуем видимый кадр + оверлей
+      const vc=view.getContext("2d");
+      const VW=view.width, VH=view.height;
+      vc.drawImage(v,0,0,VW,VH);
+      // подсветка порога: рисуем найденные пиксели
+      if(img){
+        vc.fillStyle="rgba(0,232,255,0.5)";
+        const sx=VW/AW, sy=VH/AH, d=img.data, th=threshRef.current;
+        for(let y=0;y<AH;y++)for(let x=0;x<AW;x++){
+          const i=(y*AW+x)*4;
+          const lum=(d[i]*0.299+d[i+1]*0.587+d[i+2]*0.114);
+          if(lum>=th)vc.fillRect(x*sx,y*sy,sx,sy);
+        }
+      }
+      // вертикальная линия — центр меток
+      if(n>=3){
+        vc.strokeStyle="#ff6b35";vc.lineWidth=3;vc.beginPath();
+        vc.moveTo(normX*VW,0);vc.lineTo(normX*VW,VH);vc.stroke();
+      }
+
+      // запись
+      if(runRef.current){
+        logRef.current.push({
+          t:(t-startTsRef.current), mode:modeRef.current,
+          x:+normX.toFixed(4), mv:+mv.toFixed(4), n, span:+(blobMaxX-blobMinX).toFixed(3),
+          thresh:threshRef.current
+        });
+        setCount(logRef.current.length);
+      }
+    }
+    rafRef.current=requestAnimationFrame(()=>setTimeout(loop,110)); // ~8-9 fps
+  };
+
+  React.useEffect(()=>{
+    if(!running)return;
+    const id=setInterval(()=>setDur(Math.round((Date.now()-startTsRef.current)/1000)),500);
+    return()=>clearInterval(id);
+  },[running]);
+
+  const startRec=(m)=>{
+    modeRef.current=m;setMode(m);
+    if(!running){logRef.current=[];startTsRef.current=Date.now();setCount(0);setDur(0);runRef.current=true;setRunning(true);}
+    logRef.current.push({t:(Date.now()-startTsRef.current),marker:"MODE_START",mode:m});
+  };
+  const marker=(lbl)=>{if(!runRef.current)return;logRef.current.push({t:(Date.now()-startTsRef.current),marker:lbl,mode:modeRef.current,note});setCount(logRef.current.length);};
+  const stopRec=()=>{runRef.current=false;setRunning(false);setMode(null);logRef.current.push({t:(Date.now()-startTsRef.current),marker:"STOP"});};
+
+  const download=()=>{
+    const out={meta:{app:"RoadRadio-antison-wheelcam",ver:"v147+antison",ts:new Date().toISOString(),ua:navigator.userAgent,facing,thresh:threshRef.current,analysisRes:AW+"x"+AH,note,samples:logRef.current.length},rows:logRef.current};
+    const blob=new Blob([JSON.stringify(out,null,1)],{type:"application/json"});
+    const url=URL.createObjectURL(blob);const a=document.createElement("a");
+    a.href=url;a.download="antison_wheelcam_"+new Date().toISOString().replace(/[:.]/g,"-")+".json";
+    document.body.appendChild(a);a.click();
+    setTimeout(()=>{document.body.removeChild(a);URL.revokeObjectURL(url);},500);
+  };
+
+  const modeLabel=(m)=>({
+    hold:T("Держу руль РОВНО","Holding STEADY"),
+    correct:T("Постоянно ПОДРУЛИВАЮ","Correcting"),
+    normal:T("Обычная езда","Normal"),
+    turn:T("Поворот","Turn"),
+    lane:T("Смена полосы","Lane change"),
+  }[m]||m);
+  const modes=["hold","correct","normal","turn","lane"];
+
+  return (
+    <div style={{position:"fixed",inset:0,zIndex:9999,background:"#05060c",color:"#f0f4f8",overflowY:"auto",fontFamily:"'Inter',sans-serif",padding:"14px",boxSizing:"border-box"}}>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"10px"}}>
+        <div style={{fontFamily:"'Orbitron',monospace",fontWeight:900,fontSize:"16px",color:"#4a9eff"}}>📷 ANTISON · WHEEL CAM</div>
+        <button onClick={()=>{stopCam();onClose();}} style={{background:"rgba(255,255,255,0.1)",border:"none",color:"#fff",borderRadius:"10px",padding:"8px 14px",fontSize:"15px"}}>✕</button>
+      </div>
+
+      <video ref={videoRef} playsInline muted style={{display:"none"}}/>
+      <canvas ref={rawRef} width={AW} height={AH} style={{display:"none"}}/>
+
+      {phase==="idle"&&(
+        <div style={{textAlign:"center",marginTop:"20px"}}>
+          <div style={{fontSize:"13px",lineHeight:1.6,color:"#8a9bb0",marginBottom:"16px"}}>
+            {T("Наклей 2–3 полоски белого лейкопластыря на обод руля. Камера будет следить за ними — крутится руль или замер. Эфир НЕ включается.",
+               "Stick 2–3 white tape marks on the wheel rim. Camera tracks them — wheel turning or frozen. Air stays OFF.")}
+          </div>
+          <div style={{display:"flex",gap:"6px",marginBottom:"12px"}}>
+            <button onClick={()=>{setFacing("user");startCam("user");}} style={{flex:1,padding:"12px",borderRadius:"10px",border:"1px solid #4a9eff",background:"rgba(74,158,255,0.12)",color:"#9fcfff",fontSize:"13px"}}>{T("Фронтальная (видит руль)","Front cam")}</button>
+            <button onClick={()=>{setFacing("environment");startCam("environment");}} style={{flex:1,padding:"12px",borderRadius:"10px",border:"1px solid rgba(255,255,255,0.15)",background:"rgba(15,21,37,0.6)",color:"#8a9bb0",fontSize:"13px"}}>{T("Задняя","Rear cam")}</button>
+          </div>
+        </div>
+      )}
+      {phase==="error"&&(
+        <div style={{color:"#ff6666",marginTop:"20px",lineHeight:1.5,fontSize:"13px"}}>
+          {T("Не удалось открыть камеру:","Camera failed:")} <br/><span style={{fontFamily:"monospace",fontSize:"12px"}}>{errMsg}</span>
+          <div style={{color:"#8a9bb0",marginTop:"10px"}}>{T("Нужен HTTPS и разрешение на камеру. Проверь, как открываешь файл.","Needs HTTPS + camera permission.")}</div>
+          <button onClick={()=>{setPhase("idle");}} style={{marginTop:"12px",padding:"10px 16px",borderRadius:"10px",border:"1px solid #4a9eff",background:"rgba(74,158,255,0.12)",color:"#9fcfff"}}>{T("Назад","Back")}</button>
+        </div>
+      )}
+
+      {phase==="live"&&(
+        <>
+          <div style={{position:"relative",marginBottom:"10px"}}>
+            <canvas ref={viewRef} width={320} height={240} style={{width:"100%",borderRadius:"12px",border:"1px solid rgba(74,158,255,0.3)",display:"block",background:"#000"}}/>
+            <div style={{position:"absolute",top:6,left:8,fontSize:"11px",fontFamily:"monospace",background:"rgba(0,0,0,0.5)",padding:"2px 6px",borderRadius:"6px"}}>
+              {T("меток:","marks:")} <span style={{color:detN>=3?"#00e87a":"#ff6666"}}>{detN}</span> · {T("движ:","mv:")} <span style={{color:"#ff6b35"}}>{(motion*100).toFixed(1)}</span>
+            </div>
+          </div>
+
+          <div style={{fontSize:"11px",color:"#8a9bb0",marginBottom:"4px"}}>{T("Порог яркости метки: ","Mark brightness threshold: ")}{thresh} {T("(крути, пока подсветятся ТОЛЬКО метки)","(adjust until ONLY marks light up)")}</div>
+          <input type="range" min={80} max={250} value={thresh} onChange={e=>setThresh(+e.target.value)} style={{width:"100%",marginBottom:"10px"}}/>
+
+          <div style={{fontSize:"11px",color:"#8a9bb0",marginBottom:"4px"}}>{T("Ночная подсветка низа экрана (свет на руки, НЕ в лицо): ","Night glow (light on hands, NOT face): ")}{Math.round(glow*100)}%</div>
+          <input type="range" min={0} max={100} value={Math.round(glow*100)} onChange={e=>setGlow((+e.target.value)/100)} style={{width:"100%",marginBottom:"10px"}}/>
+
+          <div style={{background:running?"rgba(0,232,122,0.1)":"rgba(15,21,37,0.6)",border:running?"1px solid #00e87a":"1px solid rgba(255,255,255,0.1)",borderRadius:"10px",padding:"9px",marginBottom:"10px",textAlign:"center",fontSize:"13px"}}>
+            {running?(<span><span style={{color:"#00e87a",fontWeight:700}}>● {T("ЗАПИСЬ","REC")}</span> · {dur}s · {count} · <span style={{color:"#9fcfff"}}>{modeLabel(mode)}</span></span>):(<span style={{color:"#8a9bb0"}}>{count>0?T("Остановлено · ","Stopped · ")+count:T("Наведи камеру на руль, выстави порог, выбери режим.","Aim at wheel, set threshold, pick a mode.")}</span>)}
+          </div>
+
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"6px",marginBottom:"10px"}}>
+            {modes.map(m=>(
+              <button key={m} onClick={()=>startRec(m)} style={{padding:"11px 8px",borderRadius:"10px",fontSize:"13px",fontWeight:600,textAlign:"left",border:mode===m?"1px solid #00e87a":"1px solid rgba(255,255,255,0.12)",background:mode===m?"rgba(0,232,122,0.12)":"rgba(15,21,37,0.6)",color:mode===m?"#8cffbe":"#f0f4f8"}}>{modeLabel(m)}</button>
+            ))}
+          </div>
+
+          <textarea value={note} onChange={e=>setNote(e.target.value)} placeholder={T("Заметка","Note")} style={{width:"100%",boxSizing:"border-box",background:"rgba(15,21,37,0.6)",border:"1px solid rgba(255,255,255,0.12)",borderRadius:"9px",color:"#f0f4f8",padding:"8px",fontSize:"13px",marginBottom:"10px",minHeight:"36px"}}/>
+
+          <div style={{display:"flex",gap:"6px",marginBottom:"8px"}}>
+            <button onClick={()=>marker("EVENT")} disabled={!running} style={{flex:1,padding:"11px",borderRadius:"10px",fontSize:"13px",border:"1px solid rgba(74,158,255,0.4)",background:running?"rgba(74,158,255,0.12)":"rgba(15,21,37,0.4)",color:running?"#4a9eff":"#556",fontWeight:600}}>⚑ {T("Метка","Marker")}</button>
+            <button onClick={stopRec} disabled={!running} style={{flex:1,padding:"11px",borderRadius:"10px",fontSize:"13px",border:"1px solid #ff4444",background:running?"rgba(255,68,68,0.12)":"rgba(15,21,37,0.4)",color:running?"#ff6666":"#556",fontWeight:600}}>■ {T("Стоп","Stop")}</button>
+          </div>
+
+          <button onClick={download} disabled={count===0} style={{width:"100%",padding:"14px",borderRadius:"12px",fontSize:"15px",fontWeight:700,border:"1px solid #00e87a",background:count>0?"linear-gradient(135deg,#0f401b,#1c6e32)":"rgba(15,21,37,0.4)",color:count>0?"#8cffbe":"#556"}}>⬇ {T("Скачать лог теста","Download test log")}</button>
+
+          <div style={{display:"flex",gap:"6px",marginTop:"8px"}}>
+            <button onClick={()=>startCam(facing==="user"?"environment":"user")} style={{flex:1,padding:"10px",borderRadius:"10px",fontSize:"12px",border:"1px solid rgba(255,255,255,0.15)",background:"rgba(15,21,37,0.6)",color:"#8a9bb0"}}>🔄 {T("Сменить камеру","Flip cam")}</button>
+          </div>
+
+          <div style={{fontSize:"11px",color:"#556",marginTop:"12px",lineHeight:1.5,textAlign:"center"}}>
+            {T("Порог: двигай ползунок, пока голубым подсветятся ТОЛЬКО полоски пластыря, а не всё подряд. Первый раз — стоя. Скачивание без эфира.",
+               "Threshold: slide until ONLY the tape marks glow cyan. First run parked. Download needs no air.")}
+          </div>
+        </>
+      )}
+
+      {/* ночная подсветка низа экрана — мягкий свет на руки */}
+      {glow>0&&<div style={{position:"fixed",left:0,right:0,bottom:0,height:"22%",pointerEvents:"none",background:`linear-gradient(0deg, rgba(255,240,220,${glow}) 0%, rgba(255,240,220,0) 100%)`,zIndex:10000}}/>}
+    </div>
+  );
+}
+
 function App(){
   const saved=localStorage.getItem(KEY_STORE)||"";
   const onboarded=localStorage.getItem("rr_onboarded")||"";
   const autoL=(navigator.language||"en").split("-")[0].toLowerCase();
   const [splash,setSplash]=useState(true);
   const [antisonOpen,setAntisonOpen]=useState(false);
+  const [camOpen,setCamOpen]=useState(false);
   const [screen,setScreen]=useState(!saved?"apikey":!onboarded?"onboard":"setup");
   const [obStep,setObStep]=useState(0);
   const [apiInput,setApiInput]=useState("");
@@ -4345,6 +4588,7 @@ ${planStr}
           {err&&<div className="errbox">⚠ {err}</div>}
           <button className="bigbtn green" style={{marginTop:"8px"}} onClick={startTour}>▶ {isRu?"Начать тур":"Start Tour"}</button>
           <button className="bigbtn" style={{marginTop:"8px",background:"linear-gradient(135deg,#3a0d0d 0%,#681818 100%)",border:"1px solid #ff6b35",color:"#ffb08a"}} onClick={()=>setAntisonOpen(true)}>🛡 {isRu?"АНТИСОН — тест гироскопа":"ANTISON — gyro test"}</button>
+          <button className="bigbtn" style={{marginTop:"8px",background:"linear-gradient(135deg,#0d233a 0%,#163558 100%)",border:"1px solid #4a9eff",color:"#9fcfff"}} onClick={()=>setCamOpen(true)}>📷 {isRu?"АНТИСОН — тест камеры (руль)":"ANTISON — camera test (wheel)"}</button>
           <div className="sep">{isRu?"или введите вручную":"or enter manually"}</div>
           <div><label className="flabel">📍 {isRu?"Координаты":"Coordinates (lat, lng)"}</label><input className="finput" value={coordInput} onChange={e=>setCoordInput(e.target.value)} placeholder="35.4615, -97.6882"/></div>
           <div><label className="flabel">🏁 {isRu?"Куда едете?":"Destination?"}</label><input className="finput" value={destination} onChange={e=>setDestination(e.target.value)} placeholder={isRu?"Лос-Анджелес, CA":"Los Angeles, CA"}/></div>
@@ -4504,6 +4748,7 @@ ${planStr}
         </>
       )}
       {antisonOpen&&<AntisonTest isRu={isRu} onClose={()=>setAntisonOpen(false)}/>}
+      {camOpen&&<WheelCamTest isRu={isRu} onClose={()=>setCamOpen(false)}/>}
     </div>
   );
 }
